@@ -8,6 +8,8 @@
 #include <crtdbg.h>
 #endif
 
+#include "asterism.h"
+
 //target_link_libraries(uv advapi32 iphlpapi psapi userenv shell32 ws2_32)
 int main(int argc, char const *argv[])
 {
@@ -16,6 +18,9 @@ int main(int argc, char const *argv[])
 #endif
 
     printf("libuv: %s\n", uv_version_string());
+    printf("asterism: %s\n", asterism_version());
+
+    asterism as = asterism_create();
 
 #if defined(WIN32)
     assert(_CrtDumpMemoryLeaks() == 0);

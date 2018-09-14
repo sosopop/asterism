@@ -1,0 +1,6 @@
+#ifndef ASTERISM_INTERNAL_H_
+#define ASTERISM_INTERNAL_H_
+
+#define ASTERISM_VERSION "0.0.0.1"
+
+#endif

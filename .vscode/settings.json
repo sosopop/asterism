@@ -1,7 +1,10 @@
 {
     "files.associations": {
         "crtdbg.h": "c",
-        "stdlib.h": "c"
+        "stdlib.h": "c",
+        "asterism_internal.h": "c",
+        "asterism_log.h": "c"
     },
+    "C_Cpp.configurationWarnings": "Disabled",
     "C_Cpp.default.configurationProvider": "vector-of-bool.cmake-tools"
 }
