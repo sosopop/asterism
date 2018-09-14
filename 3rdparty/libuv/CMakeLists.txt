@@ -22,6 +22,26 @@ set(SOURCES
     )
 
 if(WIN32)
+    set(CompilerDebugFlags
+        CMAKE_C_FLAGS
+        CMAKE_C_FLAGS_DEBUG
+    )
+
+    set(CompilerReleaseFlags
+        CMAKE_C_FLAGS
+        CMAKE_C_FLAGS_RELEASE
+        CMAKE_C_FLAGS_RELWITHDEBINFO
+        CMAKE_C_FLAGS_MINSIZEREL 
+    )
+
+    foreach(CompilerFlag ${CompilerDebugFlags})
+        string(REGEX REPLACE "/W[0-4]" "/W0" ${CompilerFlag} "${${CompilerFlag}}")
+    endforeach()
+
+    foreach(CompilerFlag ${CompilerReleaseFlags})
+        string(REGEX REPLACE "/W[0-4]" "/W0" ${CompilerFlag} "${${CompilerFlag}}")
+    endforeach()
+
     set (SOURCES ${SOURCES}
         ${LIBUVDIR}/include/uv-win.h
         ${LIBUVDIR}/src/win/async.c
@@ -206,7 +226,6 @@ else()
         find_library(KVM_LIB NAMES kvm)
         target_link_libraries(uv ${KVM_LIB})
     endif()
-
 endif()
 
 if(LIBUV_BUILD_TESTS)
