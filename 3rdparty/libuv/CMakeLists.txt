@@ -1,27 +1,8 @@
 cmake_minimum_required(VERSION 2.8)
-project(libuv C)
 
 option(LIBUV_BUILD_TESTS "builds libuv tests and benchmarks if set to ON" OFF)
 
 set(LIBUVDIR ".")
-
-if(WIN32)
-    set(CompilerFlags
-            CMAKE_CXX_FLAGS
-            CMAKE_CXX_FLAGS_DEBUG
-            CMAKE_CXX_FLAGS_RELEASE
-            CMAKE_C_FLAGS
-            CMAKE_C_FLAGS_DEBUG
-            CMAKE_C_FLAGS_RELEASE
-            )
-    foreach(CompilerFlag ${CompilerFlags})
-      string(REPLACE "/MD" "/MT" ${CompilerFlag} "${${CompilerFlag}}")
-    endforeach()
-endif()
-
-if(UNIX)
-  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIC -O3")
-endif()
 
 include_directories(${LIBUVDIR}/include ${LIBUVDIR}/src)
 set(SOURCES
@@ -41,7 +22,6 @@ set(SOURCES
     )
 
 if(WIN32)
-  add_definitions(-D_WIN32_WINNT=0x0502 -D_GNU_SOURCE -D_CRT_SECURE_NO_WARNINGS)
     set (SOURCES ${SOURCES}
         ${LIBUVDIR}/include/uv-win.h
         ${LIBUVDIR}/src/win/async.c
@@ -430,10 +410,3 @@ if(LIBUV_BUILD_TESTS)
     add_executable(run-benchmarks ${BENCHMARK_SOURCES})
     target_link_libraries(run-benchmarks uv)
 endif()
-
-install(TARGETS uv
-    LIBRARY DESTINATION "lib"
-    ARCHIVE DESTINATION "lib"
-    RUNTIME DESTINATION "bin")
-    
-install(DIRECTORY ${LIBUVDIR}/include/ DESTINATION "include/uv")

@@ -1,0 +1,7 @@
+{
+    "files.associations": {
+        "crtdbg.h": "c",
+        "stdlib.h": "c"
+    },
+    "C_Cpp.default.configurationProvider": "vector-of-bool.cmake-tools"
+}
