@@ -1,6 +1,7 @@
 include_directories("../../3rdparty/libuv/include")
 
 aux_source_directory(. ASTERISM_SOURCE)
+aux_source_directory(./test ASTERISM_SOURCE)
 add_executable(asterism ${ASTERISM_SOURCE})
 
 list(APPEND LINK_LIB uv)

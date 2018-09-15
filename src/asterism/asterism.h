@@ -37,9 +37,19 @@ extern "C"
 #endif
     typedef void *asterism;
 
+    typedef enum
+    {
+        ASTERISM_LOG_DEBUG,
+        ASTERISM_LOG_INFO,
+        ASTERISM_LOG_WARN,
+        ASTERISM_LOG_ERROR
+    } asterism_log_level;
+
+    void asterism_set_log_level(
+        asterism_log_level level);
+
 #define ASTERISM_ERROR_MAP(XX)                       \
     XX(OK, "success")                                \
-    XX(UNKNOWN, "unknown error happened")            \
     XX(INVALID_ARGS, "invalid arguments")            \
     XX(OBJECT_ALREADY_EXIST, "object already exist") \
     XX(OBJECT_NOT_EXIST, "object not exist")
@@ -53,13 +63,24 @@ extern "C"
 
     typedef enum
     {
-        ASTERISM_OPT_DUMMY = 0,
+        ASTERISM_OPT_HTTP_INNER_LISTEN_ADDR = 0,
+        ASTERISM_OPT_TCP_OUTER_LISTEN_ADDR,
+        ASTERISM_OPT_CONNECT_ADDR,
+        ASTERISM_OPT_MY_USERNAME,
+        ASTERISM_OPT_MY_PASSWORD,
+        ASTERISM_OPT_ROUTE_LIST
     } asterism_option;
 
     typedef enum
     {
         ASTERISM_INFO_DUMMY = 0,
     } asterism_info;
+
+    struct asterism_slist
+    {
+        char *data;
+        struct asterism_slist *next;
+    };
 
     asterism asterism_create();
 
@@ -74,6 +95,12 @@ extern "C"
     int asterism_run(asterism as);
 
     int asterism_stop(asterism as);
+
+    void asterism_free(void *data);
+
+    void asterism_slist_free_all(struct asterism_slist *list);
+
+    struct asterism_slist *asterism_slist_append(struct asterism_slist *list, const char *data);
 
     const char *asterism_errno_description(
         asterism_errno error);

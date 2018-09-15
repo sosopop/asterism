@@ -24,5 +24,53 @@ const char *asterism_version()
 asterism asterism_create()
 {
     asterism_log(ASTERISM_LOG_DEBUG, "%s", "asterism_create");
-    return 0;
+    return (asterism)malloc(sizeof(struct asterism_s));
+}
+
+void asterism_destroy(asterism as)
+{
+    asterism_log(ASTERISM_LOG_DEBUG, "%s", "asterism_destroy");
+    free(as);
+}
+
+int asterism_set_option(asterism as, asterism_option opt, ...)
+{
+    int ret = ASTERISM_E_OK;
+    struct asterism_s *__as = (struct asterism_s *)as;
+    va_list ap;
+    va_start(ap, opt);
+
+    switch (opt)
+    {
+    default:
+        ret = ASTERISM_E_INVALID_ARGS;
+        break;
+    }
+    va_end(ap);
+    return ret;
+}
+
+int asterism_get_info(asterism as, asterism_info info, ...)
+{
+    int ret = ASTERISM_E_OK;
+    struct asterism_s *__as = (struct asterism_s *)as;
+
+    va_list ap;
+    va_start(ap, info);
+
+    switch (info)
+    {
+    case ASTERISM_INFO_DUMMY:
+    {
+        *va_arg(ap, const char **) = "test";
+        goto cleanup;
+    }
+    break;
+    default:
+        ret = ASTERISM_E_INVALID_ARGS;
+        break;
+    }
+cleanup:
+    va_end(ap);
+    return ret;
 }

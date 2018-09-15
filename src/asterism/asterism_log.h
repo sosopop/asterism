@@ -1,18 +1,6 @@
 #ifndef ASTERISM_LOG_H_
 #define ASTERISM_LOG_H_
-
-typedef enum
-{
-    ASTERISM_LOG_DEBUG,
-    ASTERISM_LOG_INFO,
-    ASTERISM_LOG_WARN,
-    ASTERISM_LOG_ERROR
-} asterism_log_level;
-
-void asterism_log_init();
-
-void asterism_set_log_level(
-    asterism_log_level level);
+#include "asterism.h"
 
 void _asterism_log(
     asterism_log_level level,

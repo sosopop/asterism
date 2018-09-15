@@ -48,3 +48,13 @@ int asterism_vsnprintf(char **buf, size_t size, const char *fmt, va_list ap)
 
     return len;
 }
+
+int asterism_snprintf(char **buf, size_t size, const char *fmt, ...)
+{
+    int ret;
+    va_list ap;
+    va_start(ap, fmt);
+    ret = asterism_vsnprintf(buf, size, fmt, ap);
+    va_end(ap);
+    return ret;
+}
