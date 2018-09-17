@@ -2,14 +2,15 @@
     "files.associations": {
         "crtdbg.h": "c",
         "stdlib.h": "c",
-        "asterism_internal.h": "c",
         "asterism_log.h": "c",
         "asterism.h": "c",
-        "asterism_internal.h\u0000ernal.h": "c",
         "asterism_utils.h": "c",
         "stdio.h": "c",
         "asterism.h\u0000erism.h": "c",
-        "asterism_utils.h\u0000utils.h": "c"
+        "asterism_utils.h\u0000utils.h": "c",
+        "asterism_core.h": "c",
+        "asterism_inner_http.h": "c",
+        "asterism_outer_tcp.h": "c"
     },
     "C_Cpp.configurationWarnings": "Disabled",
     "C_Cpp.default.configurationProvider": "vector-of-bool.cmake-tools"

@@ -1,5 +1,5 @@
 #include "asterism_test01.h"
-#include "../asterism_internal.h"
+#include "../asterism_core.h"
 #include "../asterism.h"
 #include "../asterism_utils.h"
 #include <uv.h>
