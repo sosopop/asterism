@@ -61,6 +61,8 @@ extern "C"
     } asterism_errno;
 #undef ASTERISM_ERROR_GEN
 
+    typedef int (*asterism_req_connnect_hook)( const char* target_addr, char* redirect_addr, unsigned int addr_buffer_size);
+
     typedef enum
     {
         ASTERISM_OPT_HTTP_INNER_LISTEN_ADDR = 0,
@@ -68,7 +70,7 @@ extern "C"
         ASTERISM_OPT_CONNECT_ADDR,
         ASTERISM_OPT_MY_USERNAME,
         ASTERISM_OPT_MY_PASSWORD,
-        ASTERISM_OPT_ROUTE_LIST
+        ASTERISM_OPT_REQ_CONNECT_HOOK
     } asterism_option;
 
     typedef enum

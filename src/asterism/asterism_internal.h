@@ -20,7 +20,6 @@ struct asterism_s
     char *connect_addr;
     char *my_username;
     char *my_password;
-    struct asterism_route_data *route_data;
     int dummy;
 };
 
