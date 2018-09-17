@@ -18,8 +18,10 @@ struct asterism_s
     char *connect_addr;
     char *username;
     char *password;
+    void *inner_stream;
+    void *outer_stream;
     asterism_connnect_redirect_hook connect_redirect_hook_cb;
-    uv_loop_t* loop;
+    uv_loop_t *loop;
 };
 
 /***

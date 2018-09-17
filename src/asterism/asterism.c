@@ -113,3 +113,8 @@ int asterism_stop(asterism as)
 
     return ret;
 }
+
+void asterism_free(void *data)
+{
+    free(data);
+}

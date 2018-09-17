@@ -5,7 +5,7 @@
 
 struct asterism_http_inner
 {
-    uv_tcp_t tcp_obj;
+    uv_tcp_t *socket;
 };
 
 int asterism_inner_http_bind(struct asterism_s *as);
