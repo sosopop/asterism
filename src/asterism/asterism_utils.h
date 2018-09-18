@@ -3,6 +3,7 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <memory.h>
 
 #ifdef WIN32
 #define vsnprintf _vsnprintf

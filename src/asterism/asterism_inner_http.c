@@ -1,3 +1,4 @@
+#include <http_parser.h>
 #include "asterism_inner_http.h"
 #include "asterism_core.h"
 #include "asterism_log.h"
@@ -37,8 +38,9 @@ static void accept_cb(
     uv_stream_t *stream,
     int status)
 {
-    int ret = 0;
-    //////////////////////////////////////////////////////////////////////////
+    int ret = ASTERISM_E_OK;
+    asterism_log(ASTERISM_LOG_DEBUG, "new connection is comming");
+
     //cleanup:
     if (status != 0 || ret != 0)
     {

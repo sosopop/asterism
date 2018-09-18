@@ -15,14 +15,16 @@ int asterism_test02()
 
     asterism_set_log_level(ASTERISM_LOG_DEBUG);
     asterism as = asterism_create();
-    assert(as);
+    assert(as); 
 
     struct asterism_slist *inner_addrs = 0;
-    inner_addrs = asterism_slist_append(inner_addrs, "http://0.0.0.0:8080");
-    inner_addrs = asterism_slist_append(inner_addrs, "socks5://0.0.0.0:1080");
+    //inner_addrs = asterism_slist_append(inner_addrs, "http://0.0.0.0:8080");
+    inner_addrs = asterism_slist_append(inner_addrs, "http://[::]:8080");
+    //inner_addrs = asterism_slist_append(inner_addrs, "socks5://0.0.0.0:1080");
     asterism_set_option(as, ASTERISM_OPT_INNER_BIND_ADDRS, inner_addrs);
     asterism_slist_free_all(inner_addrs);
 
+    /*
     struct asterism_slist *outer_addrs = 0;
     outer_addrs = asterism_slist_append(outer_addrs, "tcp://0.0.0.0:8081");
     outer_addrs = asterism_slist_append(outer_addrs, "kcp://0.0.0.0:1081");
@@ -33,6 +35,7 @@ int asterism_test02()
     connect_addrs = asterism_slist_append(connect_addrs, "tcp://127.0.0.1:8081");
     asterism_set_option(as, ASTERISM_OPT_CONNECT_ADDRS, connect_addrs);
     asterism_slist_free_all(connect_addrs);
+    */
 
     assert(!asterism_prepare(as));
     assert(!asterism_run(as));

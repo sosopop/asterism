@@ -465,7 +465,7 @@ static DWORD CALLBACK uv_tty_line_read_thread(void* data) {
 
   /* If we canceled the read by sending a VK_RETURN event, restore the screen
      state to undo the visual effect of the VK_RETURN*/
-  if (InterlockedOr(&uv__restore_screen_state, 0)) {
+  if (_InterlockedOr(&uv__restore_screen_state, 0)) {
     HANDLE active_screen_buffer = CreateFileA("conout$",
                                          GENERIC_READ | GENERIC_WRITE,
                                          FILE_SHARE_READ | FILE_SHARE_WRITE,
@@ -1033,7 +1033,7 @@ static int uv__cancel_read_console(uv_tty_t* handle) {
   if (active_screen_buffer != INVALID_HANDLE_VALUE &&
       GetConsoleScreenBufferInfo(active_screen_buffer,
                                  &uv__saved_screen_state)) {
-    InterlockedOr(&uv__restore_screen_state, 1);
+      _InterlockedOr(&uv__restore_screen_state, 1);
   }
 
   /* Write enter key event to force the console wait to return. */

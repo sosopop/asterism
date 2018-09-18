@@ -60,4 +60,5 @@ if(UNIX)
 endif()
 
 add_subdirectory(3rdparty/libuv)
+add_subdirectory(3rdparty/http-parser)
 add_subdirectory(src/asterism)

@@ -1,4 +1,5 @@
 include_directories("../../3rdparty/libuv/include")
+include_directories("../../3rdparty/http-parser")
 
 aux_source_directory(. ASTERISM_SOURCE)
 aux_source_directory(./test ASTERISM_SOURCE)
