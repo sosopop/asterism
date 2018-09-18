@@ -8,7 +8,11 @@ struct asterism_http_inner
 {
     struct asterism_inner_interface face;
     uv_tcp_t *socket;
-    struct asterism_s* asterism;
+};
+
+struct asterism_http_incoming 
+{
+	uv_tcp_t *socket;
 };
 
 int asterism_inner_http_init(

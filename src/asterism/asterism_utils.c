@@ -86,7 +86,7 @@ int asterism_vcmp(const struct asterism_str *str1, const char *str2)
     int r = strncmp(str1->p, str2, (n1 < n2) ? n1 : n2);
     if (r == 0)
     {
-        return n1 - n2;
+        return (int)(n1 - n2);
     }
     return r;
 }
@@ -120,7 +120,7 @@ int asterism_vcasecmp(const struct asterism_str *str1, const char *str2)
     int r = asterism_ncasecmp(str1->p, str2, (n1 < n2) ? n1 : n2);
     if (r == 0)
     {
-        return n1 - n2;
+        return (int)(n1 - n2);
     }
     return r;
 }
