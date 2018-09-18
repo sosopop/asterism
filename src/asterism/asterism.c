@@ -3,6 +3,7 @@
 #include "asterism_log.h"
 #include <string.h>
 #include "asterism_core.h"
+#include "asterism_utils.h"
 
 #define ASTERISM_ERROR_GEN(n, s) {"ASTERISM_E_" #n, s},
 static struct
@@ -32,7 +33,8 @@ asterism asterism_create()
 void asterism_destroy(asterism as)
 {
     asterism_log(ASTERISM_LOG_DEBUG, "%s", "asterism_destroy");
-    free(as);
+    struct asterism_s *__as = (struct asterism_s *)as;
+    asterism_core_destory(__as);
 }
 
 int asterism_set_option(asterism as, asterism_option opt, ...)
@@ -44,14 +46,14 @@ int asterism_set_option(asterism as, asterism_option opt, ...)
 
     switch (opt)
     {
-    case ASTERISM_OPT_HTTP_INNER_BIND_ADDR:
-        __as->inner_bind_addr = strdup(va_arg(ap, const char *));
+    case ASTERISM_OPT_INNER_BIND_ADDRS:
+        __as->inner_bind_addrs = asterism_slist_duplicate(va_arg(ap, struct asterism_slist *));
         break;
-    case ASTERISM_OPT_OUTER_TCP_BIND_ADDR:
-        __as->outer_bind_addr = strdup(va_arg(ap, const char *));
+    case ASTERISM_OPT_OUTER_BIND_ADDRS:
+        __as->outer_bind_addrs = asterism_slist_duplicate(va_arg(ap, struct asterism_slist *));
         break;
-    case ASTERISM_OPT_CONNECT_ADDR:
-        __as->connect_addr = strdup(va_arg(ap, const char *));
+    case ASTERISM_OPT_CONNECT_ADDRS:
+        __as->connect_addrs = asterism_slist_duplicate(va_arg(ap, struct asterism_slist *));
         break;
     case ASTERISM_OPT_USERNAME:
         __as->username = strdup(va_arg(ap, const char *));
@@ -102,9 +104,7 @@ int asterism_prepare(asterism as)
 
 int asterism_run(asterism as)
 {
-    int ret = ASTERISM_E_OK;
-
-    return ret;
+    return asterism_core_run((struct asterism_s *)as);
 }
 
 int asterism_stop(asterism as)

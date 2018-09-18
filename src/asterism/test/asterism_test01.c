@@ -2,20 +2,13 @@
 #include "../asterism_core.h"
 #include "../asterism.h"
 #include "../asterism_utils.h"
-#include <uv.h>
 #include <stdlib.h>
 #include <assert.h>
 
 int asterism_test01()
 {
     int ret = ASTERISM_E_OK;
-
-    printf("libuv: %s\n", uv_version_string());
-    printf("asterism: %s\n", asterism_version());
-
     asterism_set_log_level(ASTERISM_LOG_DEBUG);
-    asterism as = asterism_create();
-
     //test asterism_slist
     struct asterism_slist *route_list = 0;
     route_list = asterism_slist_append(route_list, "test1");
@@ -97,7 +90,5 @@ int asterism_test01()
     ret = asterism_parse_address("10.0.0.2:1080", &scheme, &host, &port, &host_type);
     assert(ret == 0 && host_type == ASTERISM_HOST_TYPE_IPV4 && asterism_str_empty(&scheme) && asterism_vcasecmp(&host, "10.0.0.2") == 0 && port == 1080);
 
-    assert(as);
-    asterism_destroy(as);
     return ret;
 }

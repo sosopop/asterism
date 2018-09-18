@@ -10,7 +10,9 @@
         "asterism_utils.h\u0000utils.h": "c",
         "asterism_core.h": "c",
         "asterism_inner_http.h": "c",
-        "asterism_outer_tcp.h": "c"
+        "asterism_outer_tcp.h": "c",
+        "asterism_test01.h": "c",
+        "asterism_tcp.h": "c"
     },
     "C_Cpp.configurationWarnings": "Disabled",
     "C_Cpp.default.configurationProvider": "vector-of-bool.cmake-tools"

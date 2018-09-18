@@ -71,4 +71,6 @@ int asterism_vsnprintf(char **buf, size_t size, const char *fmt, va_list ap);
 
 int asterism_snprintf(char **buf, size_t size, const char *fmt, ...);
 
+struct asterism_slist *asterism_slist_duplicate(struct asterism_slist *inlist);
+
 #endif

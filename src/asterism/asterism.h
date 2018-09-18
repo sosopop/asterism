@@ -50,9 +50,13 @@ extern "C"
 
 #define ASTERISM_ERROR_MAP(XX)                       \
     XX(OK, "success")                                \
+    XX(FAILED, "failed")                             \
     XX(INVALID_ARGS, "invalid arguments")            \
     XX(OBJECT_ALREADY_EXIST, "object already exist") \
-    XX(OBJECT_NOT_EXIST, "object not exist")
+    XX(OBJECT_NOT_EXIST, "object not exist")         \
+    XX(ADDRESS_PARSE_ERROR, "address parse error")   \
+    XX(PROTOCOL_NOT_SUPPORT, "protocol not support") \
+    XX(SOCKET_LISTEN_ERROR, "socket listen error")
 
 #define ASTERISM_ERROR_GEN(n, s) ASTERISM_E_##n,
     typedef enum
@@ -61,13 +65,13 @@ extern "C"
     } asterism_errno;
 #undef ASTERISM_ERROR_GEN
 
-    typedef int (*asterism_connnect_redirect_hook)( const char* target_addr, char* redirect_addr, unsigned int addr_buffer_size);
+    typedef int (*asterism_connnect_redirect_hook)(const char *target_addr, char *redirect_addr, unsigned int addr_buffer_size);
 
     typedef enum
     {
-        ASTERISM_OPT_HTTP_INNER_BIND_ADDR = 0,
-        ASTERISM_OPT_OUTER_TCP_BIND_ADDR,
-        ASTERISM_OPT_CONNECT_ADDR,
+        ASTERISM_OPT_INNER_BIND_ADDRS = 0,
+        ASTERISM_OPT_OUTER_BIND_ADDRS,
+        ASTERISM_OPT_CONNECT_ADDRS,
         ASTERISM_OPT_USERNAME,
         ASTERISM_OPT_PASSWORD,
         ASTERISM_OPT_CONNECT_REDIRECT_HOOK
