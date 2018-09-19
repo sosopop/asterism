@@ -27,7 +27,7 @@ const char *asterism_version()
 asterism asterism_create()
 {
     asterism_log(ASTERISM_LOG_DEBUG, "%s", "asterism_create");
-    return (asterism)malloc(sizeof(struct asterism_s));
+    return (asterism)__zero_malloc_st(struct asterism_s);
 }
 
 void asterism_destroy(asterism as)

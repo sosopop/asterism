@@ -35,8 +35,27 @@ int asterism_core_prepare(struct asterism_s *as)
     }
     if (as->outer_bind_addr)
     {
-        ret = asterism_outer_tcp_bind(as);
-        if (ret != ASTERISM_E_OK)
+        struct asterism_str scheme;
+        struct asterism_str host;
+        unsigned int port;
+        asterism_host_type host_type;
+        scheme.len = 0;
+        host.len = 0;
+        int ret_addr = asterism_parse_address(as->outer_bind_addr, &scheme, &host, &port, &host_type);
+        if (ret_addr)
+        {
+            ret = ASTERISM_E_ADDRESS_PARSE_ERROR;
+            goto cleanup;
+        }
+        if (asterism_vcasecmp(&scheme, "tcp") && !asterism_str_empty(&scheme))
+        {
+            ret = ASTERISM_E_PROTOCOL_NOT_SUPPORT;
+            goto cleanup;
+        }
+        struct asterism_str __host = asterism_strdup_nul(host);
+        ret = asterism_outer_tcp_init(as, __host.p, &port, host_type == ASTERISM_HOST_TYPE_IPV6);
+        free((char *)__host.p);
+        if (ret)
             goto cleanup;
     }
     if (as->connect_addr)

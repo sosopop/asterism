@@ -32,6 +32,8 @@ struct asterism_http_incoming_s
     unsigned int tunnel_connected : 1;
     unsigned int header_parsed : 1;
     unsigned int header_auth_parsed : 1;
+    unsigned int fin_recv : 1;
+    unsigned int fin_send : 1;
 };
 
 int asterism_inner_http_init(
