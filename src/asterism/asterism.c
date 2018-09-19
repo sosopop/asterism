@@ -46,14 +46,14 @@ int asterism_set_option(asterism as, asterism_option opt, ...)
 
     switch (opt)
     {
-    case ASTERISM_OPT_INNER_BIND_ADDRS:
-        __as->inner_bind_addrs = asterism_slist_duplicate(va_arg(ap, struct asterism_slist *));
+    case ASTERISM_OPT_INNER_BIND_ADDR:
+        __as->inner_bind_addr = strdup(va_arg(ap, const char *));
         break;
-    case ASTERISM_OPT_OUTER_BIND_ADDRS:
-        __as->outer_bind_addrs = asterism_slist_duplicate(va_arg(ap, struct asterism_slist *));
+    case ASTERISM_OPT_OUTER_BIND_ADDR:
+        __as->outer_bind_addr = strdup(va_arg(ap, const char *));
         break;
-    case ASTERISM_OPT_CONNECT_ADDRS:
-        __as->connect_addrs = asterism_slist_duplicate(va_arg(ap, struct asterism_slist *));
+    case ASTERISM_OPT_CONNECT_ADDR:
+        __as->connect_addr = strdup(va_arg(ap, const char *));
         break;
     case ASTERISM_OPT_USERNAME:
         __as->username = strdup(va_arg(ap, const char *));

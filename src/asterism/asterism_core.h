@@ -15,33 +15,29 @@ struct asterism_route_data
 
 struct asterism_inner_interface
 {
-    void* queue[2];
+    void *queue[2];
 };
 
 struct asterism_outer_interface
 {
-    void* queue[2];
+    void *queue[2];
 };
 
 struct asterism_connector_interface
 {
-    void* queue[2];
+    void *queue[2];
 };
 
 struct asterism_s
 {
-    struct asterism_slist *inner_bind_addrs;
-    struct asterism_slist *outer_bind_addrs;
-    struct asterism_slist *connect_addrs;
+    char *inner_bind_addr;
+    char *outer_bind_addr;
+    char *connect_addr;
     char *username;
     char *password;
     void *inner_stream;
     void *outer_stream;
     asterism_connnect_redirect_hook connect_redirect_hook_cb;
-    //listener and connector list
-    void* inner_objs[2];
-    void* outer_objs[2];
-    void* connector_objs[2];
     uv_loop_t *loop;
 };
 

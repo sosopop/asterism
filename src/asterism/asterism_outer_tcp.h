@@ -10,6 +10,6 @@ struct asterism_tcp_outer
 };
 
 int asterism_outer_tcp_bind(struct asterism_s *as);
-int asterism_outer_tcp_connect_addrs(struct asterism_s *as);
+int asterism_outer_tcp_connect_addr(struct asterism_s *as);
 
 #endif

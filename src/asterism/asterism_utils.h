@@ -18,6 +18,7 @@
 
 #define __zero_malloc_st(s) (s *)memset(malloc(sizeof(s)), 0, sizeof(s))
 #define __dup_mem(b, s) memcpy(malloc(s), b, s)
+#define __container_ptr(s, m, p) (s *)((unsigned char *)p - (unsigned char *)(&((s *)0)->m))
 
 struct asterism_str
 {
@@ -73,5 +74,7 @@ int asterism_vsnprintf(char **buf, size_t size, const char *fmt, va_list ap);
 int asterism_snprintf(char **buf, size_t size, const char *fmt, ...);
 
 struct asterism_slist *asterism_slist_duplicate(struct asterism_slist *inlist);
+
+int asterism_base64_decode(const unsigned char *s, int len, char *dst, int *dec_len);
 
 #endif

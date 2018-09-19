@@ -66,6 +66,74 @@ int asterism_snprintf(char **buf, size_t size, const char *fmt, ...)
     return ret;
 }
 
+/* Convert one byte of encoded base64 input stream to 6-bit chunk */
+static unsigned char from_b64(unsigned char ch)
+{
+    /* Inverse lookup map */
+    static const unsigned char tab[128] = {
+        255, 255, 255, 255,
+        255, 255, 255, 255, /*  0 */
+        255, 255, 255, 255,
+        255, 255, 255, 255, /*  8 */
+        255, 255, 255, 255,
+        255, 255, 255, 255, /*  16 */
+        255, 255, 255, 255,
+        255, 255, 255, 255, /*  24 */
+        255, 255, 255, 255,
+        255, 255, 255, 255, /*  32 */
+        255, 255, 255, 62,
+        255, 255, 255, 63, /*  40 */
+        52, 53, 54, 55,
+        56, 57, 58, 59, /*  48 */
+        60, 61, 255, 255,
+        255, 200, 255, 255, /*  56   '=' is 200, on index 61 */
+        255, 0, 1, 2,
+        3, 4, 5, 6, /*  64 */
+        7, 8, 9, 10,
+        11, 12, 13, 14, /*  72 */
+        15, 16, 17, 18,
+        19, 20, 21, 22, /*  80 */
+        23, 24, 25, 255,
+        255, 255, 255, 255, /*  88 */
+        255, 26, 27, 28,
+        29, 30, 31, 32, /*  96 */
+        33, 34, 35, 36,
+        37, 38, 39, 40, /*  104 */
+        41, 42, 43, 44,
+        45, 46, 47, 48, /*  112 */
+        49, 50, 51, 255,
+        255, 255, 255, 255, /*  120 */
+    };
+    return tab[ch & 127];
+}
+
+int asterism_base64_decode(const unsigned char *s, int len, char *dst, int *dec_len)
+{
+    unsigned char a, b, c, d;
+    int orig_len = len;
+    char *orig_dst = dst;
+    while (len >= 4 && (a = from_b64(s[0])) != 255 &&
+           (b = from_b64(s[1])) != 255 && (c = from_b64(s[2])) != 255 &&
+           (d = from_b64(s[3])) != 255)
+    {
+        s += 4;
+        len -= 4;
+        if (a == 200 || b == 200)
+            break; /* '=' can't be there */
+        *dst++ = a << 2 | b >> 4;
+        if (c == 200)
+            break;
+        *dst++ = b << 4 | c >> 2;
+        if (d == 200)
+            break;
+        *dst++ = c << 6 | d;
+    }
+    *dst = 0;
+    if (dec_len != NULL)
+        *dec_len = (dst - orig_dst);
+    return orig_len - len;
+}
+
 struct asterism_str asterism_mk_str(const char *s)
 {
     struct asterism_str ret = {s, 0};

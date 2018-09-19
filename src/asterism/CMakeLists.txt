@@ -5,7 +5,7 @@ aux_source_directory(. ASTERISM_SOURCE)
 aux_source_directory(./test ASTERISM_SOURCE)
 add_executable(asterism ${ASTERISM_SOURCE})
 
-list(APPEND LINK_LIB uv)
+list(APPEND LINK_LIB uv http_parser)
 
 if(WIN32)
     list(APPEND LINK_LIB ws2_32 iphlpapi psapi userenv)
