@@ -6,9 +6,6 @@
 #include "asterism_core.h"
 #include "asterism_utils.h"
 
-#define ASTERISM_TCP_BLOCK_SIZE 4 * 1024
-#define ASTERISM_MAX_HTTP_HEADER_SIZE 4 * 1024
-
 struct asterism_http_inner_s
 {
     uv_tcp_t socket;

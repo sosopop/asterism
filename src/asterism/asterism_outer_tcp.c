@@ -89,6 +89,8 @@ static void incoming_data_read_alloc_cb(
 	uv_buf_t *buf)
 {
 	struct asterism_tcp_incoming_s *incoming = (struct asterism_tcp_incoming_s *)handle;
+	buf->base = (char*)malloc(ASTERISM_TCP_BLOCK_SIZE);
+	buf->len = ASTERISM_TCP_BLOCK_SIZE;
 }
 
 static void incoming_shutdown_cb(
@@ -143,6 +145,7 @@ static void incoming_read_cb(
 	struct asterism_tcp_incoming_s *incoming = (struct asterism_tcp_incoming_s *)stream;
 	if (nread > 0)
 	{
+		free(buf->base);
 		return;
 	}
 	else if (nread == 0)

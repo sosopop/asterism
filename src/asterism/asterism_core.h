@@ -8,6 +8,9 @@
 #define ASTERISM_RECONNECT_DELAY 10000
 #define ASTERISM_NET_BACKLOG 1024
 
+#define ASTERISM_TCP_BLOCK_SIZE 4 * 1024
+#define ASTERISM_MAX_HTTP_HEADER_SIZE 4 * 1024
+
 struct asterism_route_data
 {
     int dummy;
