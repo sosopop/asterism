@@ -22,6 +22,4 @@ int asterism_outer_tcp_init(
 	struct asterism_s *as,
 	const char *ip, unsigned int *port, int ipv6);
 
-int asterism_outer_tcp_connect_addr(struct asterism_s *as);
-
 #endif

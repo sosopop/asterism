@@ -114,8 +114,9 @@ int asterism_test02()
     //inner_addrs = asterism_slist_append(inner_addrs, "http://0.0.0.0:8080");
     //inner_addrs = asterism_slist_append(inner_addrs, "http://[::]:8080");
     //inner_addrs = asterism_slist_append(inner_addrs, "socks5://0.0.0.0:1080");
-    asterism_set_option(as, ASTERISM_OPT_INNER_BIND_ADDR, "http://[::]:8080");
-    asterism_set_option(as, ASTERISM_OPT_OUTER_BIND_ADDR, "tcp://0.0.0.0:8081");
+    //asterism_set_option(as, ASTERISM_OPT_INNER_BIND_ADDR, "http://[::]:8080");
+    //asterism_set_option(as, ASTERISM_OPT_OUTER_BIND_ADDR, "tcp://0.0.0.0:8081");
+    asterism_set_option(as, ASTERISM_OPT_CONNECT_ADDR, "tcp://127.0.0.1:1234");
     //asterism_slist_free_all(inner_addrs);
 
     /*

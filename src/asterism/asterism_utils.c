@@ -363,3 +363,54 @@ int asterism_parse_address(
 
     return *port < 0xffffUL && (ch == '\0' || ch == ',' || isspace(ch)) ? 0 : -1;
 }
+
+int asterism_itoa(char *buf, size_t buf_size, long long num, int base, int flags,
+                  int field_width)
+{
+    char tmp[40];
+    int i = 0, k = 0, neg = 0;
+
+    if (num < 0)
+    {
+        neg++;
+        num = -num;
+    }
+
+    /* Print into temporary buffer - in reverse order */
+    do
+    {
+        int rem = num % base;
+        if (rem < 10)
+        {
+            tmp[k++] = '0' + rem;
+        }
+        else
+        {
+            tmp[k++] = 'a' + (rem - 10);
+        }
+        num /= base;
+    } while (num > 0);
+
+    /* Zero padding */
+    if (flags && ASTERISM_SNPRINTF_FLAG_ZERO)
+    {
+        while (k < field_width && k < (int)sizeof(tmp) - 1)
+        {
+            tmp[k++] = '0';
+        }
+    }
+
+    /* And sign */
+    if (neg)
+    {
+        tmp[k++] = '-';
+    }
+
+    /* Now output */
+    while (--k >= 0)
+    {
+        ASTERISM_SNPRINTF_APPEND_CHAR(tmp[k]);
+    }
+
+    return i;
+}

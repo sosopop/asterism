@@ -89,7 +89,7 @@ static void incoming_data_read_alloc_cb(
 	uv_buf_t *buf)
 {
 	struct asterism_tcp_incoming_s *incoming = (struct asterism_tcp_incoming_s *)handle;
-	buf->base = (char*)malloc(ASTERISM_TCP_BLOCK_SIZE);
+	buf->base = (char *)malloc(ASTERISM_TCP_BLOCK_SIZE);
 	buf->len = ASTERISM_TCP_BLOCK_SIZE;
 }
 
@@ -145,12 +145,11 @@ static void incoming_read_cb(
 	struct asterism_tcp_incoming_s *incoming = (struct asterism_tcp_incoming_s *)stream;
 	if (nread > 0)
 	{
-		free(buf->base);
-		return;
+		goto cleanup;
 	}
 	else if (nread == 0)
 	{
-		return;
+		goto cleanup;
 	}
 	else if (nread == UV_EOF)
 	{
@@ -163,16 +162,16 @@ static void incoming_read_cb(
 		{
 			incoming_end(incoming);
 		}
-		return;
+		goto cleanup;
 	}
 	else
 	{
 		asterism_log(ASTERISM_LOG_DEBUG, "%s", uv_strerror((int)nread));
-		goto error;
+		incoming_close(incoming);
 	}
-error:
-	incoming_close(incoming);
-	return;
+cleanup:
+	if (buf && buf->base)
+		free(buf->base);
 }
 
 static void outer_accept_cb(
@@ -191,7 +190,6 @@ static void outer_accept_cb(
 	incoming = incoming_new(outer->as);
 	if (!incoming)
 	{
-		incoming_delete(incoming);
 		goto cleanup;
 	}
 
@@ -231,7 +229,6 @@ int asterism_outer_tcp_init(
 	struct asterism_tcp_outer_s *outer = outer_new(as);
 	if (!outer)
 	{
-		outer_delete(outer);
 		goto cleanup;
 	}
 
@@ -239,13 +236,13 @@ int asterism_outer_tcp_init(
 	{
 		addr = __zero_malloc_st(struct sockaddr_in6);
 		name_len = sizeof(struct sockaddr_in6);
-		ret = uv_ip6_addr(ip, (int)*port, addr);
+		ret = uv_ip6_addr(ip, (int)*port, (struct sockaddr_in6 *)addr);
 	}
 	else
 	{
 		addr = __zero_malloc_st(struct sockaddr_in);
 		name_len = sizeof(struct sockaddr_in);
-		ret = uv_ip4_addr(ip, (int)*port, addr);
+		ret = uv_ip4_addr(ip, (int)*port, (struct sockaddr_in *)addr);
 	}
 	if (ret != 0)
 	{
@@ -295,12 +292,5 @@ cleanup:
 	{
 		outer_close(outer);
 	}
-	return ret;
-}
-
-int asterism_outer_tcp_connect_addr(struct asterism_s *as)
-{
-	int ret = ASTERISM_E_OK;
-	//cleanup:
 	return ret;
 }

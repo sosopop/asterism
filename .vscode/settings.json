@@ -12,7 +12,8 @@
         "asterism_inner_http.h": "c",
         "asterism_outer_tcp.h": "c",
         "asterism_test01.h": "c",
-        "asterism_tcp.h": "c"
+        "asterism_tcp.h": "c",
+        "asterism_connector_tcp.h": "c"
     },
     "C_Cpp.configurationWarnings": "Disabled",
     "C_Cpp.default.configurationProvider": "vector-of-bool.cmake-tools"

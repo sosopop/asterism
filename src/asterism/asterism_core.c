@@ -1,6 +1,7 @@
 #include "asterism_core.h"
 #include "asterism_inner_http.h"
 #include "asterism_outer_tcp.h"
+#include "asterism_connector_tcp.h"
 #include "asterism_utils.h"
 
 int asterism_core_prepare(struct asterism_s *as)
@@ -60,8 +61,27 @@ int asterism_core_prepare(struct asterism_s *as)
     }
     if (as->connect_addr)
     {
-        ret = asterism_outer_tcp_connect_addr(as);
-        if (ret != ASTERISM_E_OK)
+        struct asterism_str scheme;
+        struct asterism_str host;
+        unsigned int port;
+        asterism_host_type host_type;
+        scheme.len = 0;
+        host.len = 0;
+        int ret_addr = asterism_parse_address(as->connect_addr, &scheme, &host, &port, &host_type);
+        if (ret_addr)
+        {
+            ret = ASTERISM_E_ADDRESS_PARSE_ERROR;
+            goto cleanup;
+        }
+        if (asterism_vcasecmp(&scheme, "tcp") && !asterism_str_empty(&scheme))
+        {
+            ret = ASTERISM_E_PROTOCOL_NOT_SUPPORT;
+            goto cleanup;
+        }
+        struct asterism_str __host = asterism_strdup_nul(host);
+        ret = asterism_connector_tcp_init(as, __host.p, port);
+        free((char *)__host.p);
+        if (ret)
             goto cleanup;
     }
 cleanup:

@@ -103,7 +103,7 @@ static void incoming_data_read_alloc_cb(
     if (incoming->tunnel_connected)
     {
         buf->len = ASTERISM_TCP_BLOCK_SIZE;
-        buf->base = malloc(ASTERISM_TCP_BLOCK_SIZE);
+        buf->base = (char *)malloc(ASTERISM_TCP_BLOCK_SIZE);
     }
     else
     {
@@ -115,7 +115,7 @@ static void incoming_data_read_alloc_cb(
                 return;
             }
             buf->len = ASTERISM_MAX_HTTP_HEADER_SIZE;
-            buf->base = malloc(ASTERISM_MAX_HTTP_HEADER_SIZE);
+            buf->base = (char *)malloc(ASTERISM_MAX_HTTP_HEADER_SIZE);
             incoming->http_connect_buffer = *buf;
         }
         else
@@ -288,53 +288,62 @@ static void incoming_read_cb(
             size_t nparsed = http_parser_execute(&incoming->parser, &parser_settings, buf->base, nread);
             if (incoming->parser.http_errno != 0)
             {
-                asterism_log(ASTERISM_LOG_DEBUG, "%s", http_errno_description(incoming->parser.http_errno));
-                goto error;
+                asterism_log(ASTERISM_LOG_DEBUG, "%s", http_errno_description((enum http_errno)incoming->parser.http_errno));
+                incoming_close(incoming);
+                goto cleanup;
             }
             if (nparsed != nread)
             {
-                goto error;
+                incoming_close(incoming);
+                goto cleanup;
             }
             if (!incoming->header_parsed &&
                 incoming->http_connect_buffer_read == ASTERISM_MAX_HTTP_HEADER_SIZE)
             {
-                goto error;
+                incoming_close(incoming);
+                goto cleanup;
             }
             if (incoming->header_parsed)
             {
                 if (incoming->parser.method != HTTP_CONNECT)
                 {
-                    goto error;
+                    incoming_close(incoming);
+                    goto cleanup;
                 }
                 if (!incoming->connect_host.len)
                 {
-                    goto error;
+                    incoming_close(incoming);
+                    goto cleanup;
                 }
                 if (!incoming->auth_info.len)
                 {
-                    goto error;
+                    incoming_close(incoming);
+                    goto cleanup;
                 }
                 incoming->remote_host = (char *)asterism_strdup_nul(incoming->connect_host).p;
                 struct asterism_str base_prefix = asterism_mk_str("Basic ");
                 if (asterism_strncmp(incoming->auth_info, base_prefix, base_prefix.len) != 0)
                 {
-                    goto error;
+                    incoming_close(incoming);
+                    goto cleanup;
                 }
                 char decode_buffer[128] = {0};
                 int deocode_size = sizeof(decode_buffer);
                 int parsed = asterism_base64_decode(
-                    incoming->auth_info.p + base_prefix.len,
+                    (const unsigned char *)incoming->auth_info.p + base_prefix.len,
                     (int)(incoming->auth_info.len - base_prefix.len),
                     decode_buffer,
                     &deocode_size);
                 if (parsed != incoming->auth_info.len - base_prefix.len)
                 {
-                    goto error;
+                    incoming_close(incoming);
+                    goto cleanup;
                 }
                 char *split_pos = strchr(decode_buffer, ':');
                 if (!split_pos)
                 {
-                    goto error;
+                    incoming_close(incoming);
+                    goto cleanup;
                 }
                 *split_pos = 0;
                 incoming->username = strdup(decode_buffer);
@@ -343,11 +352,11 @@ static void incoming_read_cb(
                 asterism_log(ASTERISM_LOG_DEBUG, "header_parsed");
             }
         }
-        return;
+        goto cleanup;
     }
     else if (nread == 0)
     {
-        return;
+        goto cleanup;
     }
     else if (nread == UV_EOF)
     {
@@ -360,16 +369,16 @@ static void incoming_read_cb(
         {
             incoming_end(incoming);
         }
-        return;
+        goto cleanup;
     }
     else
     {
         asterism_log(ASTERISM_LOG_DEBUG, "%s", uv_strerror((int)nread));
-        goto error;
+        incoming_close(incoming);
     }
-error:
-    incoming_close(incoming);
-    return;
+cleanup:
+    if (buf && buf->base)
+        free(buf->base);
 }
 
 static void inner_accept_cb(
@@ -388,7 +397,6 @@ static void inner_accept_cb(
     incoming = incoming_new(inner->as);
     if (!incoming)
     {
-        incoming_delete(incoming);
         goto cleanup;
     }
     http_parser_init(&incoming->parser, HTTP_REQUEST);
@@ -428,7 +436,6 @@ int asterism_inner_http_init(
     struct asterism_http_inner_s *inner = inner_new(as);
     if (!inner)
     {
-        inner_delete(inner);
         goto cleanup;
     }
 
@@ -436,13 +443,13 @@ int asterism_inner_http_init(
     {
         addr = __zero_malloc_st(struct sockaddr_in6);
         name_len = sizeof(struct sockaddr_in6);
-        ret = uv_ip6_addr(ip, (int)*port, addr);
+        ret = uv_ip6_addr(ip, (int)*port, (struct sockaddr_in6 *)addr);
     }
     else
     {
         addr = __zero_malloc_st(struct sockaddr_in);
         name_len = sizeof(struct sockaddr_in);
-        ret = uv_ip4_addr(ip, (int)*port, addr);
+        ret = uv_ip4_addr(ip, (int)*port, (struct sockaddr_in *)addr);
     }
     if (ret != 0)
     {

@@ -20,6 +20,16 @@
 #define __dup_mem(b, s) memcpy(malloc(s), b, s)
 #define __container_ptr(s, m, p) (s *)((unsigned char *)p - (unsigned char *)(&((s *)0)->m))
 
+#define ASTERISM_SNPRINTF_FLAG_ZERO 1
+
+#define ASTERISM_SNPRINTF_APPEND_CHAR(ch) \
+    do                                    \
+    {                                     \
+        if (i < (int)buf_size)            \
+            buf[i] = ch;                  \
+        i++;                              \
+    } while (0)
+
 struct asterism_str
 {
     const char *p; /* Memory chunk pointer */
@@ -77,4 +87,6 @@ struct asterism_slist *asterism_slist_duplicate(struct asterism_slist *inlist);
 
 int asterism_base64_decode(const unsigned char *s, int len, char *dst, int *dec_len);
 
+int asterism_itoa(char *buf, size_t buf_size, long long num, int base, int flags,
+                  int field_width);
 #endif
