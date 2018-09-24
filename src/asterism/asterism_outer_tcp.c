@@ -192,13 +192,6 @@ static void outer_accept_cb(
 	{
 		goto cleanup;
 	}
-
-	ret = uv_tcp_nodelay(&incoming->socket, 1);
-	if (ret != 0)
-	{
-		ret = ASTERISM_E_FAILED;
-		goto cleanup;
-	}
 	ret = uv_accept((uv_stream_t *)&outer->socket, (uv_stream_t *)&incoming->socket);
 	if (ret != 0)
 	{
@@ -251,13 +244,6 @@ int asterism_outer_tcp_init(
 		goto cleanup;
 	}
 	ret = uv_tcp_bind(&outer->socket, (const struct sockaddr *)addr, 0);
-	if (ret != 0)
-	{
-		asterism_log(ASTERISM_LOG_DEBUG, "%s", uv_strerror(ret));
-		ret = ASTERISM_E_SOCKET_LISTEN_ERROR;
-		goto cleanup;
-	}
-	ret = uv_tcp_nodelay(&outer->socket, 1);
 	if (ret != 0)
 	{
 		asterism_log(ASTERISM_LOG_DEBUG, "%s", uv_strerror(ret));

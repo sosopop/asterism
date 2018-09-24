@@ -400,13 +400,6 @@ static void inner_accept_cb(
         goto cleanup;
     }
     http_parser_init(&incoming->parser, HTTP_REQUEST);
-
-    ret = uv_tcp_nodelay(&incoming->socket, 1);
-    if (ret != 0)
-    {
-        ret = ASTERISM_E_FAILED;
-        goto cleanup;
-    }
     ret = uv_accept((uv_stream_t *)&inner->socket, (uv_stream_t *)&incoming->socket);
     if (ret != 0)
     {
@@ -458,13 +451,6 @@ int asterism_inner_http_init(
         goto cleanup;
     }
     ret = uv_tcp_bind(&inner->socket, (const struct sockaddr *)addr, 0);
-    if (ret != 0)
-    {
-        asterism_log(ASTERISM_LOG_DEBUG, "%s", uv_strerror(ret));
-        ret = ASTERISM_E_SOCKET_LISTEN_ERROR;
-        goto cleanup;
-    }
-    ret = uv_tcp_nodelay(&inner->socket, 1);
     if (ret != 0)
     {
         asterism_log(ASTERISM_LOG_DEBUG, "%s", uv_strerror(ret));

@@ -209,13 +209,6 @@ int asterism_connector_tcp_init(struct asterism_s *as,
 		ret = ASTERISM_E_FAILED;
 		goto cleanup;
 	}
-	ret = uv_tcp_nodelay(&connector->socket, 1);
-	if (ret != 0)
-	{
-		ret = ASTERISM_E_FAILED;
-		goto cleanup;
-	}
-
 	addr_info = (uv_getaddrinfo_t *)AS_MALLOC(sizeof(uv_getaddrinfo_t));
 	addr_info->data = connector;
 	hints.ai_family = PF_INET;

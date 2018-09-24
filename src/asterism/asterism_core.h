@@ -16,21 +16,6 @@ struct asterism_route_data
     int dummy;
 };
 
-struct asterism_inner_interface
-{
-    void *queue[2];
-};
-
-struct asterism_outer_interface
-{
-    void *queue[2];
-};
-
-struct asterism_connector_interface
-{
-    void *queue[2];
-};
-
 struct asterism_s
 {
     char *inner_bind_addr;
