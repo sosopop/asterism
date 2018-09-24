@@ -91,27 +91,5 @@ int asterism_test01()
     assert(ret == 0 && host_type == ASTERISM_HOST_TYPE_IPV4 && asterism_str_empty(&scheme) && asterism_vcasecmp(&host, "10.0.0.2") == 0 && port == 1080);
 
     //je_malloc_stats_print(0, 0, 0);
-    void *mdata = AS_MALLOC(4096);
-    size_t t = je_malloc_usable_size(mdata);
-    //je_malloc_stats_print(0, 0, 0);
-    AS_FREE(mdata);
-
-    int a = GetTickCount();
-    for (int i = 0; i < 1000000; i++)
-    {
-        void *mdata = malloc(4096);
-        free(mdata);
-    }
-    printf("spend: %d\n", GetTickCount() - a);
-
-    a = GetTickCount();
-    for (int i = 0; i < 1000000; i++)
-    {
-        void *mdata = AS_MALLOC(4096);
-        AS_FREE(mdata);
-    }
-    printf("spend: %d\n", GetTickCount() - a);
-
-    //je_malloc_stats_print(0, 0, 0);
     return ret;
 }

@@ -5,9 +5,6 @@ aux_source_directory(. ASTERISM_SOURCE)
 aux_source_directory(./test ASTERISM_SOURCE)
 add_executable(asterism ${ASTERISM_SOURCE})
 
-add_definitions(-DJEMALLOC_EXPORT= -DJEMALLOC_STATIC)
-
-
 if(WIN32)
     list(APPEND LINK_LIB ws2_32 iphlpapi psapi userenv)
 else()
@@ -18,6 +15,6 @@ if(ANDROID)
     list(REMOVE_ITEM LINK_LIB pthread)
 endif()
 
-list(APPEND LINK_LIB uv http_parser jemalloc)
+list(APPEND LINK_LIB uv http_parser)
 
 target_link_libraries(asterism ${LINK_LIB})
