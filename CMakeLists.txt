@@ -52,7 +52,7 @@ if(WIN32)
         set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /SUBSYSTEM:CONSOLE,5.01")
     endif()
 
-    add_definitions(-D_WIN32_WINNT=0x0501 -D_CRT_NONSTDC_NO_DEPRECATE -D_CRT_SECURE_NO_WARNINGS)
+    add_definitions(-D_WIN32_WINNT=0x0502 -D_CRT_NONSTDC_NO_DEPRECATE -D_CRT_SECURE_NO_WARNINGS)
 endif()
 
 if(UNIX)
@@ -61,4 +61,5 @@ endif()
 
 add_subdirectory(3rdparty/libuv)
 add_subdirectory(3rdparty/http-parser)
+add_subdirectory(3rdparty/jemalloc)
 add_subdirectory(src/asterism)

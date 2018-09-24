@@ -1,5 +1,6 @@
 include_directories("../../3rdparty/libuv/include")
 include_directories("../../3rdparty/http-parser")
+include_directories("../../3rdparty/jemalloc/include")
 
 aux_source_directory(. ASTERISM_SOURCE)
 aux_source_directory(./test ASTERISM_SOURCE)
