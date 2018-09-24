@@ -13,8 +13,15 @@
         "asterism_outer_tcp.h": "c",
         "asterism_test01.h": "c",
         "asterism_tcp.h": "c",
-        "asterism_connector_tcp.h": "c"
+        "asterism_connector_tcp.h": "c",
+        "random": "c",
+        "iosfwd": "c",
+        "xlocale": "c",
+        "xstring": "c",
+        "vector": "c",
+        "xutility": "c",
+        "jemalloc.h": "c",
+        "list": "c"
     },
-    "C_Cpp.configurationWarnings": "Disabled",
-    "C_Cpp.default.configurationProvider": "vector-of-bool.cmake-tools"
+    "C_Cpp.configurationWarnings": "Disabled"
 }

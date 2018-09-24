@@ -1,12 +1,12 @@
 include_directories("../../3rdparty/libuv/include")
 include_directories("../../3rdparty/http-parser")
-include_directories("../../3rdparty/jemalloc/include")
 
 aux_source_directory(. ASTERISM_SOURCE)
 aux_source_directory(./test ASTERISM_SOURCE)
 add_executable(asterism ${ASTERISM_SOURCE})
 
-list(APPEND LINK_LIB uv http_parser)
+add_definitions(-DJEMALLOC_EXPORT= -DJEMALLOC_STATIC)
+
 
 if(WIN32)
     list(APPEND LINK_LIB ws2_32 iphlpapi psapi userenv)
@@ -17,5 +17,7 @@ endif()
 if(ANDROID)
     list(REMOVE_ITEM LINK_LIB pthread)
 endif()
+
+list(APPEND LINK_LIB uv http_parser jemalloc)
 
 target_link_libraries(asterism ${LINK_LIB})

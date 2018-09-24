@@ -65,7 +65,7 @@ void _asterism_log(
     printf("%s.%03d %s [%s] %s\n", time_str, tmb.millitm, debug_level, fun_name, temp_buf);
 
     if (temp_buf != stack_buf)
-        free(temp_buf);
+        AS_FREE(temp_buf);
 
     va_end(ap);
 }

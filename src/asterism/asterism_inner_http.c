@@ -18,7 +18,7 @@ static struct asterism_http_inner_s *inner_new(struct asterism_s *as)
 cleanup:
     if (ret != 0)
     {
-        free(obj);
+        AS_FREE(obj);
         obj = 0;
     }
     return obj;
@@ -26,7 +26,7 @@ cleanup:
 
 static void inner_delete(struct asterism_http_inner_s *obj)
 {
-    free(obj);
+    AS_FREE(obj);
 }
 
 static void inner_close_cb(
@@ -59,7 +59,7 @@ static struct asterism_http_incoming_s *incoming_new(struct asterism_s *as)
 cleanup:
     if (ret != 0)
     {
-        free(obj);
+        AS_FREE(obj);
         obj = 0;
     }
     return obj;
@@ -68,14 +68,14 @@ cleanup:
 static void incoming_delete(struct asterism_http_incoming_s *obj)
 {
     if (obj->http_connect_buffer.base)
-        free(obj->http_connect_buffer.base);
+        AS_FREE(obj->http_connect_buffer.base);
     if (obj->remote_host)
-        free(obj->remote_host);
+        AS_FREE(obj->remote_host);
     if (obj->username)
-        free(obj->username);
+        AS_FREE(obj->username);
     if (obj->password)
-        free(obj->password);
-    free(obj);
+        AS_FREE(obj->password);
+    AS_FREE(obj);
 }
 
 static void incoming_close_cb(
@@ -103,7 +103,7 @@ static void incoming_data_read_alloc_cb(
     if (incoming->tunnel_connected)
     {
         buf->len = ASTERISM_TCP_BLOCK_SIZE;
-        buf->base = (char *)malloc(ASTERISM_TCP_BLOCK_SIZE);
+        buf->base = (char *)AS_MALLOC(ASTERISM_TCP_BLOCK_SIZE);
     }
     else
     {
@@ -115,7 +115,7 @@ static void incoming_data_read_alloc_cb(
                 return;
             }
             buf->len = ASTERISM_MAX_HTTP_HEADER_SIZE;
-            buf->base = (char *)malloc(ASTERISM_MAX_HTTP_HEADER_SIZE);
+            buf->base = (char *)AS_MALLOC(ASTERISM_MAX_HTTP_HEADER_SIZE);
             incoming->http_connect_buffer = *buf;
         }
         else
@@ -245,7 +245,7 @@ cleanup:
     {
         incoming_close(incoming);
     }
-    free(req);
+    AS_FREE(req);
 }
 
 static int incoming_end(
@@ -264,7 +264,7 @@ cleanup:
     {
         if (req)
         {
-            free(req);
+            AS_FREE(req);
         }
     }
     return ret;
@@ -346,8 +346,8 @@ static void incoming_read_cb(
                     goto cleanup;
                 }
                 *split_pos = 0;
-                incoming->username = strdup(decode_buffer);
-                incoming->password = strdup(split_pos + 1);
+                incoming->username = as_strdup(decode_buffer);
+                incoming->password = as_strdup(split_pos + 1);
                 asterism_log(ASTERISM_LOG_DEBUG, "username: %s , password: %s", incoming->username, incoming->password);
                 asterism_log(ASTERISM_LOG_DEBUG, "header_parsed");
             }
@@ -378,7 +378,7 @@ static void incoming_read_cb(
     }
 cleanup:
     if (buf && buf->base)
-        free(buf->base);
+        AS_FREE(buf->base);
 }
 
 static void inner_accept_cb(

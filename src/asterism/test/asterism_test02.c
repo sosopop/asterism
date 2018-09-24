@@ -14,7 +14,7 @@
 //     int status
 // )
 // {
-//     free(req);
+//     AS_FREE(req);
 // }
 //
 // static void client_write_callback(
@@ -37,7 +37,7 @@
 // //         ret = uv_shutdown(&req, stream, client_shutdown);
 //         uv_write(wreq, stream, &buf, 1, client_write_callback);
 //     }
-//     free(req);
+//     AS_FREE(req);
 // }
 //
 // static void client_connected(
@@ -61,7 +61,7 @@
 //     int status)
 // {
 //     int ret = ASTERISM_E_OK;
-//     uv_tcp_t* incoming = (uv_tcp_t*)malloc(sizeof(uv_tcp_t));
+//     uv_tcp_t* incoming = (uv_tcp_t*)AS_MALLOC(sizeof(uv_tcp_t));
 //     ret = uv_tcp_init(stream->loop, incoming);
 //     ret = uv_tcp_nodelay(incoming, 1);
 //     ret = uv_accept((uv_stream_t*)stream, (uv_stream_t*)incoming);

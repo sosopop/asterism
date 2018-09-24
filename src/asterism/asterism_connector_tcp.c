@@ -17,7 +17,7 @@ static struct asterism_tcp_connector_s *connector_new(struct asterism_s *as)
 cleanup:
 	if (ret != 0)
 	{
-		free(obj);
+		AS_FREE(obj);
 		obj = 0;
 	}
 	return obj;
@@ -25,7 +25,7 @@ cleanup:
 
 static void connector_delete(struct asterism_tcp_connector_s *obj)
 {
-	free(obj);
+	AS_FREE(obj);
 }
 
 static void connector_close_cb(
@@ -50,7 +50,7 @@ static void connector_data_read_alloc_cb(
 	uv_buf_t *buf)
 {
 	struct asterism_tcp_connector_s *connector = (struct asterism_tcp_connector_s *)handle;
-	buf->base = (char *)malloc(ASTERISM_TCP_BLOCK_SIZE);
+	buf->base = (char *)AS_MALLOC(ASTERISM_TCP_BLOCK_SIZE);
 	buf->len = ASTERISM_TCP_BLOCK_SIZE;
 }
 
@@ -73,7 +73,7 @@ cleanup:
 	{
 		connector_close(connector);
 	}
-	free(req);
+	AS_FREE(req);
 }
 
 static int connector_end(
@@ -92,7 +92,7 @@ cleanup:
 	{
 		if (req)
 		{
-			free(req);
+			AS_FREE(req);
 		}
 	}
 	return ret;
@@ -132,7 +132,7 @@ static void connector_read_cb(
 	}
 cleanup:
 	if (buf && buf->base)
-		free(buf->base);
+		AS_FREE(buf->base);
 }
 
 static void connector_connected(
@@ -158,7 +158,7 @@ cleanup:
 		connector_close(connector);
 	}
 	if (req)
-		free(req);
+		AS_FREE(req);
 }
 
 static void connector_getaddrinfo(
@@ -180,7 +180,7 @@ static void connector_getaddrinfo(
 	{
 		goto cleanup;
 	}
-	connect_req = (uv_connect_t *)malloc(sizeof(uv_connect_t));
+	connect_req = (uv_connect_t *)AS_MALLOC(sizeof(uv_connect_t));
 	connect_req->data = connector;
 	ret = uv_tcp_connect(connect_req, &connector->socket, res->ai_addr, connector_connected);
 	if (ret != 0)
@@ -193,7 +193,7 @@ cleanup:
 	if (res)
 		uv_freeaddrinfo(res);
 	if (req)
-		free(req);
+		AS_FREE(req);
 }
 
 int asterism_connector_tcp_init(struct asterism_s *as,
@@ -216,7 +216,7 @@ int asterism_connector_tcp_init(struct asterism_s *as,
 		goto cleanup;
 	}
 
-	addr_info = (uv_getaddrinfo_t *)malloc(sizeof(uv_getaddrinfo_t));
+	addr_info = (uv_getaddrinfo_t *)AS_MALLOC(sizeof(uv_getaddrinfo_t));
 	addr_info->data = connector;
 	hints.ai_family = PF_INET;
 	hints.ai_socktype = SOCK_STREAM;
@@ -235,7 +235,7 @@ cleanup:
 	if (ret)
 	{
 		if (addr_info)
-			free(addr_info);
+			AS_FREE(addr_info);
 		connector_close(connector);
 	}
 	return ret;

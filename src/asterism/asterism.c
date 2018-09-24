@@ -47,19 +47,19 @@ int asterism_set_option(asterism as, asterism_option opt, ...)
     switch (opt)
     {
     case ASTERISM_OPT_INNER_BIND_ADDR:
-        __as->inner_bind_addr = strdup(va_arg(ap, const char *));
+        __as->inner_bind_addr = as_strdup(va_arg(ap, const char *));
         break;
     case ASTERISM_OPT_OUTER_BIND_ADDR:
-        __as->outer_bind_addr = strdup(va_arg(ap, const char *));
+        __as->outer_bind_addr = as_strdup(va_arg(ap, const char *));
         break;
     case ASTERISM_OPT_CONNECT_ADDR:
-        __as->connect_addr = strdup(va_arg(ap, const char *));
+        __as->connect_addr = as_strdup(va_arg(ap, const char *));
         break;
     case ASTERISM_OPT_USERNAME:
-        __as->username = strdup(va_arg(ap, const char *));
+        __as->username = as_strdup(va_arg(ap, const char *));
         break;
     case ASTERISM_OPT_PASSWORD:
-        __as->password = strdup(va_arg(ap, const char *));
+        __as->password = as_strdup(va_arg(ap, const char *));
         break;
     case ASTERISM_OPT_CONNECT_REDIRECT_HOOK:
         __as->connect_redirect_hook_cb = va_arg(ap, asterism_connnect_redirect_hook);
@@ -116,5 +116,5 @@ int asterism_stop(asterism as)
 
 void asterism_free(void *data)
 {
-    free(data);
+    AS_FREE(data);
 }

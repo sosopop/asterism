@@ -21,7 +21,7 @@ int asterism_test01()
         char *temp_buf = 0;
         asterism_snprintf(&temp_buf, 0, "test%d", i++);
         assert(strcmp(temp_buf, temp_route_list->data) == 0);
-        free(temp_buf);
+        AS_FREE(temp_buf);
         printf("list data: %s\n", temp_route_list->data);
         temp_route_list = temp_route_list->next;
     }
@@ -90,5 +90,28 @@ int asterism_test01()
     ret = asterism_parse_address("10.0.0.2:1080", &scheme, &host, &port, &host_type);
     assert(ret == 0 && host_type == ASTERISM_HOST_TYPE_IPV4 && asterism_str_empty(&scheme) && asterism_vcasecmp(&host, "10.0.0.2") == 0 && port == 1080);
 
+    //je_malloc_stats_print(0, 0, 0);
+    void *mdata = AS_MALLOC(4096);
+    size_t t = je_malloc_usable_size(mdata);
+    //je_malloc_stats_print(0, 0, 0);
+    AS_FREE(mdata);
+
+    int a = GetTickCount();
+    for (int i = 0; i < 1000000; i++)
+    {
+        void *mdata = malloc(4096);
+        free(mdata);
+    }
+    printf("spend: %d\n", GetTickCount() - a);
+
+    a = GetTickCount();
+    for (int i = 0; i < 1000000; i++)
+    {
+        void *mdata = AS_MALLOC(4096);
+        AS_FREE(mdata);
+    }
+    printf("spend: %d\n", GetTickCount() - a);
+
+    //je_malloc_stats_print(0, 0, 0);
     return ret;
 }

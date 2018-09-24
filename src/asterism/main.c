@@ -16,6 +16,7 @@ int main(int argc, char const *argv[])
 #ifdef WIN32
     _CrtSetDbgFlag(_CrtSetDbgFlag(_CRTDBG_REPORT_FLAG) | _CRTDBG_LEAK_CHECK_DF);
 #endif
+    asterism_test01();
     assert(0 == asterism_test01());
     assert(0 == asterism_test02());
 #if defined(WIN32)

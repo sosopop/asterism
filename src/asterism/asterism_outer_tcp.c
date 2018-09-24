@@ -17,7 +17,7 @@ static struct asterism_tcp_outer_s *outer_new(struct asterism_s *as)
 cleanup:
 	if (ret != 0)
 	{
-		free(obj);
+		AS_FREE(obj);
 		obj = 0;
 	}
 	return obj;
@@ -25,7 +25,7 @@ cleanup:
 
 static void outer_delete(struct asterism_tcp_outer_s *obj)
 {
-	free(obj);
+	AS_FREE(obj);
 }
 
 static void outer_close_cb(
@@ -56,7 +56,7 @@ static struct asterism_tcp_incoming_s *incoming_new(struct asterism_s *as)
 cleanup:
 	if (ret != 0)
 	{
-		free(obj);
+		AS_FREE(obj);
 		obj = 0;
 	}
 	return obj;
@@ -64,7 +64,7 @@ cleanup:
 
 static void incoming_delete(struct asterism_tcp_incoming_s *obj)
 {
-	free(obj);
+	AS_FREE(obj);
 }
 
 static void incoming_close_cb(
@@ -89,7 +89,7 @@ static void incoming_data_read_alloc_cb(
 	uv_buf_t *buf)
 {
 	struct asterism_tcp_incoming_s *incoming = (struct asterism_tcp_incoming_s *)handle;
-	buf->base = (char *)malloc(ASTERISM_TCP_BLOCK_SIZE);
+	buf->base = (char *)AS_MALLOC(ASTERISM_TCP_BLOCK_SIZE);
 	buf->len = ASTERISM_TCP_BLOCK_SIZE;
 }
 
@@ -112,7 +112,7 @@ cleanup:
 	{
 		incoming_close(incoming);
 	}
-	free(req);
+	AS_FREE(req);
 }
 
 static int incoming_end(
@@ -131,7 +131,7 @@ cleanup:
 	{
 		if (req)
 		{
-			free(req);
+			AS_FREE(req);
 		}
 	}
 	return ret;
@@ -171,7 +171,7 @@ static void incoming_read_cb(
 	}
 cleanup:
 	if (buf && buf->base)
-		free(buf->base);
+		AS_FREE(buf->base);
 }
 
 static void outer_accept_cb(

@@ -30,7 +30,7 @@ int asterism_core_prepare(struct asterism_s *as)
         }
         struct asterism_str __host = asterism_strdup_nul(host);
         ret = asterism_inner_http_init(as, __host.p, &port, host_type == ASTERISM_HOST_TYPE_IPV6);
-        free((char *)__host.p);
+        AS_FREE((char *)__host.p);
         if (ret)
             goto cleanup;
     }
@@ -55,7 +55,7 @@ int asterism_core_prepare(struct asterism_s *as)
         }
         struct asterism_str __host = asterism_strdup_nul(host);
         ret = asterism_outer_tcp_init(as, __host.p, &port, host_type == ASTERISM_HOST_TYPE_IPV6);
-        free((char *)__host.p);
+        AS_FREE((char *)__host.p);
         if (ret)
             goto cleanup;
     }
@@ -80,7 +80,7 @@ int asterism_core_prepare(struct asterism_s *as)
         }
         struct asterism_str __host = asterism_strdup_nul(host);
         ret = asterism_connector_tcp_init(as, __host.p, port);
-        free((char *)__host.p);
+        AS_FREE((char *)__host.p);
         if (ret)
             goto cleanup;
     }
@@ -94,12 +94,12 @@ int asterism_core_destory(struct asterism_s *as)
     if (as->loop)
         uv_loop_delete(as->loop);
     if (as->connect_addr)
-        free(as->connect_addr);
+        AS_FREE(as->connect_addr);
     if (as->inner_bind_addr)
-        free(as->inner_bind_addr);
+        AS_FREE(as->inner_bind_addr);
     if (as->outer_bind_addr)
-        free(as->outer_bind_addr);
-    free(as);
+        AS_FREE(as->outer_bind_addr);
+    AS_FREE(as);
 
     return ret;
 }

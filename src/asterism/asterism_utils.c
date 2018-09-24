@@ -21,13 +21,13 @@ int asterism_vsnprintf(char **buf, size_t size, const char *fmt, va_list ap)
         *buf = NULL;
         while (len < 0)
         {
-            free(*buf);
+            AS_FREE(*buf);
             if (size == 0)
             {
                 size = 5;
             }
             size *= 2;
-            if ((*buf = (char *)malloc(size)) == NULL)
+            if ((*buf = (char *)AS_MALLOC(size)) == NULL)
             {
                 len = -1;
                 break;
@@ -41,7 +41,7 @@ int asterism_vsnprintf(char **buf, size_t size, const char *fmt, va_list ap)
     }
     else if (len >= (int)size)
     {
-        if ((*buf = (char *)malloc(len + 1)) == NULL)
+        if ((*buf = (char *)AS_MALLOC(len + 1)) == NULL)
         {
             len = -1;
         }
@@ -199,7 +199,7 @@ static struct asterism_str asterism_strdup_common(const struct asterism_str s,
     struct asterism_str r = {NULL, 0};
     if (s.len > 0 && s.p != NULL)
     {
-        char *sc = (char *)malloc(s.len + (nul_terminate ? 1 : 0));
+        char *sc = (char *)AS_MALLOC(s.len + (nul_terminate ? 1 : 0));
         if (sc != NULL)
         {
             memcpy(sc, s.p, s.len);
@@ -220,6 +220,17 @@ struct asterism_str asterism_strdup(const struct asterism_str s)
 struct asterism_str asterism_strdup_nul(const struct asterism_str s)
 {
     return asterism_strdup_common(s, 1 /* NUL-terminate */);
+}
+
+char *as_strdup(const char *src)
+{
+    size_t len = strlen(src) + 1;
+    char *ret = AS_MALLOC(len);
+    if (ret != NULL)
+    {
+        strcpy(ret, src);
+    }
+    return ret;
 }
 
 const char *asterism_strchr(const struct asterism_str s, int c)

@@ -9,15 +9,18 @@
 #define vsnprintf _vsnprintf
 #endif
 
+#define AS_MALLOC malloc
+#define AS_FREE free
+
 #define asterism_safefree(d) \
     if (d)                   \
     {                        \
-        free(d);             \
+        AS_FREE(d);          \
         d = 0;               \
     }
 
-#define __zero_malloc_st(s) (s *)memset(malloc(sizeof(s)), 0, sizeof(s))
-#define __dup_mem(b, s) memcpy(malloc(s), b, s)
+#define __zero_malloc_st(s) (s *)memset(AS_MALLOC(sizeof(s)), 0, sizeof(s))
+#define __dup_mem(b, s) memcpy(AS_MALLOC(s), b, s)
 #define __container_ptr(s, m, p) (s *)((unsigned char *)p - (unsigned char *)(&((s *)0)->m))
 
 #define ASTERISM_SNPRINTF_FLAG_ZERO 1
@@ -51,6 +54,8 @@ int asterism_vcasecmp(const struct asterism_str *str1, const char *str2);
 struct asterism_str asterism_strdup(const struct asterism_str s);
 
 struct asterism_str asterism_strdup_nul(const struct asterism_str s);
+
+char *as_strdup(const char *src);
 
 const char *asterism_strchr(const struct asterism_str s, int c);
 

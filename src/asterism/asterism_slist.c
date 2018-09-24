@@ -23,7 +23,7 @@ struct asterism_slist *asterism_slist_append_nodup(struct asterism_slist *list, 
   struct asterism_slist *last;
   struct asterism_slist *new_item;
 
-  new_item = (struct asterism_slist *)malloc(sizeof(struct asterism_slist));
+  new_item = (struct asterism_slist *)AS_MALLOC(sizeof(struct asterism_slist));
   if (!new_item)
     return 0;
 
@@ -41,14 +41,14 @@ struct asterism_slist *asterism_slist_append_nodup(struct asterism_slist *list, 
 struct asterism_slist *asterism_slist_append(struct asterism_slist *list,
                                              const char *data)
 {
-  char *dupdata = strdup(data);
+  char *dupdata = as_strdup(data);
 
   if (!dupdata)
     return 0;
 
   list = asterism_slist_append_nodup(list, dupdata);
   if (!list)
-    free(dupdata);
+    AS_FREE(dupdata);
 
   return list;
 }
@@ -87,7 +87,7 @@ void asterism_slist_free_all(struct asterism_slist *list)
   {
     next = item->next;
     asterism_safefree(item->data);
-    free(item);
+    AS_FREE(item);
     item = next;
   } while (next);
 }
