@@ -47,19 +47,43 @@ int asterism_set_option(asterism as, asterism_option opt, ...)
     switch (opt)
     {
     case ASTERISM_OPT_INNER_BIND_ADDR:
+        if (__as->inner_bind_addr)
+            free(__as->inner_bind_addr);
         __as->inner_bind_addr = as_strdup(va_arg(ap, const char *));
         break;
     case ASTERISM_OPT_OUTER_BIND_ADDR:
+        if (__as->outer_bind_addr)
+            free(__as->outer_bind_addr);
         __as->outer_bind_addr = as_strdup(va_arg(ap, const char *));
         break;
     case ASTERISM_OPT_CONNECT_ADDR:
+        if (__as->connect_addr)
+            free(__as->connect_addr);
         __as->connect_addr = as_strdup(va_arg(ap, const char *));
         break;
     case ASTERISM_OPT_USERNAME:
-        __as->username = as_strdup(va_arg(ap, const char *));
+        const char *username = va_arg(ap, const char *);
+        size_t username_len = strlen(username);
+        if (username_len > ASTREISM_USERNAME_MAX_LEN || username_len == 0)
+        {
+            ret = ASTERISM_E_INVALID_ARGS;
+            break;
+        }
+        if (__as->username)
+            free(__as->username);
+        __as->username = as_strdup(username);
         break;
     case ASTERISM_OPT_PASSWORD:
-        __as->password = as_strdup(va_arg(ap, const char *));
+        const char *password = va_arg(ap, const char *);
+        size_t password_len = strlen(password);
+        if (password_len > ASTREISM_PASSWORD_MAX_LEN || password_len == 0)
+        {
+            ret = ASTERISM_E_INVALID_ARGS;
+            break;
+        }
+        if (__as->password)
+            free(__as->password);
+        __as->password = as_strdup(password);
         break;
     case ASTERISM_OPT_CONNECT_REDIRECT_HOOK:
         __as->connect_redirect_hook_cb = va_arg(ap, asterism_connnect_redirect_hook);

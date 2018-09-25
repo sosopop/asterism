@@ -67,6 +67,11 @@ int asterism_core_prepare(struct asterism_s *as)
         asterism_host_type host_type;
         scheme.len = 0;
         host.len = 0;
+        if (!as->username || !as->password)
+        {
+            ret = ASTERISM_E_USERPASS_EMPTY;
+            goto cleanup;
+        }
         int ret_addr = asterism_parse_address(as->connect_addr, &scheme, &host, &port, &host_type);
         if (ret_addr)
         {
@@ -93,6 +98,10 @@ int asterism_core_destory(struct asterism_s *as)
     int ret = ASTERISM_E_OK;
     if (as->loop)
         uv_loop_delete(as->loop);
+    if (as->username)
+        AS_FREE(as->username);
+    if (as->password)
+        AS_FREE(as->password);
     if (as->connect_addr)
         AS_FREE(as->connect_addr);
     if (as->inner_bind_addr)
@@ -115,4 +124,11 @@ int asterism_core_run(struct asterism_s *as)
     }
 cleanup:
     return ret;
+}
+
+static uint64_t asterism_trans_id = 0;
+
+uint64_t asterism_trans_new_id()
+{
+    return asterism_trans_id++;
 }

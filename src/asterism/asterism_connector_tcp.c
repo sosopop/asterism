@@ -135,6 +135,60 @@ cleanup:
 		AS_FREE(buf->base);
 }
 
+#define CONNECT_MAX_BUFFER_SIZE 512
+
+static void connector_send_cb(
+	uv_write_t *req,
+	int status)
+{
+	struct asterism_write_req_s *write_req = (struct asterism_write_req_s *)req;
+	free(write_req->write_buffer.base);
+	free(write_req);
+}
+
+static int connector_send_connect(struct asterism_tcp_connector_s *connector)
+{
+	int ret = 0;
+	struct asterism_s *as = connector->as;
+	struct asterism_trans_proto_s *connect_data = (struct asterism_trans_proto_s *)malloc(CONNECT_MAX_BUFFER_SIZE);
+	connect_data->version = ASTERISM_TRANS_PROTO_VERSION;
+	connect_data->sign = ASTERISM_TRANS_PROTO_SIGN;
+	connect_data->win_size = ASTERISM_TRANS_PROTO_WIN_SIZE;
+	connect_data->cmd = ASTERISM_TRANS_PROTO_CONNECT;
+	connect_data->seq = 0;
+	connect_data->seq_ack = 0;
+	connect_data->id = 0;
+
+	char *off = (char *)connect_data->payload;
+	size_t username_len = strlen(as->username);
+	*(uint16_t *)off = htons((uint16_t)strlen(as->username));
+	off += 2;
+	memcpy(off, as->username, username_len);
+	off += username_len;
+
+	size_t password_len = strlen(as->password);
+	*(uint16_t *)off = htons((uint16_t)strlen(as->password));
+	off += 2;
+	memcpy(off, as->password, password_len);
+	off += password_len;
+	connect_data->packet_size = off - (char *)connect_data;
+	struct asterism_write_req_s *write_req = __zero_malloc_st(struct asterism_write_req_s);
+	write_req->write_buffer.base = (char *)connect_data;
+	write_req->write_buffer.len = connect_data->packet_size;
+	ret = uv_write(&write_req->write_req, (uv_stream_t *)&connector->socket, &write_req->write_buffer, 1, connector_send_cb);
+	if (ret != 0)
+	{
+		goto cleanup;
+	}
+cleanup:
+	if (ret != 0)
+	{
+		if (connect_data)
+			free(connect_data);
+	}
+	return ret;
+}
+
 static void connector_connected(
 	uv_connect_t *req,
 	int status)
@@ -147,6 +201,12 @@ static void connector_connected(
 		goto cleanup;
 	}
 	ret = uv_read_start((uv_stream_t *)&connector->socket, connector_data_read_alloc_cb, connector_read_cb);
+	if (ret != 0)
+	{
+		ret = ASTERISM_E_FAILED;
+		goto cleanup;
+	}
+	ret = connector_send_connect(connector);
 	if (ret != 0)
 	{
 		ret = ASTERISM_E_FAILED;

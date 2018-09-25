@@ -21,7 +21,8 @@
         "vector": "c",
         "xutility": "c",
         "jemalloc.h": "c",
-        "list": "c"
+        "list": "c",
+        "memory": "c"
     },
     "C_Cpp.configurationWarnings": "Disabled"
 }

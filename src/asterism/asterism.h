@@ -48,14 +48,15 @@ extern "C"
     void asterism_set_log_level(
         asterism_log_level level);
 
-#define ASTERISM_ERROR_MAP(XX)                       \
-    XX(OK, "success")                                \
-    XX(FAILED, "failed")                             \
-    XX(INVALID_ARGS, "invalid arguments")            \
-    XX(OBJECT_ALREADY_EXIST, "object already exist") \
-    XX(OBJECT_NOT_EXIST, "object not exist")         \
-    XX(ADDRESS_PARSE_ERROR, "address parse error")   \
-    XX(PROTOCOL_NOT_SUPPORT, "protocol not support") \
+#define ASTERISM_ERROR_MAP(XX)                          \
+    XX(OK, "success")                                   \
+    XX(FAILED, "failed")                                \
+    XX(INVALID_ARGS, "invalid arguments")               \
+    XX(OBJECT_ALREADY_EXIST, "object already exist")    \
+    XX(OBJECT_NOT_EXIST, "object not exist")            \
+    XX(ADDRESS_PARSE_ERROR, "address parse error")      \
+    XX(USERPASS_EMPTY, "username or password is empty") \
+    XX(PROTOCOL_NOT_SUPPORT, "protocol not support")    \
     XX(SOCKET_LISTEN_ERROR, "socket listen error")
 
 #define ASTERISM_ERROR_GEN(n, s) ASTERISM_E_##n,
