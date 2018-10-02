@@ -170,6 +170,14 @@ static int connector_send_join(struct asterism_tcp_connector_s *connector)
 	uint16_t packet_len = (uint16_t)(off - (char *)connect_data);
 	connect_data->len = htons(packet_len);
 	struct asterism_write_req_s *write_req = __zero_malloc_st(struct asterism_write_req_s);
+
+//²âÊÔÕ³°ü
+// 	char* new_buffer = (char*)malloc(packet_len * 2);
+// 	memcpy(new_buffer, connect_data, packet_len);
+// 	memcpy(new_buffer + packet_len, connect_data, packet_len);
+// 	write_req->write_buffer.base = new_buffer;
+// 	write_req->write_buffer.len = packet_len * 2;
+
 	write_req->write_buffer.base = (char *)connect_data;
 	write_req->write_buffer.len = packet_len;
 	ret = uv_write(&write_req->write_req, (uv_stream_t *)&connector->socket, &write_req->write_buffer, 1, connector_send_cb);

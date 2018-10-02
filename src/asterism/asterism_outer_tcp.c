@@ -97,6 +97,8 @@ static void incoming_data_read_alloc_cb(
 		}
 		buf->base = incoming->cmd_buffer + incoming->cmd_buffer_len;
 		buf->len = ASTERISM_MAX_PROTO_SIZE - incoming->cmd_buffer_len;
+		//buf->len = 10;
+		//测试分包
 	}
 	else {
 		buf->base = (char *)AS_MALLOC(ASTERISM_TCP_BLOCK_SIZE);
@@ -205,13 +207,13 @@ static int incoming_parse_cmd_data(
 	if (buf->len < sizeof(struct asterism_trans_proto_s))
 		return 0;
 	struct asterism_trans_proto_s* proto = (struct asterism_trans_proto_s*)buf->base;
-	proto->len = ntohs(proto->len);
+	uint16_t proto_len = ntohs(proto->len);
 	if (proto->version != ASTERISM_TRANS_PROTO_VERSION)
 		return -1;
-	if (proto->len > ASTERISM_MAX_PROTO_SIZE)
+	if (proto_len > ASTERISM_MAX_PROTO_SIZE)
 		return -1;
 	//长度不够继续获取
-	if (proto->len < buf->len) {
+	if (proto_len > buf->len) {
 		return 0;
 	}
 	//匹配命令
@@ -225,11 +227,11 @@ static int incoming_parse_cmd_data(
 	else if (proto->cmd == ASTERISM_TRANS_PROTO_CONNECT_ACK)
 	{
 	}
-	*eaten += proto->len;
-	unsigned int remain = buf->len - proto->len;
+	*eaten += proto_len;
+	unsigned int remain = buf->len - proto_len;
 	if (remain) {
 		uv_buf_t __buf;
-		__buf.base = buf->base + proto->len;
+		__buf.base = buf->base + proto_len;
 		__buf.len = remain;
 		return incoming_parse_cmd_data(incoming, &__buf, eaten);
 	}
@@ -255,9 +257,14 @@ static void incoming_read_cb(
 				return;
 			}
 			int remain = incoming->cmd_buffer_len - eaten;
-			if (remain && eaten > 0 ) {
-				memmove(incoming->cmd_buffer, incoming->cmd_buffer + eaten, remain);
-				incoming->cmd_buffer_len = remain;
+			if (eaten > 0) {
+				if (remain) {
+					memmove(incoming->cmd_buffer, incoming->cmd_buffer + eaten, remain);
+					incoming->cmd_buffer_len = remain;
+				}
+				else {
+					incoming->cmd_buffer_len = 0;
+				}
 			}
 		}
 		else if (incoming->connection_type == ASTERISM_TCP_CONNECTION_TYPE_DATA) {
