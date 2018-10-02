@@ -89,8 +89,19 @@ static void incoming_data_read_alloc_cb(
 	uv_buf_t *buf)
 {
 	struct asterism_tcp_incoming_s *incoming = (struct asterism_tcp_incoming_s *)handle;
-	buf->base = (char *)AS_MALLOC(ASTERISM_TCP_BLOCK_SIZE);
-	buf->len = ASTERISM_TCP_BLOCK_SIZE;
+	if (incoming->connection_type == ASTERISM_TCP_CONNECTION_TYPE_CMD) {
+		//未知连接状态，则分配命令缓冲区
+		if (!incoming->cmd_buffer) {
+			incoming->cmd_buffer = (char *)AS_MALLOC(ASTERISM_MAX_PROTO_SIZE);
+			incoming->cmd_buffer_len = 0;
+		}
+		buf->base = incoming->cmd_buffer + incoming->cmd_buffer_len;
+		buf->len = ASTERISM_MAX_PROTO_SIZE - incoming->cmd_buffer_len;
+	}
+	else {
+		buf->base = (char *)AS_MALLOC(ASTERISM_TCP_BLOCK_SIZE);
+		buf->len = ASTERISM_TCP_BLOCK_SIZE;
+	}
 }
 
 static void incoming_shutdown_cb(
@@ -137,6 +148,94 @@ cleanup:
 	return ret;
 }
 
+static int parse_cmd_join(
+	struct asterism_tcp_incoming_s *incoming, 
+	struct asterism_trans_proto_s* proto)
+{
+	int offset = sizeof(struct asterism_trans_proto_s);
+	unsigned short username_len = 0;
+	char* username = 0;
+	unsigned short password_len = 0;
+	char* password = 0;
+
+	//读取用户名密码
+	if (offset + 2 > proto->len)
+		return -1;
+	username_len = ntohs(*(unsigned short*)((char*)proto + offset));
+	offset += 2;
+
+	if (offset + username_len > proto->len)
+		return -1;
+	username = (char*)((char*)proto + offset);
+	offset += username_len;
+
+	if (offset + 2 > proto->len)
+		return -1;
+	password_len = ntohs(*(unsigned short*)((char*)proto + offset));
+	offset += 2;
+
+	if (offset + password_len > proto->len)
+		return -1;
+	password = (char*)((char*)proto + offset);
+	offset += password_len;
+
+	//将用户名密码写入到会话列表
+	struct asterism_session_s* session = __zero_malloc_st(struct asterism_session_s);
+	session->username = as_strdup2(username, username_len);
+	struct asterism_session_s* fs = RB_FIND(asterism_session_tree_s, &incoming->as->sessions, session);
+	if (fs) {
+		AS_FREE(session->username);
+		AS_FREE(session);
+		return -1;
+	}
+	session->password = as_strdup2(password, password_len);
+	RB_INSERT(asterism_session_tree_s, &incoming->as->sessions, session);
+	//确定连接类型
+	incoming->connection_type = ASTERISM_TCP_CONNECTION_TYPE_CMD;
+	return 0;
+}
+
+static int incoming_parse_cmd_data(
+	struct asterism_tcp_incoming_s *incoming,
+	uv_buf_t *buf,
+	int* eaten
+)
+{
+	//长度不够继续获取
+	if (buf->len < sizeof(struct asterism_trans_proto_s))
+		return 0;
+	struct asterism_trans_proto_s* proto = (struct asterism_trans_proto_s*)buf->base;
+	proto->len = ntohs(proto->len);
+	if (proto->version != ASTERISM_TRANS_PROTO_VERSION)
+		return -1;
+	if (proto->len > ASTERISM_MAX_PROTO_SIZE)
+		return -1;
+	//长度不够继续获取
+	if (proto->len < buf->len) {
+		return 0;
+	}
+	//匹配命令
+	if (proto->cmd == ASTERISM_TRANS_PROTO_JOIN) {
+		if (parse_cmd_join(incoming, proto) != 0)
+			return -1;
+	}
+	else if (proto->cmd == ASTERISM_TRANS_PROTO_CONNECT)
+	{
+	}
+	else if (proto->cmd == ASTERISM_TRANS_PROTO_CONNECT_ACK)
+	{
+	}
+	*eaten += proto->len;
+	unsigned int remain = buf->len - proto->len;
+	if (remain) {
+		uv_buf_t __buf;
+		__buf.base = buf->base + proto->len;
+		__buf.len = remain;
+		return incoming_parse_cmd_data(incoming, &__buf, eaten);
+	}
+	return 0;
+}
+
 static void incoming_read_cb(
 	uv_stream_t *stream,
 	ssize_t nread,
@@ -145,7 +244,30 @@ static void incoming_read_cb(
 	struct asterism_tcp_incoming_s *incoming = (struct asterism_tcp_incoming_s *)stream;
 	if (nread > 0)
 	{
-		goto cleanup;
+		int eaten = 0;
+		if (incoming->connection_type == ASTERISM_TCP_CONNECTION_TYPE_CMD ) {
+			incoming->cmd_buffer_len += nread;
+			uv_buf_t buf;
+			buf.base = incoming->cmd_buffer;
+			buf.len = incoming->cmd_buffer_len;
+			if (incoming_parse_cmd_data(incoming, &buf, &eaten) != 0) {
+				incoming_close(incoming);
+				return;
+			}
+			int remain = incoming->cmd_buffer_len - eaten;
+			if (remain && eaten > 0 ) {
+				memmove(incoming->cmd_buffer, incoming->cmd_buffer + eaten, remain);
+				incoming->cmd_buffer_len = remain;
+			}
+		}
+		else if (incoming->connection_type == ASTERISM_TCP_CONNECTION_TYPE_DATA) {
+
+		}
+		else {
+			incoming_close(incoming);
+			return;
+		}
+		return;
 	}
 	else if (nread == 0)
 	{
@@ -215,7 +337,6 @@ int asterism_outer_tcp_init(
 	struct asterism_s *as,
 	const char *ip, unsigned int *port, int ipv6)
 {
-
 	int ret = ASTERISM_E_OK;
 	void *addr = 0;
 	int name_len = 0;

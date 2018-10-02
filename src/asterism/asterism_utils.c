@@ -130,7 +130,7 @@ int asterism_base64_decode(const unsigned char *s, int len, char *dst, int *dec_
     }
     *dst = 0;
     if (dec_len != NULL)
-        *dec_len = (dst - orig_dst);
+        *dec_len = (int)(dst - orig_dst);
     return orig_len - len;
 }
 
@@ -231,6 +231,17 @@ char *as_strdup(const char *src)
         strcpy(ret, src);
     }
     return ret;
+}
+
+char *as_strdup2(const char *src, size_t len)
+{
+	char *ret = AS_MALLOC(len + 1);
+	if (ret != NULL)
+	{
+		memcpy(ret, src, len);
+		ret[len] = '\0';
+	}
+	return ret;
 }
 
 const char *asterism_strchr(const struct asterism_str s, int c)

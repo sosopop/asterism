@@ -4,6 +4,13 @@
 #include "asterism_connector_tcp.h"
 #include "asterism_utils.h"
 
+int asterism_session_compare(struct asterism_session_s* a, struct asterism_session_s* b) {
+	return strcmp(a->username, b->username);
+}
+
+RB_GENERATE(asterism_session_tree_s, asterism_session_s, tree_entry, asterism_session_compare);
+
+
 int asterism_core_prepare(struct asterism_s *as)
 {
     int ret = ASTERISM_E_OK;
@@ -124,11 +131,4 @@ int asterism_core_run(struct asterism_s *as)
     }
 cleanup:
     return ret;
-}
-
-static uint64_t asterism_trans_id = 0;
-
-uint64_t asterism_trans_new_id()
-{
-    return asterism_trans_id++;
 }

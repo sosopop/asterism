@@ -11,6 +11,7 @@
 
 #define AS_MALLOC malloc
 #define AS_FREE free
+#define AS_REALLOC realloc
 
 #define asterism_safefree(d) \
     if (d)                   \
@@ -56,6 +57,8 @@ struct asterism_str asterism_strdup(const struct asterism_str s);
 struct asterism_str asterism_strdup_nul(const struct asterism_str s);
 
 char *as_strdup(const char *src);
+
+char *as_strdup2(const char *src, size_t len);
 
 const char *asterism_strchr(const struct asterism_str s, int c);
 
