@@ -16,13 +16,18 @@ struct asterism_http_incoming_s
 {
     uv_tcp_t socket;
     struct asterism_s *as;
-    uv_buf_t http_connect_buffer;
-    unsigned int http_connect_buffer_read;
     http_parser parser;
     struct asterism_str http_header_field_temp;
     struct asterism_str http_header_value_temp;
     struct asterism_str connect_host;
     struct asterism_str auth_info;
+	struct asterism_session_s* session;
+	struct asterism_tunnel_s* tunnel;
+
+	char buffer[ASTERISM_TCP_BLOCK_SIZE];
+	unsigned int buffer_len;
+	struct asterism_write_req_s write_req;
+
     char *remote_host;
     char *username;
     char *password;

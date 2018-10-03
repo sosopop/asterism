@@ -67,8 +67,6 @@ cleanup:
 
 static void incoming_delete(struct asterism_http_incoming_s *obj)
 {
-    if (obj->http_connect_buffer.base)
-        AS_FREE(obj->http_connect_buffer.base);
     if (obj->remote_host)
         AS_FREE(obj->remote_host);
     if (obj->username)
@@ -101,28 +99,20 @@ static void incoming_data_read_alloc_cb(
 {
     struct asterism_http_incoming_s *incoming = (struct asterism_http_incoming_s *)handle;
     if (incoming->tunnel_connected)
-    {
-        buf->len = ASTERISM_TCP_BLOCK_SIZE;
-        buf->base = (char *)AS_MALLOC(ASTERISM_TCP_BLOCK_SIZE);
+	{
+		buf->len = ASTERISM_TCP_BLOCK_SIZE;
+		buf->base = incoming->buffer;
+		incoming->buffer_len = 0;
     }
     else
-    {
-        if (!incoming->http_connect_buffer.base)
-        {
-            if (incoming->header_parsed)
-            {
-                incoming_close(incoming);
-                return;
-            }
-            buf->len = ASTERISM_MAX_HTTP_HEADER_SIZE;
-            buf->base = (char *)AS_MALLOC(ASTERISM_MAX_HTTP_HEADER_SIZE);
-            incoming->http_connect_buffer = *buf;
-        }
-        else
-        {
-            buf->len = ASTERISM_MAX_HTTP_HEADER_SIZE - incoming->http_connect_buffer_read;
-            buf->base = incoming->http_connect_buffer.base + incoming->http_connect_buffer_read;
-        }
+	{
+		if (incoming->header_parsed)
+		{
+			incoming_close(incoming);
+			return;
+		}
+		buf->base = incoming->buffer + incoming->buffer_len;
+		buf->len = ASTERISM_MAX_PROTO_SIZE - incoming->buffer_len;
     }
 }
 
@@ -270,6 +260,115 @@ cleanup:
     return ret;
 }
 
+static void handshake_write_cb(
+	uv_write_t *req,
+	int status)
+{
+	struct asterism_write_req_s *write_req = (struct asterism_write_req_s *)req;
+	free(write_req->write_buffer.base);
+	free(write_req);
+}
+
+static int incoming_parse_connect(
+	struct asterism_http_incoming_s *incoming,
+	ssize_t nread,
+	const uv_buf_t *buf
+) 
+{
+	size_t nparsed = http_parser_execute(&incoming->parser, &parser_settings, buf->base, nread);
+	if (incoming->parser.http_errno != 0)
+	{
+		asterism_log(ASTERISM_LOG_DEBUG, "%s", http_errno_description((enum http_errno)incoming->parser.http_errno));
+		return -1;
+	}
+	if (nparsed != nread)
+		return -1;
+	if (!incoming->header_parsed &&
+		incoming->buffer_len == ASTERISM_MAX_HTTP_HEADER_SIZE)
+		return -1;
+	if (incoming->header_parsed)
+	{
+		if (incoming->parser.method != HTTP_CONNECT)
+			return -1;
+		if (!incoming->connect_host.len)
+			return -1;
+		if (!incoming->auth_info.len)
+			return -1;
+		if (incoming->connect_host.len > 256)
+			return -1;
+		incoming->remote_host = (char *)asterism_strdup_nul(incoming->connect_host).p;
+		struct asterism_str base_prefix = asterism_mk_str("Basic ");
+		if (asterism_strncmp(incoming->auth_info, base_prefix, base_prefix.len) != 0)
+			return -1;
+		char decode_buffer[128] = { 0 };
+		int deocode_size = sizeof(decode_buffer);
+		int parsed = asterism_base64_decode(
+			(const unsigned char *)incoming->auth_info.p + base_prefix.len,
+			(int)(incoming->auth_info.len - base_prefix.len),
+			decode_buffer,
+			&deocode_size);
+		if (parsed != incoming->auth_info.len - base_prefix.len)
+			return -1;
+		char *split_pos = strchr(decode_buffer, ':');
+		if (!split_pos)
+			return -1;
+		*split_pos = 0;
+		incoming->username = as_strdup(decode_buffer);
+		incoming->password = as_strdup(split_pos + 1);
+		asterism_log(ASTERISM_LOG_DEBUG, "http request username: %s , password: %s", incoming->username, incoming->password);
+		struct asterism_session_s sefilter;
+		sefilter.username = incoming->username;
+		struct asterism_session_s* session = RB_FIND(asterism_session_tree_s, &incoming->as->sessions, &sefilter);
+		//获取步到此用户
+		if (!session)
+			return -1;
+		//密码验证失败
+		if (strcmp(session->password, incoming->password))
+			return -1;
+
+		//session->inner = incoming;
+		//incoming->tunnel_connected = 1;
+		incoming->session = session;
+
+		//创建tunnel
+		struct asterism_tunnel_s* tunnel = __zero_malloc_st(struct asterism_tunnel_s);
+		tunnel->inner = incoming;
+		tunnel->handshake_id = asterism_tunnel_new_handshake_id();
+		QUEUE_INSERT_TAIL(&session->handshake_queue, &tunnel->handshake_queue);
+
+		//通过session转发连接请求
+		struct asterism_write_req_s* req = __zero_malloc_st(struct asterism_write_req_s);
+		struct asterism_trans_proto_s *connect_data = (struct asterism_trans_proto_s *)malloc(512);
+		connect_data->version = ASTERISM_TRANS_PROTO_VERSION;
+		connect_data->cmd = ASTERISM_TRANS_PROTO_CONNECT;
+
+		char *off = (char *)connect_data + sizeof(struct asterism_trans_proto_s);
+		*(uint16_t *)off = htons((uint16_t)incoming->connect_host.len);
+		off += 2;
+		memcpy(off, incoming->connect_host.p, incoming->connect_host.len);
+		off += incoming->connect_host.len;
+
+		uint16_t packet_len = (uint16_t)(off - (char *)connect_data);
+		connect_data->len = htons(packet_len);
+
+		req->write_buffer.base = (char *)connect_data;
+		req->write_buffer.len = packet_len;
+
+		int write_ret = uv_write((uv_write_t*)req, (uv_stream_t*)session->outer, &req->write_buffer, 1, handshake_write_cb);
+		if (write_ret != 0) {
+			free(req->write_buffer.base);
+			free(req);
+			return -1;
+		}
+
+
+		incoming->buffer_len = 0;
+
+		asterism_log(ASTERISM_LOG_DEBUG, "header_parsed");
+	}
+	return 0;
+}
+
 static void incoming_read_cb(
     uv_stream_t *stream,
     ssize_t nread,
@@ -284,79 +383,15 @@ static void incoming_read_cb(
         }
         else
         {
-            incoming->http_connect_buffer_read += (unsigned int)nread;
-            size_t nparsed = http_parser_execute(&incoming->parser, &parser_settings, buf->base, nread);
-            if (incoming->parser.http_errno != 0)
-            {
-                asterism_log(ASTERISM_LOG_DEBUG, "%s", http_errno_description((enum http_errno)incoming->parser.http_errno));
-                incoming_close(incoming);
-                goto cleanup;
-            }
-            if (nparsed != nread)
-            {
-                incoming_close(incoming);
-                goto cleanup;
-            }
-            if (!incoming->header_parsed &&
-                incoming->http_connect_buffer_read == ASTERISM_MAX_HTTP_HEADER_SIZE)
-            {
-                incoming_close(incoming);
-                goto cleanup;
-            }
-            if (incoming->header_parsed)
-            {
-                if (incoming->parser.method != HTTP_CONNECT)
-                {
-                    incoming_close(incoming);
-                    goto cleanup;
-                }
-                if (!incoming->connect_host.len)
-                {
-                    incoming_close(incoming);
-                    goto cleanup;
-                }
-                if (!incoming->auth_info.len)
-                {
-                    incoming_close(incoming);
-                    goto cleanup;
-                }
-                incoming->remote_host = (char *)asterism_strdup_nul(incoming->connect_host).p;
-                struct asterism_str base_prefix = asterism_mk_str("Basic ");
-                if (asterism_strncmp(incoming->auth_info, base_prefix, base_prefix.len) != 0)
-                {
-                    incoming_close(incoming);
-                    goto cleanup;
-                }
-                char decode_buffer[128] = {0};
-                int deocode_size = sizeof(decode_buffer);
-                int parsed = asterism_base64_decode(
-                    (const unsigned char *)incoming->auth_info.p + base_prefix.len,
-                    (int)(incoming->auth_info.len - base_prefix.len),
-                    decode_buffer,
-                    &deocode_size);
-                if (parsed != incoming->auth_info.len - base_prefix.len)
-                {
-                    incoming_close(incoming);
-                    goto cleanup;
-                }
-                char *split_pos = strchr(decode_buffer, ':');
-                if (!split_pos)
-                {
-                    incoming_close(incoming);
-                    goto cleanup;
-                }
-                *split_pos = 0;
-                incoming->username = as_strdup(decode_buffer);
-                incoming->password = as_strdup(split_pos + 1);
-                asterism_log(ASTERISM_LOG_DEBUG, "username: %s , password: %s", incoming->username, incoming->password);
-                asterism_log(ASTERISM_LOG_DEBUG, "header_parsed");
-            }
-        }
-        goto cleanup;
+            incoming->buffer_len += (unsigned int)nread;
+			if (incoming_parse_connect(incoming, nread, buf) != 0) {
+				incoming_close(incoming);
+			}
+		}
     }
     else if (nread == 0)
     {
-        goto cleanup;
+		return;
     }
     else if (nread == UV_EOF)
     {
@@ -369,16 +404,12 @@ static void incoming_read_cb(
         {
             incoming_end(incoming);
         }
-        goto cleanup;
     }
     else
     {
         asterism_log(ASTERISM_LOG_DEBUG, "%s", uv_strerror((int)nread));
         incoming_close(incoming);
     }
-cleanup:
-    if (buf && buf->base)
-        AS_FREE(buf->base);
 }
 
 static void inner_accept_cb(

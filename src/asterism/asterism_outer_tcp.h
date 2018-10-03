@@ -19,11 +19,19 @@ struct asterism_tcp_incoming_s
 {
 	uv_tcp_t socket;
 	struct asterism_s *as;
+	//char* cmd_buffer;
+	//unsigned short cmd_buffer_len;
+
+	char buffer[ASTERISM_TCP_BLOCK_SIZE];
+	unsigned int buffer_len;
+	struct asterism_write_req_s write_req;
+
+	//struct asterism_tunnel_s* tunnel;
+	struct asterism_session_s* session;
+
 	unsigned int fin_recv : 1;
 	unsigned int fin_send : 1;
 	unsigned int connection_type : 1;
-	char* cmd_buffer;
-	unsigned short cmd_buffer_len;
 };
 
 int asterism_outer_tcp_init(

@@ -52,6 +52,10 @@ static void connector_data_read_alloc_cb(
 	struct asterism_tcp_connector_s *connector = (struct asterism_tcp_connector_s *)handle;
 	buf->base = (char *)AS_MALLOC(ASTERISM_TCP_BLOCK_SIZE);
 	buf->len = ASTERISM_TCP_BLOCK_SIZE;
+
+// 	buf->len = ASTERISM_TCP_BLOCK_SIZE;
+// 	buf->base = incoming->tunnel->inner_buffer;
+// 	incoming->tunnel->inner_buffer_len = 0;
 }
 
 static void connector_shutdown_cb(
@@ -106,6 +110,29 @@ static void connector_read_cb(
 	struct asterism_tcp_connector_s *connector = (struct asterism_tcp_connector_s *)stream;
 	if (nread > 0)
 	{
+// 		incoming->cmd_buffer_len += nread;
+// 		uv_buf_t buf;
+// 		buf.base = incoming->cmd_buffer;
+// 		buf.len = incoming->cmd_buffer_len;
+// 		if (incoming_parse_cmd_data(incoming, &buf, &eaten) != 0) {
+// 			incoming_close(incoming);
+// 			return;
+// 		}
+// 		int remain = incoming->cmd_buffer_len - eaten;
+// 		if (eaten > 0) {
+// 			if (remain) {
+// 				memmove(incoming->cmd_buffer, incoming->cmd_buffer + eaten, remain);
+// 				incoming->cmd_buffer_len = remain;
+// 			}
+// 			else {
+// 				incoming->cmd_buffer_len = 0;
+// 			}
+// 		}
+// 		if (incoming->connection_type != ASTERISM_TCP_CONNECTION_TYPE_CMD) {
+// 			AS_FREE(incoming->cmd_buffer);
+// 			incoming->cmd_buffer = 0;
+// 			incoming->cmd_buffer_len = 0;
+// 		}
 		goto cleanup;
 	}
 	else if (nread == 0)
@@ -156,13 +183,13 @@ static int connector_send_join(struct asterism_tcp_connector_s *connector)
 
 	char *off = (char *)connect_data + sizeof(struct asterism_trans_proto_s);
 	size_t username_len = strlen(as->username);
-	*(uint16_t *)off = htons((uint16_t)strlen(as->username));
+	*(uint16_t *)off = htons((uint16_t)username_len);
 	off += 2;
 	memcpy(off, as->username, username_len);
 	off += username_len;
 
 	size_t password_len = strlen(as->password);
-	*(uint16_t *)off = htons((uint16_t)strlen(as->password));
+	*(uint16_t *)off = htons((uint16_t)password_len);
 	off += 2;
 	memcpy(off, as->password, password_len);
 	off += password_len;

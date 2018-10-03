@@ -64,6 +64,7 @@ cleanup:
 
 static void incoming_delete(struct asterism_tcp_incoming_s *obj)
 {
+	//asterism_safefree(obj->buffer);
 	AS_FREE(obj);
 }
 
@@ -89,20 +90,17 @@ static void incoming_data_read_alloc_cb(
 	uv_buf_t *buf)
 {
 	struct asterism_tcp_incoming_s *incoming = (struct asterism_tcp_incoming_s *)handle;
-	if (incoming->connection_type == ASTERISM_TCP_CONNECTION_TYPE_CMD) {
-		//未知连接状态，则分配命令缓冲区
-		if (!incoming->cmd_buffer) {
-			incoming->cmd_buffer = (char *)AS_MALLOC(ASTERISM_MAX_PROTO_SIZE);
-			incoming->cmd_buffer_len = 0;
-		}
-		buf->base = incoming->cmd_buffer + incoming->cmd_buffer_len;
-		buf->len = ASTERISM_MAX_PROTO_SIZE - incoming->cmd_buffer_len;
+	if (incoming->connection_type == ASTERISM_TCP_CONNECTION_TYPE_CMD) 
+	{
+		buf->base = incoming->buffer + incoming->buffer_len;
+		buf->len = ASTERISM_MAX_PROTO_SIZE - incoming->buffer_len;
 		//buf->len = 10;
 		//测试分包
 	}
 	else {
-		buf->base = (char *)AS_MALLOC(ASTERISM_TCP_BLOCK_SIZE);
 		buf->len = ASTERISM_TCP_BLOCK_SIZE;
+		buf->base = incoming->buffer;
+		incoming->buffer_len = 0;
 	}
 }
 
@@ -191,7 +189,14 @@ static int parse_cmd_join(
 		return -1;
 	}
 	session->password = as_strdup2(password, password_len);
+	session->outer = incoming;
+	//初始化握手tunnel队列
+	QUEUE_INIT(&session->handshake_queue);
+
 	RB_INSERT(asterism_session_tree_s, &incoming->as->sessions, session);
+
+	asterism_log(ASTERISM_LOG_DEBUG, "user: %s join.", session->username);
+
 	//确定连接类型
 	incoming->connection_type = ASTERISM_TCP_CONNECTION_TYPE_CMD;
 	return 0;
@@ -248,23 +253,26 @@ static void incoming_read_cb(
 	{
 		int eaten = 0;
 		if (incoming->connection_type == ASTERISM_TCP_CONNECTION_TYPE_CMD ) {
-			incoming->cmd_buffer_len += nread;
+			incoming->buffer_len += nread;
 			uv_buf_t buf;
-			buf.base = incoming->cmd_buffer;
-			buf.len = incoming->cmd_buffer_len;
+			buf.base = incoming->buffer;
+			buf.len = incoming->buffer_len;
 			if (incoming_parse_cmd_data(incoming, &buf, &eaten) != 0) {
 				incoming_close(incoming);
 				return;
 			}
-			int remain = incoming->cmd_buffer_len - eaten;
+			int remain = incoming->buffer_len - eaten;
 			if (eaten > 0) {
 				if (remain) {
-					memmove(incoming->cmd_buffer, incoming->cmd_buffer + eaten, remain);
-					incoming->cmd_buffer_len = remain;
+					memmove(incoming->buffer, incoming->buffer + eaten, remain);
+					incoming->buffer_len = remain;
 				}
 				else {
-					incoming->cmd_buffer_len = 0;
+					incoming->buffer_len = 0;
 				}
+			}
+			if (incoming->connection_type != ASTERISM_TCP_CONNECTION_TYPE_CMD) {
+				incoming->buffer_len = 0;
 			}
 		}
 		else if (incoming->connection_type == ASTERISM_TCP_CONNECTION_TYPE_DATA) {
@@ -272,13 +280,11 @@ static void incoming_read_cb(
 		}
 		else {
 			incoming_close(incoming);
-			return;
 		}
-		return;
 	}
 	else if (nread == 0)
 	{
-		goto cleanup;
+		return;
 	}
 	else if (nread == UV_EOF)
 	{
@@ -291,16 +297,12 @@ static void incoming_read_cb(
 		{
 			incoming_end(incoming);
 		}
-		goto cleanup;
 	}
 	else
 	{
 		asterism_log(ASTERISM_LOG_DEBUG, "%s", uv_strerror((int)nread));
 		incoming_close(incoming);
 	}
-cleanup:
-	if (buf && buf->base)
-		AS_FREE(buf->base);
 }
 
 static void outer_accept_cb(

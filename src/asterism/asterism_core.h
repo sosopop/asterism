@@ -58,11 +58,27 @@ struct asterism_trans_proto_s
 
 #pragma pack(pop)
 
+struct asterism_tunnel_s {
+	unsigned int handshake_id;
+	void* inner;
+	void* outer;
+	char inner_buffer[ASTERISM_TCP_BLOCK_SIZE];
+	unsigned int inner_buffer_len;
+	uv_write_t inner_writer;
+
+	char outer_buffer[ASTERISM_TCP_BLOCK_SIZE];
+	unsigned int outer_buffer_len;
+	uv_write_t outer_writer;
+
+	void* handshake_queue[2];
+};
+
 struct asterism_session_s {
 	char* username;
 	char* password;
-	void* inner;
 	void* outer;
+
+	void* handshake_queue[2];
 	RB_ENTRY(asterism_session_s) tree_entry;
 };
 
@@ -86,16 +102,6 @@ struct asterism_write_req_s
     uv_buf_t write_buffer;
 };
 
-/***
- * over tcp virtual link protocol
- * conv_id 4bytes
- * sequence_number 4bytes
- * ack_sequence_number 4bytes
- * free_buffer_size 4bytes
- * package_size 2bytes
- * payload package_size - head_size
- * */
-
 int asterism_core_prepare(struct asterism_s *as);
 
 int asterism_core_destory(struct asterism_s *as);
@@ -105,5 +111,7 @@ int asterism_core_run(struct asterism_s *as);
 int asterism_session_compare(struct asterism_session_s* a, struct asterism_session_s* b);
 
 RB_PROTOTYPE(asterism_session_tree_s, asterism_session_s, tree_entry, asterism_session_compare);
+
+unsigned int asterism_tunnel_new_handshake_id();
 
 #endif

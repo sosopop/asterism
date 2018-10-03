@@ -4,6 +4,12 @@
 #include "asterism_connector_tcp.h"
 #include "asterism_utils.h"
 
+unsigned int asterism_tunnel_new_handshake_id()
+{
+	static unsigned int id = 0;
+	return id++;
+}
+
 int asterism_session_compare(struct asterism_session_s* a, struct asterism_session_s* b) {
 	return strcmp(a->username, b->username);
 }
