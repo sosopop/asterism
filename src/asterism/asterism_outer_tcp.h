@@ -11,26 +11,14 @@ struct asterism_tcp_outer_s
 	struct asterism_s *as;
 };
 
-
-#define ASTERISM_TCP_CONNECTION_TYPE_CMD 0
-#define ASTERISM_TCP_CONNECTION_TYPE_DATA 1
+#define ASTERISM_TCP_OUTER_TYPE_CMD 0
+#define ASTERISM_TCP_OUTER_TYPE_DATA 1
 
 struct asterism_tcp_incoming_s
 {
-	uv_tcp_t socket;
-	struct asterism_s *as;
-	//char* cmd_buffer;
-	//unsigned short cmd_buffer_len;
+	ASTERISM_STREAM_FIELDS
 
-	char buffer[ASTERISM_TCP_BLOCK_SIZE];
-	unsigned int buffer_len;
-	struct asterism_write_req_s write_req;
-
-	//struct asterism_tunnel_s* tunnel;
 	struct asterism_session_s* session;
-
-	unsigned int fin_recv : 1;
-	unsigned int fin_send : 1;
 	unsigned int connection_type : 1;
 };
 

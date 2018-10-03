@@ -150,7 +150,7 @@ static int on_header_field(http_parser *parser, const char *at, size_t length)
             obj->auth_info = obj->http_header_value_temp;
             obj->header_auth_parsed = 0;
         }
-        asterism_log(ASTERISM_LOG_DEBUG, "on_header_value %.*s", obj->http_header_value_temp.len, obj->http_header_value_temp.p);
+        //asterism_log(ASTERISM_LOG_DEBUG, "on_header_value %.*s", obj->http_header_value_temp.len, obj->http_header_value_temp.p);
         obj->http_header_value_temp.p = 0;
         obj->http_header_value_temp.len = 0;
     }
@@ -175,7 +175,7 @@ static int on_header_value(http_parser *parser, const char *at, size_t length)
         {
             obj->header_auth_parsed = 1;
         }
-        asterism_log(ASTERISM_LOG_DEBUG, "on_header_field %.*s", obj->http_header_field_temp.len, obj->http_header_field_temp.p);
+        //asterism_log(ASTERISM_LOG_DEBUG, "on_header_field %.*s", obj->http_header_field_temp.len, obj->http_header_field_temp.p);
         obj->http_header_field_temp.p = 0;
         obj->http_header_field_temp.len = 0;
     }
@@ -193,13 +193,13 @@ static int on_message_complete(http_parser *parser)
             obj->auth_info = obj->http_header_value_temp;
             obj->header_auth_parsed = 0;
         }
-        asterism_log(ASTERISM_LOG_DEBUG, "on_header_value %.*s", obj->http_header_value_temp.len, obj->http_header_value_temp.p);
+        //asterism_log(ASTERISM_LOG_DEBUG, "on_header_value %.*s", obj->http_header_value_temp.len, obj->http_header_value_temp.p);
         obj->http_header_value_temp.p = 0;
         obj->http_header_value_temp.len = 0;
     }
     if (obj->connect_host.p)
     {
-        asterism_log(ASTERISM_LOG_DEBUG, "on_url %.*s", obj->connect_host.len, obj->connect_host.p);
+        //asterism_log(ASTERISM_LOG_DEBUG, "on_url %.*s", obj->connect_host.len, obj->connect_host.p);
     }
     return 0;
 }
@@ -294,7 +294,7 @@ static int incoming_parse_connect(
 			return -1;
 		if (!incoming->auth_info.len)
 			return -1;
-		if (incoming->connect_host.len > 256)
+		if (incoming->connect_host.len > MAX_HOST_LEN)
 			return -1;
 		incoming->remote_host = (char *)asterism_strdup_nul(incoming->connect_host).p;
 		struct asterism_str base_prefix = asterism_mk_str("Basic ");
@@ -330,15 +330,17 @@ static int incoming_parse_connect(
 		//incoming->tunnel_connected = 1;
 		incoming->session = session;
 
-		//创建tunnel
-		struct asterism_tunnel_s* tunnel = __zero_malloc_st(struct asterism_tunnel_s);
-		tunnel->inner = incoming;
-		tunnel->handshake_id = asterism_tunnel_new_handshake_id();
-		QUEUE_INSERT_TAIL(&session->handshake_queue, &tunnel->handshake_queue);
+		//创建握手会话
+		struct asterism_handshake_s* handshake = __zero_malloc_st(struct asterism_handshake_s);
+		handshake->inner = incoming;
+		handshake->id = asterism_tunnel_new_handshake_id();
 
 		//通过session转发连接请求
 		struct asterism_write_req_s* req = __zero_malloc_st(struct asterism_write_req_s);
-		struct asterism_trans_proto_s *connect_data = (struct asterism_trans_proto_s *)malloc(512);
+		struct asterism_trans_proto_s *connect_data = 
+			(struct asterism_trans_proto_s *)malloc(sizeof(struct asterism_trans_proto_s) +
+			incoming->connect_host.len + 2 );
+
 		connect_data->version = ASTERISM_TRANS_PROTO_VERSION;
 		connect_data->cmd = ASTERISM_TRANS_PROTO_CONNECT;
 

@@ -1,4 +1,5 @@
 #include "asterism_connector_tcp.h"
+#include "asterism_requestor_tcp.h"
 #include "asterism_core.h"
 #include "asterism_utils.h"
 #include "asterism_log.h"
@@ -50,7 +51,7 @@ static void connector_data_read_alloc_cb(
 	uv_buf_t *buf)
 {
 	struct asterism_tcp_connector_s *connector = (struct asterism_tcp_connector_s *)handle;
-	buf->base = (char *)AS_MALLOC(ASTERISM_TCP_BLOCK_SIZE);
+	buf->base = connector->buffer;
 	buf->len = ASTERISM_TCP_BLOCK_SIZE;
 
 // 	buf->len = ASTERISM_TCP_BLOCK_SIZE;
@@ -102,6 +103,93 @@ cleanup:
 	return ret;
 }
 
+static int connector_parse_connect_data(
+	struct asterism_tcp_connector_s *conn,
+	struct asterism_trans_proto_s* proto)
+{
+	int ret = -1;
+	int offset = sizeof(struct asterism_trans_proto_s);
+	unsigned short host_len = 0;
+	char* host = 0;
+	char* __host = 0;
+	//读取用户名密码
+	if (offset + 2 > proto->len)
+		goto cleanup;
+	host_len = ntohs(*(unsigned short*)((char*)proto + offset));
+	offset += 2;
+
+	if (host_len > MAX_HOST_LEN)
+		goto cleanup;
+
+	if (offset + host_len > proto->len)
+		goto cleanup;
+
+	host = (char*)((char*)proto + offset);
+	offset += host_len;
+
+	asterism_log(ASTERISM_LOG_DEBUG, "connect to: %.*s", (int)host_len, host);
+
+	char* target = as_strdup2(host, host_len);
+
+	struct asterism_str scheme = {0};
+	struct asterism_str host_str = { 0 };
+	unsigned int port = 0;
+	asterism_host_type host_type;
+
+	if (asterism_parse_address(target, &scheme, &host_str, &port, &host_type) || !host_str.p || !port)
+		goto cleanup;
+
+	__host = as_strdup2(host_str.p, host_str.len);
+
+	if (asterism_requestor_tcp_init(conn->as, __host, port, (struct asterism_stream_s*)conn))
+		goto cleanup;
+
+	ret = 0;
+cleanup:
+	asterism_safefree(__host);
+	asterism_safefree(target);
+	return ret;
+}
+
+static int connector_parse_cmd_data(
+	struct asterism_tcp_connector_s *conn,
+	uv_buf_t *buf,
+	int* eaten
+)
+{
+	//长度不够继续获取
+	if (buf->len < sizeof(struct asterism_trans_proto_s))
+		return 0;
+	struct asterism_trans_proto_s* proto = (struct asterism_trans_proto_s*)buf->base;
+	uint16_t proto_len = ntohs(proto->len);
+	if (proto->version != ASTERISM_TRANS_PROTO_VERSION)
+		return -1;
+	if (proto_len > ASTERISM_MAX_PROTO_SIZE)
+		return -1;
+	//长度不够继续获取
+	if (proto_len > buf->len) {
+		return 0;
+	}
+	//匹配命令
+	if (proto->cmd == ASTERISM_TRANS_PROTO_CONNECT) {
+		if (connector_parse_connect_data(conn, proto) != 0)
+			return -1;
+	}
+	else
+	{
+		return -1;
+	}
+	*eaten += proto_len;
+	unsigned int remain = buf->len - proto_len;
+	if (remain) {
+		uv_buf_t __buf;
+		__buf.base = buf->base + proto_len;
+		__buf.len = remain;
+		return connector_parse_cmd_data(conn, &__buf, eaten);
+	}
+	return 0;
+}
+
 static void connector_read_cb(
 	uv_stream_t *stream,
 	ssize_t nread,
@@ -110,34 +198,37 @@ static void connector_read_cb(
 	struct asterism_tcp_connector_s *connector = (struct asterism_tcp_connector_s *)stream;
 	if (nread > 0)
 	{
-// 		incoming->cmd_buffer_len += nread;
-// 		uv_buf_t buf;
-// 		buf.base = incoming->cmd_buffer;
-// 		buf.len = incoming->cmd_buffer_len;
-// 		if (incoming_parse_cmd_data(incoming, &buf, &eaten) != 0) {
-// 			incoming_close(incoming);
-// 			return;
-// 		}
-// 		int remain = incoming->cmd_buffer_len - eaten;
-// 		if (eaten > 0) {
-// 			if (remain) {
-// 				memmove(incoming->cmd_buffer, incoming->cmd_buffer + eaten, remain);
-// 				incoming->cmd_buffer_len = remain;
-// 			}
-// 			else {
-// 				incoming->cmd_buffer_len = 0;
-// 			}
-// 		}
-// 		if (incoming->connection_type != ASTERISM_TCP_CONNECTION_TYPE_CMD) {
-// 			AS_FREE(incoming->cmd_buffer);
-// 			incoming->cmd_buffer = 0;
-// 			incoming->cmd_buffer_len = 0;
-// 		}
-		goto cleanup;
+		int eaten = 0;
+		if (connector->connection_type == ASTERISM_TCP_CONNECTOR_TYPE_CMD) {
+			connector->buffer_len += nread;
+			uv_buf_t buf;
+			buf.base = connector->buffer;
+			buf.len = connector->buffer_len;
+ 			if (connector_parse_cmd_data(connector, &buf, &eaten) != 0) {
+ 				connector_close(connector);
+ 				return;
+ 			}
+			int remain = connector->buffer_len - eaten;
+			if (eaten > 0) {
+				if (remain) {
+					memmove(connector->buffer, connector->buffer + eaten, remain);
+					connector->buffer_len = remain;
+				}
+				else {
+					connector->buffer_len = 0;
+				}
+			}
+		}
+		else if (connector->connection_type == ASTERISM_TCP_CONNECTOR_TYPE_DATA) {
+
+		}
+		else {
+			connector_close(connector);
+		}
 	}
 	else if (nread == 0)
 	{
-		goto cleanup;
+		return;
 	}
 	else if (nread == UV_EOF)
 	{
@@ -150,16 +241,14 @@ static void connector_read_cb(
 		{
 			connector_end(connector);
 		}
-		goto cleanup;
 	}
 	else
 	{
 		asterism_log(ASTERISM_LOG_DEBUG, "%s", uv_strerror((int)nread));
 		connector_close(connector);
 	}
-cleanup:
-	if (buf && buf->base)
-		AS_FREE(buf->base);
+	//if (buf && buf->base)
+		//AS_FREE(buf->base);
 }
 
 static void connector_send_cb(

@@ -20,6 +20,8 @@
 
 #define ASTERISM_TRANS_PROTO_VERSION 0x10
 
+#define MAX_HOST_LEN 256
+
 /*
 payload
 user_name_len 2bytes
@@ -58,20 +60,32 @@ struct asterism_trans_proto_s
 
 #pragma pack(pop)
 
-struct asterism_tunnel_s {
-	unsigned int handshake_id;
-	void* inner;
-	void* outer;
-	char inner_buffer[ASTERISM_TCP_BLOCK_SIZE];
-	unsigned int inner_buffer_len;
-	uv_write_t inner_writer;
-
-	char outer_buffer[ASTERISM_TCP_BLOCK_SIZE];
-	unsigned int outer_buffer_len;
-	uv_write_t outer_writer;
-
-	void* handshake_queue[2];
+struct asterism_write_req_s
+{
+	uv_write_t write_req;
+	uv_buf_t write_buffer;
 };
+
+#define ASTERISM_STREAM_FIELDS \
+uv_tcp_t socket;\
+char buffer[ASTERISM_TCP_BLOCK_SIZE];\
+unsigned int buffer_len;\
+uv_write_t write_req;\
+struct asterism_s *as;\
+void* link;\
+unsigned int fin_recv : 1;\
+unsigned int fin_send : 1;
+
+struct asterism_stream_s {
+	ASTERISM_STREAM_FIELDS
+};
+
+struct asterism_handshake_s {
+	unsigned int id;
+	void* inner;
+	RB_ENTRY(asterism_handshake_s) tree_entry;
+};
+RB_HEAD(asterism_handshake_tree_s, asterism_handshake_s);
 
 struct asterism_session_s {
 	char* username;
@@ -96,11 +110,6 @@ struct asterism_s
     uv_loop_t *loop;
 };
 
-struct asterism_write_req_s
-{
-    uv_write_t write_req;
-    uv_buf_t write_buffer;
-};
 
 int asterism_core_prepare(struct asterism_s *as);
 
@@ -111,6 +120,10 @@ int asterism_core_run(struct asterism_s *as);
 int asterism_session_compare(struct asterism_session_s* a, struct asterism_session_s* b);
 
 RB_PROTOTYPE(asterism_session_tree_s, asterism_session_s, tree_entry, asterism_session_compare);
+
+int asterism_handshake_compare(struct asterism_handshake_s* a, struct asterism_handshake_s* b);
+
+RB_PROTOTYPE(asterism_handshake_tree_s, asterism_handshake_s, tree_entry, asterism_handshake_compare);
 
 unsigned int asterism_tunnel_new_handshake_id();
 

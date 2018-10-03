@@ -90,7 +90,7 @@ static void incoming_data_read_alloc_cb(
 	uv_buf_t *buf)
 {
 	struct asterism_tcp_incoming_s *incoming = (struct asterism_tcp_incoming_s *)handle;
-	if (incoming->connection_type == ASTERISM_TCP_CONNECTION_TYPE_CMD) 
+	if (incoming->connection_type == ASTERISM_TCP_OUTER_TYPE_CMD) 
 	{
 		buf->base = incoming->buffer + incoming->buffer_len;
 		buf->len = ASTERISM_MAX_PROTO_SIZE - incoming->buffer_len;
@@ -191,14 +191,13 @@ static int parse_cmd_join(
 	session->password = as_strdup2(password, password_len);
 	session->outer = incoming;
 	//初始化握手tunnel队列
-	QUEUE_INIT(&session->handshake_queue);
 
 	RB_INSERT(asterism_session_tree_s, &incoming->as->sessions, session);
 
 	asterism_log(ASTERISM_LOG_DEBUG, "user: %s join.", session->username);
 
 	//确定连接类型
-	incoming->connection_type = ASTERISM_TCP_CONNECTION_TYPE_CMD;
+	incoming->connection_type = ASTERISM_TCP_OUTER_TYPE_CMD;
 	return 0;
 }
 
@@ -226,11 +225,10 @@ static int incoming_parse_cmd_data(
 		if (parse_cmd_join(incoming, proto) != 0)
 			return -1;
 	}
-	else if (proto->cmd == ASTERISM_TRANS_PROTO_CONNECT)
-	{
+	else if (proto->cmd == ASTERISM_TRANS_PROTO_CONNECT_ACK) {
 	}
-	else if (proto->cmd == ASTERISM_TRANS_PROTO_CONNECT_ACK)
-	{
+	else {
+		return -1;
 	}
 	*eaten += proto_len;
 	unsigned int remain = buf->len - proto_len;
@@ -252,7 +250,7 @@ static void incoming_read_cb(
 	if (nread > 0)
 	{
 		int eaten = 0;
-		if (incoming->connection_type == ASTERISM_TCP_CONNECTION_TYPE_CMD ) {
+		if (incoming->connection_type == ASTERISM_TCP_OUTER_TYPE_CMD ) {
 			incoming->buffer_len += nread;
 			uv_buf_t buf;
 			buf.base = incoming->buffer;
@@ -271,11 +269,11 @@ static void incoming_read_cb(
 					incoming->buffer_len = 0;
 				}
 			}
-			if (incoming->connection_type != ASTERISM_TCP_CONNECTION_TYPE_CMD) {
+			if (incoming->connection_type != ASTERISM_TCP_OUTER_TYPE_CMD) {
 				incoming->buffer_len = 0;
 			}
 		}
-		else if (incoming->connection_type == ASTERISM_TCP_CONNECTION_TYPE_DATA) {
+		else if (incoming->connection_type == ASTERISM_TCP_OUTER_TYPE_DATA) {
 
 		}
 		else {

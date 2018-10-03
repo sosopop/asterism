@@ -10,6 +10,12 @@ unsigned int asterism_tunnel_new_handshake_id()
 	return id++;
 }
 
+int asterism_handshake_compare(struct asterism_handshake_s* a, struct asterism_handshake_s* b) {
+	return a->id - b->id;
+}
+
+RB_GENERATE(asterism_handshake_tree_s, asterism_handshake_s, tree_entry, asterism_handshake_compare);
+
 int asterism_session_compare(struct asterism_session_s* a, struct asterism_session_s* b) {
 	return strcmp(a->username, b->username);
 }
