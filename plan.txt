@@ -1,3 +1,7 @@
-循环命令方式的剩余buffer数据
+﻿循环命令方式的剩余buffer数据
 会话清理
 curl "http://www.baidu.com/" --proxytunnel --proxy "http://127.0.0.1:8080" --proxy-user "sosopop:12345678"
+
+封装通讯模块
+
+将通讯部分弄成6个处理类型

@@ -51,12 +51,9 @@ static void connector_data_read_alloc_cb(
 	uv_buf_t *buf)
 {
 	struct asterism_tcp_connector_s *connector = (struct asterism_tcp_connector_s *)handle;
-	buf->base = connector->buffer;
-	buf->len = ASTERISM_TCP_BLOCK_SIZE;
 
-// 	buf->len = ASTERISM_TCP_BLOCK_SIZE;
-// 	buf->base = incoming->tunnel->inner_buffer;
-// 	incoming->tunnel->inner_buffer_len = 0;
+	buf->base = connector->buffer + connector->buffer_len;
+	buf->len = ASTERISM_MAX_PROTO_SIZE - connector->buffer_len;
 }
 
 static void connector_shutdown_cb(
@@ -112,7 +109,12 @@ static int connector_parse_connect_data(
 	unsigned short host_len = 0;
 	char* host = 0;
 	char* __host = 0;
-	//读取用户名密码
+
+	if (offset + 4 > proto->len)
+		goto cleanup;
+	unsigned int handshake_id = ntohl(*(unsigned int*)((char*)proto + offset));
+	offset += 4;
+	//读取host
 	if (offset + 2 > proto->len)
 		goto cleanup;
 	host_len = ntohs(*(unsigned short*)((char*)proto + offset));
@@ -141,8 +143,10 @@ static int connector_parse_connect_data(
 
 	__host = as_strdup2(host_str.p, host_str.len);
 
-	if (asterism_requestor_tcp_init(conn->as, __host, port, (struct asterism_stream_s*)conn))
+	if (asterism_requestor_tcp_init(conn->as, __host, port, handshake_id, (struct asterism_stream_s*)conn))
 		goto cleanup;
+
+	//conn->connection_type = ASTERISM_TCP_CONNECTOR_TYPE_DATA;
 
 	ret = 0;
 cleanup:
@@ -190,6 +194,22 @@ static int connector_parse_cmd_data(
 	return 0;
 }
 
+
+static void connector_read_cb(
+	uv_stream_t *stream,
+	ssize_t nread,
+	const uv_buf_t *buf);
+
+static void link_write_cb(
+	uv_write_t *req,
+	int status)
+{
+	struct asterism_tcp_connector_s *connector = (struct asterism_tcp_connector_s *)req->data;
+	if (uv_read_start((uv_stream_t *)&connector->socket, connector_data_read_alloc_cb, connector_read_cb)) {
+		connector_close(connector);
+	}
+}
+
 static void connector_read_cb(
 	uv_stream_t *stream,
 	ssize_t nread,
@@ -199,8 +219,8 @@ static void connector_read_cb(
 	if (nread > 0)
 	{
 		int eaten = 0;
+		connector->buffer_len += nread;
 		if (connector->connection_type == ASTERISM_TCP_CONNECTOR_TYPE_CMD) {
-			connector->buffer_len += nread;
 			uv_buf_t buf;
 			buf.base = connector->buffer;
 			buf.len = connector->buffer_len;
@@ -219,11 +239,27 @@ static void connector_read_cb(
 				}
 			}
 		}
-		else if (connector->connection_type == ASTERISM_TCP_CONNECTOR_TYPE_DATA) {
 
-		}
-		else {
-			connector_close(connector);
+		if (connector->buffer_len) {
+			if (connector->connection_type == ASTERISM_TCP_CONNECTOR_TYPE_DATA) {
+				memset(&connector->link->write_req, 0, sizeof(connector->link->write_req));
+				connector->link->write_req.data = stream;
+				uv_buf_t _buf;
+				_buf.base = connector->buffer;
+				_buf.len = connector->buffer_len;
+				connector->buffer_len = 0;
+				if (uv_write(&connector->link->write_req, (uv_stream_t *)connector->link, &_buf, 1, link_write_cb)) {
+					connector_close(connector);
+					return;
+				}
+				if (uv_read_stop(stream)) {
+					connector_close(connector);
+					return;
+				}
+			}
+			else if (connector->connection_type != ASTERISM_TCP_CONNECTOR_TYPE_CMD) {
+				connector_close(connector);
+			}
 		}
 	}
 	else if (nread == 0)

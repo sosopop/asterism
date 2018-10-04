@@ -53,10 +53,6 @@ static void requestor_data_read_alloc_cb(
 	struct asterism_tcp_requestor_s *requestor = (struct asterism_tcp_requestor_s *)handle;
 	buf->base = requestor->buffer;
 	buf->len = ASTERISM_TCP_BLOCK_SIZE;
-
-	// 	buf->len = ASTERISM_TCP_BLOCK_SIZE;
-	// 	buf->base = incoming->tunnel->inner_buffer;
-	// 	incoming->tunnel->inner_buffer_len = 0;
 }
 
 static void requestor_shutdown_cb(
@@ -106,11 +102,39 @@ cleanup:
 static void requestor_read_cb(
 	uv_stream_t *stream,
 	ssize_t nread,
+	const uv_buf_t *buf);
+
+static void link_write_cb(
+	uv_write_t *req,
+	int status)
+{
+	struct asterism_tcp_requestor_s *requestor = (struct asterism_tcp_requestor_s *)req->data;
+	if (uv_read_start((uv_stream_t *)&requestor->socket, requestor_data_read_alloc_cb, requestor_read_cb)) {
+		requestor_close(requestor);
+	}
+}
+
+static void requestor_read_cb(
+	uv_stream_t *stream,
+	ssize_t nread,
 	const uv_buf_t *buf)
 {
 	struct asterism_tcp_requestor_s *requestor = (struct asterism_tcp_requestor_s *)stream;
 	if (nread > 0)
 	{
+		memset(&requestor->link->write_req, 0, sizeof(requestor->link->write_req));
+		requestor->link->write_req.data = stream;
+		uv_buf_t _buf;
+		_buf.base = buf->base;
+		_buf.len = nread;
+		if (uv_write(&requestor->link->write_req, (uv_stream_t *)requestor->link, &_buf, 1, link_write_cb)) {
+			requestor_close(requestor);
+			return;
+		}
+		if (uv_read_stop(stream)) {
+			requestor_close(requestor);
+			return;
+		}
 	}
 	else if (nread == 0)
 	{
@@ -135,6 +159,45 @@ static void requestor_read_cb(
 	}
 }
 
+static void handshake_write_cb(
+	uv_write_t *req,
+	int status)
+{
+	struct asterism_write_req_s *write_req = (struct asterism_write_req_s *)req;
+	free(write_req->write_buffer.base);
+	free(write_req);
+}
+
+static int requestor_connect_ack(
+	struct asterism_tcp_requestor_s *requestor) {
+	int ret = 0;
+
+	struct asterism_trans_proto_s *connect_data =
+		(struct asterism_trans_proto_s *)malloc(sizeof(struct asterism_trans_proto_s) + 4);
+
+	connect_data->version = ASTERISM_TRANS_PROTO_VERSION;
+	connect_data->cmd = ASTERISM_TRANS_PROTO_CONNECT_ACK;
+
+	char *off = (char *)connect_data + sizeof(struct asterism_trans_proto_s);
+	*(uint32_t *)off = htonl(requestor->handshake_id);
+	off += 4;
+	uint16_t packet_len = (uint16_t)(off - (char *)connect_data);
+	connect_data->len = htons((uint16_t)(packet_len));
+
+	struct asterism_write_req_s* req = __zero_malloc_st(struct asterism_write_req_s);
+	req->write_buffer.base = (char *)connect_data;
+	req->write_buffer.len = packet_len;
+
+	int write_ret = uv_write((uv_write_t*)req, (uv_stream_t*)requestor->link, &req->write_buffer, 1, handshake_write_cb);
+	if (write_ret != 0) {
+		free(req->write_buffer.base);
+		free(req);
+		return -1;
+	}
+
+	return ret;
+}
+
 static void requestor_connected(
 	uv_connect_t *req,
 	int status)
@@ -146,6 +209,14 @@ static void requestor_connected(
 		ret = ASTERISM_E_FAILED;
 		goto cleanup;
 	}
+
+	ret = requestor_connect_ack(requestor);
+	if (ret != 0)
+	{
+		ret = ASTERISM_E_FAILED;
+		goto cleanup;
+	}
+
 	ret = uv_read_start((uv_stream_t *)&requestor->socket, requestor_data_read_alloc_cb, requestor_read_cb);
 	if (ret != 0)
 	{
@@ -197,8 +268,11 @@ cleanup:
 		AS_FREE(req);
 }
 
-int asterism_requestor_tcp_init(struct asterism_s *as,
-	const char *host, unsigned int port, struct asterism_stream_s* stream)
+int asterism_requestor_tcp_init(
+	struct asterism_s *as,
+	const char *host, unsigned int port,
+	unsigned int handshake_id,
+	struct asterism_stream_s* stream)
 {
 	int ret = ASTERISM_E_OK;
 	struct addrinfo hints;
@@ -217,6 +291,8 @@ int asterism_requestor_tcp_init(struct asterism_s *as,
 	hints.ai_protocol = IPPROTO_TCP;
 	hints.ai_flags = 0;
 
+	requestor->handshake_id = handshake_id;
+
 	char port_str[10] = { 0 };
 	asterism_itoa(port_str, sizeof(port_str), port, 10, 0, 0);
 	ret = uv_getaddrinfo(as->loop, addr_info, requestor_getaddrinfo, host, port_str, &hints);
@@ -226,7 +302,7 @@ int asterism_requestor_tcp_init(struct asterism_s *as,
 		goto cleanup;
 	}
 	requestor->link = stream;
-	stream->link = requestor;
+	stream->link = (struct asterism_stream_s *)requestor;
 cleanup:
 	if (ret)
 	{

@@ -3,7 +3,6 @@
 #include <stdint.h>
 #include <uv.h>
 #include "asterism.h"
-#include "queue.h"
 #include <tree.h>
 
 #define ASTERISM_VERSION "0.0.0.1"
@@ -72,7 +71,7 @@ char buffer[ASTERISM_TCP_BLOCK_SIZE];\
 unsigned int buffer_len;\
 uv_write_t write_req;\
 struct asterism_s *as;\
-void* link;\
+struct asterism_stream_s* link;\
 unsigned int fin_recv : 1;\
 unsigned int fin_send : 1;
 
@@ -82,7 +81,7 @@ struct asterism_stream_s {
 
 struct asterism_handshake_s {
 	unsigned int id;
-	void* inner;
+	struct asterism_stream_s* inner;
 	RB_ENTRY(asterism_handshake_s) tree_entry;
 };
 RB_HEAD(asterism_handshake_tree_s, asterism_handshake_s);
@@ -91,8 +90,6 @@ struct asterism_session_s {
 	char* username;
 	char* password;
 	void* outer;
-
-	void* handshake_queue[2];
 	RB_ENTRY(asterism_session_s) tree_entry;
 };
 
@@ -104,8 +101,9 @@ struct asterism_s
     char *outer_bind_addr;
     char *connect_addr;
     char *username;
-    char *password;
+	char *password;
 	struct asterism_session_tree_s sessions;
+	struct asterism_handshake_tree_s handshake_set;
     asterism_connnect_redirect_hook connect_redirect_hook_cb;
     uv_loop_t *loop;
 };

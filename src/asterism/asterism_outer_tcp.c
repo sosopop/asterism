@@ -90,18 +90,8 @@ static void incoming_data_read_alloc_cb(
 	uv_buf_t *buf)
 {
 	struct asterism_tcp_incoming_s *incoming = (struct asterism_tcp_incoming_s *)handle;
-	if (incoming->connection_type == ASTERISM_TCP_OUTER_TYPE_CMD) 
-	{
-		buf->base = incoming->buffer + incoming->buffer_len;
-		buf->len = ASTERISM_MAX_PROTO_SIZE - incoming->buffer_len;
-		//buf->len = 10;
-		//²âÊÔ·Ö°ü
-	}
-	else {
-		buf->len = ASTERISM_TCP_BLOCK_SIZE;
-		buf->base = incoming->buffer;
-		incoming->buffer_len = 0;
-	}
+	buf->base = incoming->buffer + incoming->buffer_len;
+	buf->len = ASTERISM_MAX_PROTO_SIZE - incoming->buffer_len;
 }
 
 static void incoming_shutdown_cb(
@@ -201,6 +191,52 @@ static int parse_cmd_join(
 	return 0;
 }
 
+static void write_connect_ack_cb(
+	uv_write_t *req,
+	int status)
+{
+	free(req);
+}
+
+static int parse_cmd_connect_ack(
+	struct asterism_tcp_incoming_s *incoming,
+	struct asterism_trans_proto_s* proto)
+{
+	int offset = sizeof(struct asterism_trans_proto_s);
+	//id
+	if (offset + 4 > proto->len)
+		return -1;
+	unsigned int id = ntohs(*(unsigned int*)((char*)proto + offset));
+	offset += 4;
+
+	struct asterism_handshake_s fh = { id };
+	struct asterism_handshake_s* handshake = RB_FIND(asterism_handshake_tree_s, &incoming->as->handshake_set, &fh);
+	if (!handshake) {
+		return -1;
+	}
+	RB_REMOVE(asterism_handshake_tree_s, &incoming->as->handshake_set, handshake);
+	incoming->link = handshake->inner;
+	incoming->link->link = (struct asterism_stream_s *)incoming;
+	AS_FREE(handshake);
+
+	//incoming->link
+
+	//Êä³öhttp ok
+	uv_write_t* req = __zero_malloc_st(uv_write_t);
+	req->data = incoming;
+	uv_buf_t buf;
+	buf.base = "HTTP/1.1 200 Connection Established\r\n\r\n";
+	buf.len = sizeof("HTTP/1.1 200 Connection Established\r\n\r\n") - 1;
+
+	int ret = uv_write( req, (uv_stream_t *)incoming->link, &buf, 1, write_connect_ack_cb );
+	if (ret) {
+		AS_FREE(req);
+		return -1;
+	}
+	incoming->connection_type = ASTERISM_TCP_OUTER_TYPE_DATA;
+	return 0;
+}
+
 static int incoming_parse_cmd_data(
 	struct asterism_tcp_incoming_s *incoming,
 	uv_buf_t *buf,
@@ -226,6 +262,8 @@ static int incoming_parse_cmd_data(
 			return -1;
 	}
 	else if (proto->cmd == ASTERISM_TRANS_PROTO_CONNECT_ACK) {
+		if (parse_cmd_connect_ack(incoming, proto) != 0)
+			return -1;
 	}
 	else {
 		return -1;
@@ -244,14 +282,29 @@ static int incoming_parse_cmd_data(
 static void incoming_read_cb(
 	uv_stream_t *stream,
 	ssize_t nread,
+	const uv_buf_t *buf);
+
+static void link_write_cb(
+	uv_write_t *req,
+	int status)
+{
+	struct asterism_tcp_incoming_s *incoming = (struct asterism_tcp_incoming_s *)req->data;
+	if (uv_read_start((uv_stream_t *)&incoming->socket, incoming_data_read_alloc_cb, incoming_read_cb)) {
+		incoming_close(incoming);
+	}
+}
+
+static void incoming_read_cb(
+	uv_stream_t *stream,
+	ssize_t nread,
 	const uv_buf_t *buf)
 {
 	struct asterism_tcp_incoming_s *incoming = (struct asterism_tcp_incoming_s *)stream;
 	if (nread > 0)
 	{
 		int eaten = 0;
+		incoming->buffer_len += nread;
 		if (incoming->connection_type == ASTERISM_TCP_OUTER_TYPE_CMD ) {
-			incoming->buffer_len += nread;
 			uv_buf_t buf;
 			buf.base = incoming->buffer;
 			buf.len = incoming->buffer_len;
@@ -269,15 +322,32 @@ static void incoming_read_cb(
 					incoming->buffer_len = 0;
 				}
 			}
-			if (incoming->connection_type != ASTERISM_TCP_OUTER_TYPE_CMD) {
-				incoming->buffer_len = 0;
-			}
 		}
-		else if (incoming->connection_type == ASTERISM_TCP_OUTER_TYPE_DATA) {
 
-		}
-		else {
-			incoming_close(incoming);
+		if (incoming->buffer_len) {
+			if (incoming->connection_type == ASTERISM_TCP_OUTER_TYPE_DATA) {
+				memset(&incoming->link->write_req, 0, sizeof(incoming->link->write_req));
+				incoming->link->write_req.data = stream;
+				uv_buf_t _buf;
+				_buf.base = incoming->buffer;
+				_buf.len = incoming->buffer_len;
+
+				printf("%.*s", _buf.len, _buf.base);
+				incoming->buffer_len = 0;
+				if (uv_write(&incoming->link->write_req, (uv_stream_t *)incoming->link, &_buf, 1, link_write_cb)) {
+					incoming_close(incoming);
+					return;
+				}
+				if (uv_read_stop(stream)) {
+					incoming_close(incoming);
+					return;
+				}
+			}
+			else if (incoming->connection_type != ASTERISM_TCP_OUTER_TYPE_CMD) {
+				incoming->buffer_len = 0;
+				incoming_close(incoming);
+				return;
+			}
 		}
 	}
 	else if (nread == 0)

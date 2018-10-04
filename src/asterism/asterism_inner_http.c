@@ -98,7 +98,7 @@ static void incoming_data_read_alloc_cb(
     uv_buf_t *buf)
 {
     struct asterism_http_incoming_s *incoming = (struct asterism_http_incoming_s *)handle;
-    if (incoming->tunnel_connected)
+    if (incoming->link)
 	{
 		buf->len = ASTERISM_TCP_BLOCK_SIZE;
 		buf->base = incoming->buffer;
@@ -108,6 +108,8 @@ static void incoming_data_read_alloc_cb(
 	{
 		if (incoming->header_parsed)
 		{
+			buf->base = 0;
+			buf->len = 0;
 			incoming_close(incoming);
 			return;
 		}
@@ -332,19 +334,23 @@ static int incoming_parse_connect(
 
 		//创建握手会话
 		struct asterism_handshake_s* handshake = __zero_malloc_st(struct asterism_handshake_s);
-		handshake->inner = incoming;
+		handshake->inner = (struct asterism_stream_s *)incoming;
 		handshake->id = asterism_tunnel_new_handshake_id();
 
 		//通过session转发连接请求
 		struct asterism_write_req_s* req = __zero_malloc_st(struct asterism_write_req_s);
+
+		//注意修改这里，分配内存****
 		struct asterism_trans_proto_s *connect_data = 
 			(struct asterism_trans_proto_s *)malloc(sizeof(struct asterism_trans_proto_s) +
-			incoming->connect_host.len + 2 );
+			incoming->connect_host.len + 2 + 4 );
 
 		connect_data->version = ASTERISM_TRANS_PROTO_VERSION;
 		connect_data->cmd = ASTERISM_TRANS_PROTO_CONNECT;
 
 		char *off = (char *)connect_data + sizeof(struct asterism_trans_proto_s);
+		*(uint32_t *)off = htonl(handshake->id);
+		off += 4;
 		*(uint16_t *)off = htons((uint16_t)incoming->connect_host.len);
 		off += 2;
 		memcpy(off, incoming->connect_host.p, incoming->connect_host.len);
@@ -356,19 +362,36 @@ static int incoming_parse_connect(
 		req->write_buffer.base = (char *)connect_data;
 		req->write_buffer.len = packet_len;
 
+		incoming->buffer_len = 0;
+
 		int write_ret = uv_write((uv_write_t*)req, (uv_stream_t*)session->outer, &req->write_buffer, 1, handshake_write_cb);
 		if (write_ret != 0) {
 			free(req->write_buffer.base);
 			free(req);
+			free(handshake);
 			return -1;
 		}
 
-
-		incoming->buffer_len = 0;
-
+		RB_INSERT(asterism_handshake_tree_s, &incoming->as->handshake_set, handshake);
 		asterism_log(ASTERISM_LOG_DEBUG, "header_parsed");
 	}
 	return 0;
+}
+
+
+static void incoming_read_cb(
+	uv_stream_t *stream,
+	ssize_t nread,
+	const uv_buf_t *buf);
+
+static void link_write_cb(
+	uv_write_t *req,
+	int status)
+{
+	struct asterism_http_incoming_s *incoming = (struct asterism_http_incoming_s *)req->data;
+	if (uv_read_start((uv_stream_t *)&incoming->socket, incoming_data_read_alloc_cb, incoming_read_cb)) {
+		incoming_close(incoming);
+	}
 }
 
 static void incoming_read_cb(
@@ -379,9 +402,23 @@ static void incoming_read_cb(
     struct asterism_http_incoming_s *incoming = (struct asterism_http_incoming_s *)stream;
     if (nread > 0)
     {
-        if (incoming->tunnel_connected)
+        if (incoming->link)
         {
+			memset(&incoming->link->write_req, 0, sizeof(incoming->link->write_req));
+			incoming->link->write_req.data = stream;
+			uv_buf_t _buf;
+			_buf.base = buf->base;
+			_buf.len = nread;
+			if (uv_write(&incoming->link->write_req, (uv_stream_t *)incoming->link, &_buf, 1, link_write_cb)) {
+				incoming_close(incoming);
+				return;
+			}
+			if (uv_read_stop(stream)) {
+				incoming_close(incoming);
+				return;
+			}
             //transport
+			//asterism_log(ASTERISM_LOG_DEBUG, "%.*s", nread, buf->base);
         }
         else
         {

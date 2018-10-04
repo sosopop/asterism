@@ -27,7 +27,6 @@ struct asterism_http_incoming_s
     char *remote_host;
     char *username;
     char *password;
-    unsigned int tunnel_connected : 1;
     unsigned int header_parsed : 1;
     unsigned int header_auth_parsed : 1;
 };
