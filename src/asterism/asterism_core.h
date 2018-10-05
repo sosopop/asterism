@@ -4,6 +4,7 @@
 #include <uv.h>
 #include "asterism.h"
 #include <tree.h>
+#include "asterism_stream.h"
 
 #define ASTERISM_VERSION "0.0.0.1"
 #define ASTERISM_RECONNECT_DELAY 10000
@@ -12,7 +13,6 @@
 #define ASTREISM_USERNAME_MAX_LEN 128
 #define ASTREISM_PASSWORD_MAX_LEN 128
 
-#define ASTERISM_TCP_BLOCK_SIZE 4 * 1024
 #define ASTERISM_MAX_HTTP_HEADER_SIZE 4 * 1024
 
 #define ASTERISM_MAX_PROTO_SIZE 4 * 1024
@@ -65,19 +65,6 @@ struct asterism_write_req_s
 	uv_buf_t write_buffer;
 };
 
-#define ASTERISM_STREAM_FIELDS \
-uv_tcp_t socket;\
-char buffer[ASTERISM_TCP_BLOCK_SIZE];\
-unsigned int buffer_len;\
-uv_write_t write_req;\
-struct asterism_s *as;\
-struct asterism_stream_s* link;\
-unsigned int fin_recv : 1;\
-unsigned int fin_send : 1;
-
-struct asterism_stream_s {
-	ASTERISM_STREAM_FIELDS
-};
 
 struct asterism_handshake_s {
 	unsigned int id;
