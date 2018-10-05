@@ -2,7 +2,6 @@
 #define ASTERISM_OUTER_TCP_H_
 #include "asterism.h"
 #include "asterism_core.h"
-#include "asterism_buffer.h"
 #include <uv.h>
 
 struct asterism_tcp_outer_s

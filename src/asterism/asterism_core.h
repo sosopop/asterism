@@ -59,6 +59,8 @@ struct asterism_trans_proto_s
 
 #pragma pack(pop)
 
+typedef struct asterism_s asterism_t;
+
 struct asterism_write_req_s
 {
 	uv_write_t write_req;

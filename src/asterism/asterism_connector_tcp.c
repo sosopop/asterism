@@ -146,7 +146,7 @@ static int connector_parse_connect_data(
 	if (asterism_requestor_tcp_init(conn->as, __host, port, handshake_id, (struct asterism_stream_s*)conn))
 		goto cleanup;
 
-	//conn->connection_type = ASTERISM_TCP_CONNECTOR_TYPE_DATA;
+	conn->connection_type = ASTERISM_TCP_CONNECTOR_TYPE_DATA;
 
 	ret = 0;
 cleanup:
