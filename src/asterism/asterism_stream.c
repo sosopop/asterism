@@ -54,13 +54,16 @@ static void stream_read_alloc_cb(
 	size_t suggested_size,
 	uv_buf_t *buf)
 {
-	struct asterism_stream_s *stream = (struct asterism_stream_s *)handle->data;
+	struct asterism_stream_s *stream = (struct asterism_stream_s *)handle;
 	if (stream->_alloc_cb) {
 		stream->_alloc_cb(handle, suggested_size, buf);
 	}
 	else {
 		buf->base = stream->buffer + stream->buffer_len;
-		buf->len = ASTERISM_MAX_PROTO_SIZE - stream->buffer_len;
+		buf->len = ASTERISM_TCP_BLOCK_SIZE - stream->buffer_len;
+		if (buf->len == 0) {
+			asterism_stream_close(stream);
+		}
 	}
 }
 
@@ -72,6 +75,7 @@ static void stream_read_cb(
 	struct asterism_stream_s *stm = (struct asterism_stream_s *)stream;
 	if (nread > 0)
 	{
+		stm->buffer_len += (unsigned int)nread;
 		stm->_read_cb(stream, nread, buf);
 	}
 	else if (nread == 0)
@@ -238,19 +242,13 @@ cleanup:
 int asterism_stream_read(
 	struct asterism_stream_s* stream)
 {
-	int ret = -1;
-	ret = uv_read_start((uv_stream_t *)stream, stream_read_alloc_cb, stream_read_cb);
+	int ret = uv_read_start((uv_stream_t *)stream, stream_read_alloc_cb, stream_read_cb);
 	if (ret != 0)
 	{
 		asterism_log(ASTERISM_LOG_DEBUG, "%s", uv_strerror(ret));
 		goto cleanup;
 	}
 cleanup:
-	if (ret) {
-		if (stream) {
-			asterism_stream_close(stream);
-		}
-	}
 	return ret;
 }
 
@@ -267,4 +265,47 @@ void asterism_stream_close(
 {
 	if (stream && !uv_is_closing((uv_handle_t *)stream))
 		uv_close((uv_handle_t *)stream, stream_close_cb);
+}
+
+static void link_write_cb(
+	uv_write_t *req,
+	int status)
+{
+	struct asterism_stream_s *stream = (struct asterism_stream_s *)req->data;
+	if (asterism_stream_read(stream)) {
+		asterism_stream_close(stream);
+	}
+}
+
+int asterism_stream_trans(
+	struct asterism_stream_s* stream)
+{
+	int ret = 0;
+	memset(&stream->link->write_req, 0, sizeof(stream->link->write_req));
+	stream->link->write_req.data = stream;
+	uv_buf_t _buf;
+	_buf.base = stream->buffer;
+	_buf.len = stream->buffer_len;
+	stream->buffer_len = 0;
+	ret = uv_write(&stream->link->write_req, (uv_stream_t *)stream->link, &_buf, 1, link_write_cb);
+	if (ret) {
+		goto cleanup;
+	}
+	ret = uv_read_stop((uv_stream_t*)stream);
+	if (ret) {
+		goto cleanup;
+	}
+cleanup:
+	return ret;
+}
+
+void asterism_stream_eaten(struct asterism_stream_s * stream, unsigned int eaten)
+{
+	if (eaten == stream->buffer_len) {
+		stream->buffer_len = 0;
+	}
+	else if (eaten <= stream->buffer_len) {
+		memmove(stream->buffer, stream->buffer + eaten, eaten);
+		stream->buffer_len -= eaten;
+	}
 }

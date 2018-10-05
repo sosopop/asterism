@@ -33,6 +33,6 @@ struct asterism_http_incoming_s
 
 int asterism_inner_http_init(
     struct asterism_s *as,
-    const char *ip, unsigned int *port, int ipv6);
+    const char *ip, unsigned int *port);
 
 #endif

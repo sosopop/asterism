@@ -23,6 +23,6 @@ struct asterism_tcp_incoming_s
 
 int asterism_outer_tcp_init(
 	struct asterism_s *as,
-	const char *ip, unsigned int *port, int ipv6);
+	const char *ip, unsigned int *port);
 
 #endif

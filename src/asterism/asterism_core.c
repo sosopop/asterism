@@ -48,7 +48,7 @@ int asterism_core_prepare(struct asterism_s *as)
             goto cleanup;
         }
         struct asterism_str __host = asterism_strdup_nul(host);
-        ret = asterism_inner_http_init(as, __host.p, &port, host_type == ASTERISM_HOST_TYPE_IPV6);
+        ret = asterism_inner_http_init(as, __host.p, &port);
         AS_FREE((char *)__host.p);
         if (ret)
             goto cleanup;
@@ -73,7 +73,7 @@ int asterism_core_prepare(struct asterism_s *as)
             goto cleanup;
         }
         struct asterism_str __host = asterism_strdup_nul(host);
-        ret = asterism_outer_tcp_init(as, __host.p, &port, host_type == ASTERISM_HOST_TYPE_IPV6);
+        ret = asterism_outer_tcp_init(as, __host.p, &port);
         AS_FREE((char *)__host.p);
         if (ret)
             goto cleanup;

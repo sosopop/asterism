@@ -3,36 +3,11 @@
 #include "asterism_utils.h"
 #include "asterism_log.h"
 
-static struct asterism_tcp_outer_s *outer_new(struct asterism_s *as)
-{
-	struct asterism_tcp_outer_s *obj = __zero_malloc_st(struct asterism_tcp_outer_s);
-	obj->as = as;
-	int ret = uv_tcp_init(as->loop, &obj->socket);
-	if (ret != 0)
-	{
-		asterism_log(ASTERISM_LOG_DEBUG, "%s", uv_strerror(ret));
-		ret = ASTERISM_E_SOCKET_LISTEN_ERROR;
-		goto cleanup;
-	}
-cleanup:
-	if (ret != 0)
-	{
-		AS_FREE(obj);
-		obj = 0;
-	}
-	return obj;
-}
-
-static void outer_delete(struct asterism_tcp_outer_s *obj)
-{
-	AS_FREE(obj);
-}
-
 static void outer_close_cb(
 	uv_handle_t *handle)
 {
 	struct asterism_tcp_outer_s *obj = (struct asterism_tcp_outer_s *)handle;
-	outer_delete(obj);
+	AS_FREE(obj);
 }
 
 static void outer_close(
@@ -42,100 +17,13 @@ static void outer_close(
 		uv_close((uv_handle_t *)&obj->socket, outer_close_cb);
 }
 
-static struct asterism_tcp_incoming_s *incoming_new(struct asterism_s *as)
-{
-	struct asterism_tcp_incoming_s *obj = __zero_malloc_st(struct asterism_tcp_incoming_s);
-	obj->as = as;
-	int ret = uv_tcp_init(as->loop, &obj->socket);
-	if (ret != 0)
-	{
-		asterism_log(ASTERISM_LOG_DEBUG, "%s", uv_strerror(ret));
-		ret = ASTERISM_E_SOCKET_LISTEN_ERROR;
-		goto cleanup;
-	}
-cleanup:
-	if (ret != 0)
-	{
-		AS_FREE(obj);
-		obj = 0;
-	}
-	return obj;
-}
-
-static void incoming_delete(struct asterism_tcp_incoming_s *obj)
-{
-	//asterism_safefree(obj->buffer);
-	AS_FREE(obj);
-}
-
 static void incoming_close_cb(
 	uv_handle_t *handle)
 {
 	int ret = 0;
 	struct asterism_tcp_incoming_s *obj = (struct asterism_tcp_incoming_s *)handle;
-	incoming_delete(obj);
+	AS_FREE(obj);
 	asterism_log(ASTERISM_LOG_DEBUG, "tcp connection is closing");
-}
-
-static void incoming_close(
-	struct asterism_tcp_incoming_s *obj)
-{
-	if (obj && !uv_is_closing((uv_handle_t *)&obj->socket))
-		uv_close((uv_handle_t *)&obj->socket, incoming_close_cb);
-}
-
-static void incoming_data_read_alloc_cb(
-	uv_handle_t *handle,
-	size_t suggested_size,
-	uv_buf_t *buf)
-{
-	struct asterism_tcp_incoming_s *incoming = (struct asterism_tcp_incoming_s *)handle;
-	buf->base = incoming->buffer + incoming->buffer_len;
-	buf->len = ASTERISM_MAX_PROTO_SIZE - incoming->buffer_len;
-}
-
-static void incoming_shutdown_cb(
-	uv_shutdown_t *req,
-	int status)
-{
-	struct asterism_tcp_incoming_s *incoming = (struct asterism_tcp_incoming_s *)req->data;
-	if (status != 0)
-	{
-		goto cleanup;
-	}
-	incoming->fin_send = 1;
-	if (incoming->fin_recv)
-	{
-		incoming_close(incoming);
-	}
-cleanup:
-	if (status != 0)
-	{
-		incoming_close(incoming);
-	}
-	AS_FREE(req);
-}
-
-static int incoming_end(
-	struct asterism_tcp_incoming_s *incoming)
-{
-	int ret = 0;
-	uv_shutdown_t *req = 0;
-	//////////////////////////////////////////////////////////////////////////
-	req = __zero_malloc_st(uv_shutdown_t);
-	req->data = incoming;
-	ret = uv_shutdown(req, (uv_stream_t *)&incoming->socket, incoming_shutdown_cb);
-	if (ret != 0)
-		goto cleanup;
-cleanup:
-	if (ret != 0)
-	{
-		if (req)
-		{
-			AS_FREE(req);
-		}
-	}
-	return ret;
 }
 
 static int parse_cmd_join(
@@ -282,94 +170,31 @@ static int incoming_parse_cmd_data(
 static void incoming_read_cb(
 	uv_stream_t *stream,
 	ssize_t nread,
-	const uv_buf_t *buf);
-
-static void link_write_cb(
-	uv_write_t *req,
-	int status)
-{
-	struct asterism_tcp_incoming_s *incoming = (struct asterism_tcp_incoming_s *)req->data;
-	if (uv_read_start((uv_stream_t *)&incoming->socket, incoming_data_read_alloc_cb, incoming_read_cb)) {
-		incoming_close(incoming);
-	}
-}
-
-static void incoming_read_cb(
-	uv_stream_t *stream,
-	ssize_t nread,
 	const uv_buf_t *buf)
 {
 	struct asterism_tcp_incoming_s *incoming = (struct asterism_tcp_incoming_s *)stream;
-	if (nread > 0)
-	{
-		int eaten = 0;
-		incoming->buffer_len += nread;
-		if (incoming->connection_type == ASTERISM_TCP_OUTER_TYPE_CMD ) {
-			uv_buf_t buf;
-			buf.base = incoming->buffer;
-			buf.len = incoming->buffer_len;
-			if (incoming_parse_cmd_data(incoming, &buf, &eaten) != 0) {
-				incoming_close(incoming);
-				return;
-			}
-			int remain = incoming->buffer_len - eaten;
-			if (eaten > 0) {
-				if (remain) {
-					memmove(incoming->buffer, incoming->buffer + eaten, remain);
-					incoming->buffer_len = remain;
-				}
-				else {
-					incoming->buffer_len = 0;
-				}
-			}
+	int eaten = 0;
+	if (incoming->connection_type == ASTERISM_TCP_OUTER_TYPE_CMD) {
+		uv_buf_t buf;
+		buf.base = incoming->buffer;
+		buf.len = incoming->buffer_len;
+		if (incoming_parse_cmd_data(incoming, &buf, &eaten) != 0) {
+			asterism_stream_close((struct asterism_stream_s*)incoming);
+			return;
 		}
-
-		if (incoming->buffer_len) {
-			if (incoming->connection_type == ASTERISM_TCP_OUTER_TYPE_DATA) {
-				memset(&incoming->link->write_req, 0, sizeof(incoming->link->write_req));
-				incoming->link->write_req.data = stream;
-				uv_buf_t _buf;
-				_buf.base = incoming->buffer;
-				_buf.len = incoming->buffer_len;
-
-				printf("%.*s", _buf.len, _buf.base);
-				incoming->buffer_len = 0;
-				if (uv_write(&incoming->link->write_req, (uv_stream_t *)incoming->link, &_buf, 1, link_write_cb)) {
-					incoming_close(incoming);
-					return;
-				}
-				if (uv_read_stop(stream)) {
-					incoming_close(incoming);
-					return;
-				}
-			}
-			else if (incoming->connection_type != ASTERISM_TCP_OUTER_TYPE_CMD) {
-				incoming->buffer_len = 0;
-				incoming_close(incoming);
+		asterism_stream_eaten((struct asterism_stream_s*)stream, eaten);
+	}
+	if (incoming->buffer_len) {
+		if (incoming->connection_type == ASTERISM_TCP_OUTER_TYPE_DATA) {
+			if (asterism_stream_trans((struct asterism_stream_s*)stream)) {
+				asterism_stream_close((struct asterism_stream_s*)incoming);
 				return;
 			}
 		}
-	}
-	else if (nread == 0)
-	{
-		return;
-	}
-	else if (nread == UV_EOF)
-	{
-		incoming->fin_recv = 1;
-		if (incoming->fin_send)
-		{
-			incoming_close(incoming);
+		else if (incoming->connection_type != ASTERISM_TCP_OUTER_TYPE_CMD) {
+			asterism_stream_close((struct asterism_stream_s*)incoming);
+			return;
 		}
-		else
-		{
-			incoming_end(incoming);
-		}
-	}
-	else
-	{
-		asterism_log(ASTERISM_LOG_DEBUG, "%s", uv_strerror((int)nread));
-		incoming_close(incoming);
 	}
 }
 
@@ -386,18 +211,14 @@ static void outer_accept_cb(
 	{
 		goto cleanup;
 	}
-	incoming = incoming_new(outer->as);
-	if (!incoming)
-	{
-		goto cleanup;
-	}
-	ret = uv_accept((uv_stream_t *)&outer->socket, (uv_stream_t *)&incoming->socket);
+	incoming = __zero_malloc_st(struct asterism_tcp_incoming_s);
+	ret = asterism_stream_accept(outer->as, stream, 0, incoming_read_cb, incoming_close_cb, (struct asterism_stream_s*)incoming);
 	if (ret != 0)
 	{
 		ret = ASTERISM_E_FAILED;
 		goto cleanup;
 	}
-	ret = uv_read_start((uv_stream_t *)&incoming->socket, incoming_data_read_alloc_cb, incoming_read_cb);
+	ret = asterism_stream_read((struct asterism_stream_s*)incoming);
 	if (ret != 0)
 	{
 		ret = ASTERISM_E_FAILED;
@@ -406,35 +227,31 @@ static void outer_accept_cb(
 cleanup:
 	if (ret != 0)
 	{
-		incoming_close(incoming);
+		asterism_stream_close((struct asterism_stream_s*)incoming);
 	}
 }
 
 int asterism_outer_tcp_init(
 	struct asterism_s *as,
-	const char *ip, unsigned int *port, int ipv6)
+	const char *ip, unsigned int *port)
 {
 	int ret = ASTERISM_E_OK;
 	void *addr = 0;
 	int name_len = 0;
-	struct asterism_tcp_outer_s *outer = outer_new(as);
-	if (!outer)
+
+	struct asterism_tcp_outer_s *outer = __zero_malloc_st(struct asterism_tcp_outer_s);
+	outer->as = as;
+	ret = uv_tcp_init(as->loop, &outer->socket);
+	if (ret != 0)
 	{
+		asterism_log(ASTERISM_LOG_DEBUG, "%s", uv_strerror(ret));
+		ret = ASTERISM_E_SOCKET_LISTEN_ERROR;
 		goto cleanup;
 	}
+	addr = __zero_malloc_st(struct sockaddr_in);
+	name_len = sizeof(struct sockaddr_in);
+	ret = uv_ip4_addr(ip, (int)*port, (struct sockaddr_in *)addr);
 
-	if (ipv6)
-	{
-		addr = __zero_malloc_st(struct sockaddr_in6);
-		name_len = sizeof(struct sockaddr_in6);
-		ret = uv_ip6_addr(ip, (int)*port, (struct sockaddr_in6 *)addr);
-	}
-	else
-	{
-		addr = __zero_malloc_st(struct sockaddr_in);
-		name_len = sizeof(struct sockaddr_in);
-		ret = uv_ip4_addr(ip, (int)*port, (struct sockaddr_in *)addr);
-	}
 	if (ret != 0)
 	{
 		asterism_log(ASTERISM_LOG_DEBUG, "%s", uv_strerror(ret));
@@ -455,14 +272,7 @@ int asterism_outer_tcp_init(
 		ret = ASTERISM_E_SOCKET_LISTEN_ERROR;
 		goto cleanup;
 	}
-	if (ipv6)
-	{
-		*port = ntohs(((struct sockaddr_in6 *)addr)->sin6_port);
-	}
-	else
-	{
-		*port = ntohs(((struct sockaddr_in *)addr)->sin_port);
-	}
+	*port = ntohs(((struct sockaddr_in *)addr)->sin_port);
 
 	ret = uv_listen((uv_stream_t *)&outer->socket, ASTERISM_NET_BACKLOG, outer_accept_cb);
 	if (ret != 0)

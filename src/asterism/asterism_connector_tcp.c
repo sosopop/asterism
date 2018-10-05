@@ -4,100 +4,13 @@
 #include "asterism_utils.h"
 #include "asterism_log.h"
 
-static struct asterism_tcp_connector_s *connector_new(struct asterism_s *as)
-{
-	struct asterism_tcp_connector_s *obj = __zero_malloc_st(struct asterism_tcp_connector_s);
-	obj->as = as;
-	int ret = uv_tcp_init(as->loop, &obj->socket);
-	if (ret != 0)
-	{
-		asterism_log(ASTERISM_LOG_DEBUG, "%s", uv_strerror(ret));
-		ret = ASTERISM_E_SOCKET_LISTEN_ERROR;
-		goto cleanup;
-	}
-cleanup:
-	if (ret != 0)
-	{
-		AS_FREE(obj);
-		obj = 0;
-	}
-	return obj;
-}
-
-static void connector_delete(struct asterism_tcp_connector_s *obj)
-{
-	AS_FREE(obj);
-}
-
 static void connector_close_cb(
 	uv_handle_t *handle)
 {
 	int ret = 0;
 	struct asterism_tcp_connector_s *obj = (struct asterism_tcp_connector_s *)handle;
-	connector_delete(obj);
+	AS_FREE(obj);
 	asterism_log(ASTERISM_LOG_DEBUG, "tcp connection is closing");
-}
-
-static void connector_close(
-	struct asterism_tcp_connector_s *obj)
-{
-	if (obj && !uv_is_closing((uv_handle_t *)&obj->socket))
-		uv_close((uv_handle_t *)&obj->socket, connector_close_cb);
-}
-
-static void connector_data_read_alloc_cb(
-	uv_handle_t *handle,
-	size_t suggested_size,
-	uv_buf_t *buf)
-{
-	struct asterism_tcp_connector_s *connector = (struct asterism_tcp_connector_s *)handle;
-
-	buf->base = connector->buffer + connector->buffer_len;
-	buf->len = ASTERISM_MAX_PROTO_SIZE - connector->buffer_len;
-}
-
-static void connector_shutdown_cb(
-	uv_shutdown_t *req,
-	int status)
-{
-	struct asterism_tcp_connector_s *connector = (struct asterism_tcp_connector_s *)req->data;
-	if (status != 0)
-	{
-		goto cleanup;
-	}
-	connector->fin_send = 1;
-	if (connector->fin_recv)
-	{
-		connector_close(connector);
-	}
-cleanup:
-	if (status != 0)
-	{
-		connector_close(connector);
-	}
-	AS_FREE(req);
-}
-
-static int connector_end(
-	struct asterism_tcp_connector_s *connector)
-{
-	int ret = 0;
-	uv_shutdown_t *req = 0;
-	//////////////////////////////////////////////////////////////////////////
-	req = __zero_malloc_st(uv_shutdown_t);
-	req->data = connector;
-	ret = uv_shutdown(req, (uv_stream_t *)&connector->socket, connector_shutdown_cb);
-	if (ret != 0)
-		goto cleanup;
-cleanup:
-	if (ret != 0)
-	{
-		if (req)
-		{
-			AS_FREE(req);
-		}
-	}
-	return ret;
 }
 
 static int connector_parse_connect_data(
@@ -194,97 +107,35 @@ static int connector_parse_cmd_data(
 	return 0;
 }
 
-
-static void connector_read_cb(
-	uv_stream_t *stream,
-	ssize_t nread,
-	const uv_buf_t *buf);
-
-static void link_write_cb(
-	uv_write_t *req,
-	int status)
-{
-	struct asterism_tcp_connector_s *connector = (struct asterism_tcp_connector_s *)req->data;
-	if (uv_read_start((uv_stream_t *)&connector->socket, connector_data_read_alloc_cb, connector_read_cb)) {
-		connector_close(connector);
-	}
-}
-
 static void connector_read_cb(
 	uv_stream_t *stream,
 	ssize_t nread,
 	const uv_buf_t *buf)
 {
 	struct asterism_tcp_connector_s *connector = (struct asterism_tcp_connector_s *)stream;
-	if (nread > 0)
-	{
-		int eaten = 0;
-		connector->buffer_len += nread;
-		if (connector->connection_type == ASTERISM_TCP_CONNECTOR_TYPE_CMD) {
-			uv_buf_t buf;
-			buf.base = connector->buffer;
-			buf.len = connector->buffer_len;
- 			if (connector_parse_cmd_data(connector, &buf, &eaten) != 0) {
- 				connector_close(connector);
- 				return;
- 			}
-			int remain = connector->buffer_len - eaten;
-			if (eaten > 0) {
-				if (remain) {
-					memmove(connector->buffer, connector->buffer + eaten, remain);
-					connector->buffer_len = remain;
-				}
-				else {
-					connector->buffer_len = 0;
-				}
-			}
+	int eaten = 0;
+	if (connector->connection_type == ASTERISM_TCP_CONNECTOR_TYPE_CMD) {
+		uv_buf_t buf;
+		buf.base = connector->buffer;
+		buf.len = connector->buffer_len;
+		if (connector_parse_cmd_data(connector, &buf, &eaten) != 0) {
+			asterism_stream_close((struct asterism_stream_s*)connector);
+			return;
 		}
+		asterism_stream_eaten((struct asterism_stream_s*)stream, eaten);
+	}
 
-		if (connector->buffer_len) {
-			if (connector->connection_type == ASTERISM_TCP_CONNECTOR_TYPE_DATA) {
-				memset(&connector->link->write_req, 0, sizeof(connector->link->write_req));
-				connector->link->write_req.data = stream;
-				uv_buf_t _buf;
-				_buf.base = connector->buffer;
-				_buf.len = connector->buffer_len;
-				connector->buffer_len = 0;
-				if (uv_write(&connector->link->write_req, (uv_stream_t *)connector->link, &_buf, 1, link_write_cb)) {
-					connector_close(connector);
-					return;
-				}
-				if (uv_read_stop(stream)) {
-					connector_close(connector);
-					return;
-				}
-			}
-			else if (connector->connection_type != ASTERISM_TCP_CONNECTOR_TYPE_CMD) {
-				connector_close(connector);
+	if (connector->buffer_len) {
+		if (connector->connection_type == ASTERISM_TCP_CONNECTOR_TYPE_DATA) {
+			if (asterism_stream_trans((struct asterism_stream_s*)stream)) {
+				asterism_stream_close((struct asterism_stream_s*)stream);
+				return;
 			}
 		}
-	}
-	else if (nread == 0)
-	{
-		return;
-	}
-	else if (nread == UV_EOF)
-	{
-		connector->fin_recv = 1;
-		if (connector->fin_send)
-		{
-			connector_close(connector);
-		}
-		else
-		{
-			connector_end(connector);
+		else if (connector->connection_type != ASTERISM_TCP_CONNECTOR_TYPE_CMD) {
+			asterism_stream_close((struct asterism_stream_s*)connector);
 		}
 	}
-	else
-	{
-		asterism_log(ASTERISM_LOG_DEBUG, "%s", uv_strerror((int)nread));
-		connector_close(connector);
-	}
-	//if (buf && buf->base)
-		//AS_FREE(buf->base);
 }
 
 static void connector_send_cb(
@@ -296,24 +147,24 @@ static void connector_send_cb(
 	free(write_req);
 }
 
-#define JOIN_MAX_BUFFER_SIZE 512
-
 static int connector_send_join(struct asterism_tcp_connector_s *connector)
 {
 	int ret = 0;
 	struct asterism_s *as = connector->as;
-	struct asterism_trans_proto_s *connect_data = (struct asterism_trans_proto_s *)malloc(JOIN_MAX_BUFFER_SIZE);
+	size_t username_len = strlen(as->username);
+	size_t password_len = strlen(as->password);
+
+	struct asterism_trans_proto_s *connect_data = (struct asterism_trans_proto_s *)
+		malloc(sizeof(struct asterism_trans_proto_s) + username_len + password_len + 2 + 2);
 	connect_data->version = ASTERISM_TRANS_PROTO_VERSION;
 	connect_data->cmd = ASTERISM_TRANS_PROTO_JOIN;
 
 	char *off = (char *)connect_data + sizeof(struct asterism_trans_proto_s);
-	size_t username_len = strlen(as->username);
 	*(uint16_t *)off = htons((uint16_t)username_len);
 	off += 2;
 	memcpy(off, as->username, username_len);
 	off += username_len;
 
-	size_t password_len = strlen(as->password);
 	*(uint16_t *)off = htons((uint16_t)password_len);
 	off += 2;
 	memcpy(off, as->password, password_len);
@@ -322,14 +173,7 @@ static int connector_send_join(struct asterism_tcp_connector_s *connector)
 	uint16_t packet_len = (uint16_t)(off - (char *)connect_data);
 	connect_data->len = htons(packet_len);
 	struct asterism_write_req_s *write_req = __zero_malloc_st(struct asterism_write_req_s);
-
-//²âÊÔÕ³°ü
-// 	char* new_buffer = (char*)malloc(packet_len * 2);
-// 	memcpy(new_buffer, connect_data, packet_len);
-// 	memcpy(new_buffer + packet_len, connect_data, packet_len);
-// 	write_req->write_buffer.base = new_buffer;
-// 	write_req->write_buffer.len = packet_len * 2;
-
+	
 	write_req->write_buffer.base = (char *)connect_data;
 	write_req->write_buffer.len = packet_len;
 	ret = uv_write(&write_req->write_req, (uv_stream_t *)&connector->socket, &write_req->write_buffer, 1, connector_send_cb);
@@ -346,107 +190,42 @@ cleanup:
 	return ret;
 }
 
-static void connector_connected(
+static void connector_connect_cb(
 	uv_connect_t *req,
 	int status)
 {
 	int ret = 0;
 	struct asterism_tcp_connector_s *connector = (struct asterism_tcp_connector_s *)req->data;
-	if (status < 0)
-	{
-		ret = ASTERISM_E_FAILED;
-		goto cleanup;
-	}
-	ret = uv_read_start((uv_stream_t *)&connector->socket, connector_data_read_alloc_cb, connector_read_cb);
-	if (ret != 0)
-	{
-		ret = ASTERISM_E_FAILED;
-		goto cleanup;
-	}
 	ret = connector_send_join(connector);
 	if (ret != 0)
 	{
-		ret = ASTERISM_E_FAILED;
 		goto cleanup;
 	}
-cleanup:
-	if (ret != 0)
-	{
-		connector_close(connector);
-	}
-	if (req)
-		AS_FREE(req);
-}
-
-static void connector_getaddrinfo(
-	uv_getaddrinfo_t *req,
-	int status,
-	struct addrinfo *res)
-{
-	int ret = ASTERISM_E_OK;
-	uv_connect_t *connect_req = 0;
-	struct asterism_tcp_connector_s *connector = (struct asterism_tcp_connector_s *)req->data;
-	char addr[17] = {'\0'};
-	if (status < 0)
-	{
-		goto cleanup;
-	}
-	//only support ipv4
-	ret = uv_ip4_name((struct sockaddr_in *)res->ai_addr, addr, 16);
-	if (ret != 0)
-	{
-		goto cleanup;
-	}
-	connect_req = (uv_connect_t *)AS_MALLOC(sizeof(uv_connect_t));
-	connect_req->data = connector;
-	ret = uv_tcp_connect(connect_req, &connector->socket, res->ai_addr, connector_connected);
+	ret = asterism_stream_read((struct asterism_stream_s*)connector);
 	if (ret != 0)
 	{
 		goto cleanup;
 	}
 cleanup:
 	if (ret != 0)
-		connector_close(connector);
-	if (res)
-		uv_freeaddrinfo(res);
-	if (req)
-		AS_FREE(req);
+	{
+		asterism_stream_close((struct asterism_stream_s*)connector);
+	}
 }
 
 int asterism_connector_tcp_init(struct asterism_s *as,
 								const char *host, unsigned int port)
 {
-	int ret = ASTERISM_E_OK;
-	struct addrinfo hints;
-	uv_getaddrinfo_t *addr_info = 0;
-
-	struct asterism_tcp_connector_s *connector = connector_new(as);
-	if (!connector)
-	{
-		ret = ASTERISM_E_FAILED;
+	int ret = 0;
+	struct asterism_tcp_connector_s *connector = __zero_malloc_st(struct asterism_tcp_connector_s);
+	ret = asterism_stream_connect(as, host, port,
+		connector_connect_cb, 0, connector_read_cb, connector_close_cb, (struct asterism_stream_s*)connector);
+	if (ret)
 		goto cleanup;
-	}
-	addr_info = (uv_getaddrinfo_t *)AS_MALLOC(sizeof(uv_getaddrinfo_t));
-	addr_info->data = connector;
-	hints.ai_family = PF_INET;
-	hints.ai_socktype = SOCK_STREAM;
-	hints.ai_protocol = IPPROTO_TCP;
-	hints.ai_flags = 0;
-
-	char port_str[10] = {0};
-	asterism_itoa(port_str, sizeof(port_str), port, 10, 0, 0);
-	ret = uv_getaddrinfo(as->loop, addr_info, connector_getaddrinfo, host, port_str, &hints);
-	if (ret != 0)
-	{
-		ret = ASTERISM_E_FAILED;
-		goto cleanup;
-	}
 cleanup:
 	if (ret)
 	{
-		if (addr_info)
-			AS_FREE(addr_info);
-		connector_close(connector);
+		asterism_stream_close((struct asterism_stream_s*)connector);
 	}
 	return ret;
 }

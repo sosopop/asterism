@@ -13,9 +13,9 @@
 #define ASTREISM_USERNAME_MAX_LEN 128
 #define ASTREISM_PASSWORD_MAX_LEN 128
 
-#define ASTERISM_MAX_HTTP_HEADER_SIZE 4 * 1024
+#define ASTERISM_MAX_HTTP_HEADER_SIZE ASTERISM_TCP_BLOCK_SIZE
 
-#define ASTERISM_MAX_PROTO_SIZE 4 * 1024
+#define ASTERISM_MAX_PROTO_SIZE ASTERISM_TCP_BLOCK_SIZE
 
 #define ASTERISM_TRANS_PROTO_VERSION 0x10
 
@@ -34,13 +34,13 @@ password char*
 payload
 target_len 2bytes
 target char*
-connect_sign 4bytes
+handshake_id 4bytes
 */
 #define ASTERISM_TRANS_PROTO_CONNECT 2
 
 /*
 payload
-connect_sign 4bytes
+handshake_id 4bytes
 */
 #define ASTERISM_TRANS_PROTO_CONNECT_ACK 3
 

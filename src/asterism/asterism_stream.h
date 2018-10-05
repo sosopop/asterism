@@ -54,4 +54,13 @@ void asterism_stream_close(
 	struct asterism_stream_s* stream
 );
 
+int asterism_stream_trans(
+	struct asterism_stream_s* stream
+);
+
+void asterism_stream_eaten(
+	struct asterism_stream_s* stream,
+	unsigned int eaten
+);
+
 #endif // ASTERISM_STREAM_H_
