@@ -121,9 +121,6 @@ static int parse_cmd_connect_ack(
 		AS_FREE(req);
 		return -1;
 	}
-
-	asterism_stream_set_trans_mode((struct asterism_stream_s*)incoming->link);
-	asterism_stream_set_trans_mode((struct asterism_stream_s*)incoming);
 	return 0;
 }
 

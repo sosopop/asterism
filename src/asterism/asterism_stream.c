@@ -38,7 +38,6 @@ static int stream_end(
 		asterism_log(ASTERISM_LOG_DEBUG, "%s", uv_strerror((int)ret));
 		goto cleanup;
 	}
-	asterism_log(ASTERISM_LOG_DEBUG, "recv end");
 cleanup:
 	if (ret != 0)
 	{
@@ -77,7 +76,7 @@ static void stream_read_cb(
 	if (nread > 0)
 	{
 		stm->buffer_len += (unsigned int)nread;
-		if (stm->trans) {
+		if (stm->link) {
 			if (asterism_stream_trans(stm)) {
 				asterism_stream_close(stm);
 			}
@@ -97,18 +96,12 @@ static void stream_read_cb(
 		{
 			asterism_stream_close(stm);
 		}
-		else {
-			if (stm->trans)
-			{
-				if (stm->link) {
-					stream_end(stm->link);
-				}
-				else {
-					asterism_stream_close(stm);
-				}
+		else 
+		{
+			if (stm->link) {
+				stream_end(stm->link);
 			}
-			else
-			{
+			else {
 				stream_end(stm);
 			}
 		}
@@ -278,9 +271,7 @@ static void stream_close_cb(
 {
 	struct asterism_stream_s *stream = (struct asterism_stream_s *)handle;
 	if (stream->link) {
-		if (stream->trans) {
-			asterism_stream_close(stream->link);
-		}
+		asterism_stream_close(stream->link);
 		stream->link->link = 0;
 	}
 	stream->_close_cb((uv_handle_t *)stream);
@@ -293,11 +284,6 @@ void asterism_stream_close(
 {
 	if (stream && !uv_is_closing((uv_handle_t *)stream))
 		uv_close((uv_handle_t *)stream, stream_close_cb);
-}
-
-void asterism_stream_set_trans_mode(struct asterism_stream_s* stream)
-{
-	stream->trans = 1;
 }
 
 static void link_write_cb(

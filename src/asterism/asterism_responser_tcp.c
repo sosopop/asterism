@@ -93,7 +93,6 @@ int asterism_responser_tcp_init(
 		responser_connect_cb, 0, 0, responser_close_cb, (struct asterism_stream_s*)responser);
 	if (ret)
 		goto cleanup;
-	asterism_stream_set_trans_mode((struct asterism_stream_s*)responser);
 	responser->handshake_id = handshake_id;
 	responser->link = stream;
 cleanup:

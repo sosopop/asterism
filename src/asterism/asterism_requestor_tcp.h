@@ -15,6 +15,6 @@ struct asterism_tcp_requestor_s
 int asterism_requestor_tcp_init(struct asterism_s *as,
 	const char *host_lhs, unsigned int port_lhs,
 	const char *host_rhs, unsigned int port_rhs,
-	unsigned int handshake_id, struct asterism_stream_s* stream);
+	unsigned int handshake_id);
 
 #endif

@@ -17,7 +17,6 @@ uv_connect_cb _connect_cb;\
 uv_close_cb _close_cb;\
 uv_read_cb _read_cb;\
 uv_alloc_cb _alloc_cb;\
-unsigned char trans : 1;\
 unsigned char fin_recv : 1;\
 unsigned char fin_send : 1;
 
@@ -52,10 +51,6 @@ int asterism_stream_read(
 );
 
 void asterism_stream_close(
-	struct asterism_stream_s* stream
-);
-
-void asterism_stream_set_trans_mode(
 	struct asterism_stream_s* stream
 );
 

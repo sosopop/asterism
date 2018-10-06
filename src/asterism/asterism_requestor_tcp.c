@@ -47,8 +47,7 @@ int asterism_requestor_tcp_init(
 	struct asterism_s *as,
 	const char *host_lhs, unsigned int port_lhs,
 	const char *host_rhs, unsigned int port_rhs,
-	unsigned int handshake_id,
-	struct asterism_stream_s* stream)
+	unsigned int handshake_id)
 {
 	int ret = 0;
 	struct asterism_tcp_requestor_s *requestor = __zero_malloc_st(struct asterism_tcp_requestor_s);
@@ -56,7 +55,6 @@ int asterism_requestor_tcp_init(
 		requestor_connect_cb, 0, 0, requestor_close_cb, (struct asterism_stream_s*)requestor);
 	if (ret)
 		goto cleanup;
-	asterism_stream_set_trans_mode((struct asterism_stream_s*)requestor);
 	requestor->host_rhs = as_strdup(host_rhs);
 	requestor->port_rhs = port_rhs;
 	requestor->handshake_id = handshake_id;

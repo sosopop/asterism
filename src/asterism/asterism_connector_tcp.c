@@ -56,7 +56,7 @@ static int connector_parse_connect_data(
 
 	__host = as_strdup2(host_str.p, host_str.len);
 
-	if (asterism_requestor_tcp_init(conn->as, __host, port, conn->host, conn->port, handshake_id, (struct asterism_stream_s*)conn))
+	if (asterism_requestor_tcp_init(conn->as, __host, port, conn->host, conn->port, handshake_id))
 		goto cleanup;
 
 	ret = 0;
