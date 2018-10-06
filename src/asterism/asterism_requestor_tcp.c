@@ -13,18 +13,6 @@ static void requestor_close_cb(
 	asterism_log(ASTERISM_LOG_DEBUG, "requestor is closing");
 }
 
-static void requestor_read_cb(
-	uv_stream_t *stream,
-	ssize_t nread,
-	const uv_buf_t *buf)
-{
-	struct asterism_tcp_requestor_s *requestor = (struct asterism_tcp_requestor_s *)stream;
-	if (asterism_stream_trans((struct asterism_stream_s*)stream)) {
-		asterism_stream_close((struct asterism_stream_s*)stream);
-		return;
-	}
-}
-
 static void handshake_write_cb(
 	uv_write_t *req,
 	int status)
@@ -65,9 +53,10 @@ int asterism_requestor_tcp_init(
 	int ret = 0;
 	struct asterism_tcp_requestor_s *requestor = __zero_malloc_st(struct asterism_tcp_requestor_s);
 	ret = asterism_stream_connect(as, host_lhs, port_lhs,
-		requestor_connect_cb, 0, requestor_read_cb, requestor_close_cb, (struct asterism_stream_s*)requestor);
+		requestor_connect_cb, 0, 0, requestor_close_cb, (struct asterism_stream_s*)requestor);
 	if (ret)
 		goto cleanup;
+	asterism_stream_set_trans_mode((struct asterism_stream_s*)requestor);
 	requestor->host_rhs = as_strdup(host_rhs);
 	requestor->port_rhs = port_rhs;
 	requestor->handshake_id = handshake_id;

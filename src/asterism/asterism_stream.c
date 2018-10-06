@@ -38,6 +38,7 @@ static int stream_end(
 		asterism_log(ASTERISM_LOG_DEBUG, "%s", uv_strerror((int)ret));
 		goto cleanup;
 	}
+	asterism_log(ASTERISM_LOG_DEBUG, "recv end");
 cleanup:
 	if (ret != 0)
 	{
@@ -76,7 +77,14 @@ static void stream_read_cb(
 	if (nread > 0)
 	{
 		stm->buffer_len += (unsigned int)nread;
-		stm->_read_cb(stream, nread, buf);
+		if (stm->trans) {
+			if (asterism_stream_trans(stm)) {
+				asterism_stream_close(stm);
+			}
+		}
+		else {
+			stm->_read_cb(stream, nread, buf);
+		}
 	}
 	else if (nread == 0)
 	{
@@ -89,9 +97,20 @@ static void stream_read_cb(
 		{
 			asterism_stream_close(stm);
 		}
-		else
-		{
-			stream_end(stm);
+		else {
+			if (stm->trans)
+			{
+				if (stm->link) {
+					stream_end(stm->link);
+				}
+				else {
+					asterism_stream_close(stm);
+				}
+			}
+			else
+			{
+				stream_end(stm);
+			}
 		}
 	}
 	else
@@ -176,6 +195,7 @@ int asterism_stream_connect(
 		asterism_log(ASTERISM_LOG_DEBUG, "%s", uv_strerror(ret));
 		return ret;
 	}
+	asterism_log(ASTERISM_LOG_DEBUG, "tcp init %p", stream);
 
 	stream->_connect_cb = connect_cb;
 	stream->_close_cb = close_cb;
@@ -224,6 +244,7 @@ int asterism_stream_accept(
 		asterism_log(ASTERISM_LOG_DEBUG, "%s", uv_strerror(ret));
 		goto cleanup;
 	}
+	asterism_log(ASTERISM_LOG_DEBUG, "tcp init %p", stream);
 
 	stream->_alloc_cb = alloc_cb;
 	stream->_read_cb = read_cb;
@@ -256,8 +277,15 @@ static void stream_close_cb(
 	uv_handle_t *handle)
 {
 	struct asterism_stream_s *stream = (struct asterism_stream_s *)handle;
+	if (stream->link) {
+		if (stream->trans) {
+			asterism_stream_close(stream->link);
+		}
+		stream->link->link = 0;
+	}
 	stream->_close_cb((uv_handle_t *)stream);
-	asterism_log(ASTERISM_LOG_DEBUG, "tcp connection is closing");
+
+	asterism_log(ASTERISM_LOG_DEBUG, "tcp connection is closing %p", handle);
 }
 
 void asterism_stream_close(
@@ -265,6 +293,11 @@ void asterism_stream_close(
 {
 	if (stream && !uv_is_closing((uv_handle_t *)stream))
 		uv_close((uv_handle_t *)stream, stream_close_cb);
+}
+
+void asterism_stream_set_trans_mode(struct asterism_stream_s* stream)
+{
+	stream->trans = 1;
 }
 
 static void link_write_cb(

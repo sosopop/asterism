@@ -121,7 +121,9 @@ static int parse_cmd_connect_ack(
 		AS_FREE(req);
 		return -1;
 	}
-	incoming->connection_type = ASTERISM_TCP_OUTER_TYPE_DATA;
+
+	asterism_stream_set_trans_mode((struct asterism_stream_s*)incoming->link);
+	asterism_stream_set_trans_mode((struct asterism_stream_s*)incoming);
 	return 0;
 }
 
@@ -186,17 +188,9 @@ static void incoming_read_cb(
 		}
 		asterism_stream_eaten((struct asterism_stream_s*)stream, eaten);
 	}
-	if (incoming->buffer_len) {
-		if (incoming->connection_type == ASTERISM_TCP_OUTER_TYPE_DATA) {
-			if (asterism_stream_trans((struct asterism_stream_s*)stream)) {
-				asterism_stream_close((struct asterism_stream_s*)incoming);
-				return;
-			}
-		}
-		else if (incoming->connection_type != ASTERISM_TCP_OUTER_TYPE_CMD) {
-			asterism_stream_close((struct asterism_stream_s*)incoming);
-			return;
-		}
+	else {
+		asterism_stream_close((struct asterism_stream_s*)incoming);
+		return;
 	}
 }
 

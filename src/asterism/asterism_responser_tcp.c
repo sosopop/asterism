@@ -12,18 +12,6 @@ static void responser_close_cb(
 	asterism_log(ASTERISM_LOG_DEBUG, "responser is closing");
 }
 
-static void responser_read_cb(
-	uv_stream_t *stream,
-	ssize_t nread,
-	const uv_buf_t *buf)
-{
-	struct asterism_tcp_responser_s *responser = (struct asterism_tcp_responser_s *)stream;
-	if (asterism_stream_trans((struct asterism_stream_s*)stream)) {
-		asterism_stream_close((struct asterism_stream_s*)stream);
-		return;
-	}
-}
-
 static void handshake_write_cb(
 	uv_write_t *req,
 	int status)
@@ -102,9 +90,10 @@ int asterism_responser_tcp_init(
 	int ret = 0;
 	struct asterism_tcp_responser_s *responser = __zero_malloc_st(struct asterism_tcp_responser_s);
 	ret = asterism_stream_connect(as, host, port,
-		responser_connect_cb, 0, responser_read_cb, responser_close_cb, (struct asterism_stream_s*)responser);
+		responser_connect_cb, 0, 0, responser_close_cb, (struct asterism_stream_s*)responser);
 	if (ret)
 		goto cleanup;
+	asterism_stream_set_trans_mode((struct asterism_stream_s*)responser);
 	responser->handshake_id = handshake_id;
 	responser->link = stream;
 cleanup:

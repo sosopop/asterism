@@ -261,18 +261,8 @@ static void incoming_read_cb(
     const uv_buf_t *buf)
 {
     struct asterism_http_incoming_s *incoming = (struct asterism_http_incoming_s *)stream;
-	if (incoming->link)
-	{
-		if (asterism_stream_trans((struct asterism_stream_s*)stream)) {
-			asterism_stream_close((struct asterism_stream_s*)incoming);
-			return;
-		}
-	}
-	else
-	{
-		if (incoming_parse_connect(incoming, nread, buf) != 0) {
-			asterism_stream_close((struct asterism_stream_s*)incoming);
-		}
+	if (incoming_parse_connect(incoming, nread, buf) != 0) {
+		asterism_stream_close((struct asterism_stream_s*)incoming);
 	}
 }
 
