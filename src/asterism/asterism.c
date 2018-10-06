@@ -62,6 +62,7 @@ int asterism_set_option(asterism as, asterism_option opt, ...)
         __as->connect_addr = as_strdup(va_arg(ap, const char *));
         break;
     case ASTERISM_OPT_USERNAME:
+	{
         const char *username = va_arg(ap, const char *);
         size_t username_len = strlen(username);
         if (username_len > ASTREISM_USERNAME_MAX_LEN || username_len == 0)
@@ -72,8 +73,10 @@ int asterism_set_option(asterism as, asterism_option opt, ...)
         if (__as->username)
             free(__as->username);
         __as->username = as_strdup(username);
+	}
         break;
     case ASTERISM_OPT_PASSWORD:
+	{
         const char *password = va_arg(ap, const char *);
         size_t password_len = strlen(password);
         if (password_len > ASTREISM_PASSWORD_MAX_LEN || password_len == 0)
@@ -84,6 +87,7 @@ int asterism_set_option(asterism as, asterism_option opt, ...)
         if (__as->password)
             free(__as->password);
         __as->password = as_strdup(password);
+	}
         break;
     case ASTERISM_OPT_CONNECT_REDIRECT_HOOK:
         __as->connect_redirect_hook_cb = va_arg(ap, asterism_connnect_redirect_hook);
