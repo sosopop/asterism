@@ -137,12 +137,24 @@ int asterism_test02()
     //inner_addrs = asterism_slist_append(inner_addrs, "http://0.0.0.0:8080");
     //inner_addrs = asterism_slist_append(inner_addrs, "http://[::]:8080");
     //inner_addrs = asterism_slist_append(inner_addrs, "socks5://0.0.0.0:1080");
-    asterism_set_option(as, ASTERISM_OPT_INNER_BIND_ADDR, "http://0.0.0.0:8080");
+    //asterism_set_option(as, ASTERISM_OPT_INNER_BIND_ADDR, "http://0.0.0.0:8080");
 	//asterism_set_option(as, ASTERISM_OPT_OUTER_BIND_ADDR, "tcp://0.0.0.0:8081");
-	asterism_set_option(as, ASTERISM_OPT_OUTER_BIND_ADDR, "tcp://0.0.0.0:1234");
-    assert(!asterism_set_option(as, ASTERISM_OPT_USERNAME, "sosopop"));
-    assert(!asterism_set_option(as, ASTERISM_OPT_PASSWORD, "12345678"));
-    assert(!asterism_set_option(as, ASTERISM_OPT_CONNECT_ADDR, "tcp://127.0.0.1:1234"));
+	//asterism_set_option(as, ASTERISM_OPT_OUTER_BIND_ADDR, "tcp://0.0.0.0:1234");
+
+//  	ret = asterism_set_option(as, ASTERISM_OPT_OUTER_BIND_ADDR, "tcp://0.0.0.0:1234");
+//  	assert(!ret);
+// 	ret = asterism_set_option(as, ASTERISM_OPT_INNER_BIND_ADDR, "http://0.0.0.0:8080");
+// 	assert(!ret);
+
+
+
+	ret = asterism_set_option(as, ASTERISM_OPT_USERNAME, "sosopop1");
+	assert(!ret);
+	ret = asterism_set_option(as, ASTERISM_OPT_PASSWORD, "12345678");
+	assert(!ret);
+	ret = asterism_set_option(as, ASTERISM_OPT_CONNECT_ADDR, "tcp://127.0.0.1:1234");
+    assert(!ret);
+
     //asterism_slist_free_all(inner_addrs);
 
     /*
@@ -157,9 +169,10 @@ int asterism_test02()
     asterism_set_option(as, ASTERISM_OPT_CONNECT_ADDR, connect_addr);
     asterism_slist_free_all(connect_addr);
     */
-
-    assert(!asterism_prepare(as));
-    assert(!asterism_run(as));
+	ret = asterism_prepare(as);
+    assert(!ret);
+	ret = asterism_run(as);
+    assert(!ret);
 
     asterism_destroy(as);
     return ret;

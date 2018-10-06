@@ -14,10 +14,14 @@
 int main(int argc, char const *argv[])
 {
 #ifdef WIN32
+	//_CrtSetBreakAlloc(105);
     _CrtSetDbgFlag(_CrtSetDbgFlag(_CRTDBG_REPORT_FLAG) | _CRTDBG_LEAK_CHECK_DF);
 #endif
-    assert(0 == asterism_test01());
-    assert(0 == asterism_test02());
+	int ret = 0;
+	ret = asterism_test01();
+    assert(0 == ret);
+	ret = asterism_test02();
+    assert(0 == ret);
 #if defined(WIN32)
     assert(_CrtDumpMemoryLeaks() == 0);
 #endif

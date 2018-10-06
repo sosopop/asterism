@@ -9,6 +9,9 @@ static void connector_close_cb(
 {
 	int ret = 0;
 	struct asterism_tcp_connector_s *obj = (struct asterism_tcp_connector_s *)handle;
+	if (obj->host) {
+		AS_FREE(obj->host);
+	}
 	AS_FREE(obj);
 	asterism_log(ASTERISM_LOG_DEBUG, "connector is closing");
 }

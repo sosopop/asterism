@@ -21,12 +21,7 @@ struct asterism_http_incoming_s
     struct asterism_str http_header_value_temp;
     struct asterism_str connect_host;
     struct asterism_str auth_info;
-	struct asterism_session_s* session;
-	struct asterism_tunnel_s* tunnel;
 
-    char *remote_host;
-    char *username;
-    char *password;
     unsigned int header_parsed : 1;
     unsigned int header_auth_parsed : 1;
 };

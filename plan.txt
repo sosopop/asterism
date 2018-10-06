@@ -9,3 +9,7 @@ curl "http://www.baidu.com/" --proxytunnel --proxy "http://127.0.0.1:8080" --pro
 断开传播
 超时断开
 超时重连
+
+
+断开命令通道后没有close
+请求google崩溃问题

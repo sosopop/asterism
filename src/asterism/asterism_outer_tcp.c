@@ -6,8 +6,8 @@
 static void outer_close_cb(
 	uv_handle_t *handle)
 {
-	struct asterism_tcp_outer_s *obj = (struct asterism_tcp_outer_s *)handle;
-	AS_FREE(obj);
+	struct asterism_tcp_outer_s *outer = (struct asterism_tcp_outer_s *)handle;
+	AS_FREE(outer);
 }
 
 static void outer_close(
@@ -21,8 +21,18 @@ static void incoming_close_cb(
 	uv_handle_t *handle)
 {
 	int ret = 0;
-	struct asterism_tcp_incoming_s *obj = (struct asterism_tcp_incoming_s *)handle;
-	AS_FREE(obj);
+	struct asterism_tcp_incoming_s *incoming = (struct asterism_tcp_incoming_s *)handle;
+	if (incoming->session) {
+		RB_REMOVE(asterism_session_tree_s, &incoming->as->sessions, incoming->session);
+		if(incoming->session->username) {
+			AS_FREE(incoming->session->username);
+		}
+		if (incoming->session->password) {
+			AS_FREE(incoming->session->password);
+		}
+		AS_FREE(incoming->session);
+	}
+	AS_FREE(incoming);
 	asterism_log(ASTERISM_LOG_DEBUG, "tcp outer is closing");
 }
 
@@ -68,14 +78,13 @@ static int parse_cmd_join(
 	}
 	session->password = as_strdup2(password, password_len);
 	session->outer = incoming;
+	incoming->session = session;
 	//初始化握手tunnel队列
 
 	RB_INSERT(asterism_session_tree_s, &incoming->as->sessions, session);
 
 	asterism_log(ASTERISM_LOG_DEBUG, "user: %s join.", session->username);
 
-	//确定连接类型
-	incoming->connection_type = ASTERISM_TCP_OUTER_TYPE_CMD;
 	return 0;
 }
 
@@ -175,20 +184,15 @@ static void incoming_read_cb(
 {
 	struct asterism_tcp_incoming_s *incoming = (struct asterism_tcp_incoming_s *)stream;
 	int eaten = 0;
-	if (incoming->connection_type == ASTERISM_TCP_OUTER_TYPE_CMD) {
-		uv_buf_t buf;
-		buf.base = incoming->buffer;
-		buf.len = incoming->buffer_len;
-		if (incoming_parse_cmd_data(incoming, &buf, &eaten) != 0) {
-			asterism_stream_close((struct asterism_stream_s*)incoming);
-			return;
-		}
-		asterism_stream_eaten((struct asterism_stream_s*)stream, eaten);
-	}
-	else {
+
+	uv_buf_t _buf;
+	_buf.base = incoming->buffer;
+	_buf.len = incoming->buffer_len;
+	if (incoming_parse_cmd_data(incoming, &_buf, &eaten) != 0) {
 		asterism_stream_close((struct asterism_stream_s*)incoming);
 		return;
 	}
+	asterism_stream_eaten((struct asterism_stream_s*)stream, eaten);
 }
 
 static void outer_accept_cb(

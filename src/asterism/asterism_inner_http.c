@@ -20,12 +20,6 @@ static void inner_close(
 
 static void incoming_delete(struct asterism_http_incoming_s *obj)
 {
-    if (obj->remote_host)
-        AS_FREE(obj->remote_host);
-    if (obj->username)
-        AS_FREE(obj->username);
-    if (obj->password)
-        AS_FREE(obj->password);
     AS_FREE(obj);
 }
 
@@ -174,7 +168,6 @@ static int incoming_parse_connect(
 			return -1;
 		if (incoming->connect_host.len > MAX_HOST_LEN)
 			return -1;
-		incoming->remote_host = (char *)asterism_strdup_nul(incoming->connect_host).p;
 		struct asterism_str base_prefix = asterism_mk_str("Basic ");
 		if (asterism_strncmp(incoming->auth_info, base_prefix, base_prefix.len) != 0)
 			return -1;
@@ -191,22 +184,18 @@ static int incoming_parse_connect(
 		if (!split_pos)
 			return -1;
 		*split_pos = 0;
-		incoming->username = as_strdup(decode_buffer);
-		incoming->password = as_strdup(split_pos + 1);
-		asterism_log(ASTERISM_LOG_DEBUG, "http request username: %s , password: %s", incoming->username, incoming->password);
+		char* username = decode_buffer;
+		char* password = split_pos + 1;
+		asterism_log(ASTERISM_LOG_DEBUG, "http request username: %s , password: %s", username, password);
 		struct asterism_session_s sefilter;
-		sefilter.username = incoming->username;
+		sefilter.username = username;
 		struct asterism_session_s* session = RB_FIND(asterism_session_tree_s, &incoming->as->sessions, &sefilter);
 		//获取步到此用户
 		if (!session)
 			return -1;
 		//密码验证失败
-		if (strcmp(session->password, incoming->password))
+		if (strcmp(session->password, password))
 			return -1;
-
-		//session->inner = incoming;
-		//incoming->tunnel_connected = 1;
-		incoming->session = session;
 
 		//创建握手会话
 		struct asterism_handshake_s* handshake = __zero_malloc_st(struct asterism_handshake_s);
