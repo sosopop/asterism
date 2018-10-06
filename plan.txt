@@ -5,3 +5,7 @@ curl "http://www.baidu.com/" --proxytunnel --proxy "http://127.0.0.1:8080" --pro
 封装通讯模块
 
 将通讯部分弄成6个处理类型
+
+断开传播
+超时断开
+超时重连

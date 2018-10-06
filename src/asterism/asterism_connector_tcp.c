@@ -10,7 +10,7 @@ static void connector_close_cb(
 	int ret = 0;
 	struct asterism_tcp_connector_s *obj = (struct asterism_tcp_connector_s *)handle;
 	AS_FREE(obj);
-	asterism_log(ASTERISM_LOG_DEBUG, "tcp connection is closing");
+	asterism_log(ASTERISM_LOG_DEBUG, "connector is closing");
 }
 
 static int connector_parse_connect_data(
@@ -56,10 +56,8 @@ static int connector_parse_connect_data(
 
 	__host = as_strdup2(host_str.p, host_str.len);
 
-	if (asterism_requestor_tcp_init(conn->as, __host, port, handshake_id, (struct asterism_stream_s*)conn))
+	if (asterism_requestor_tcp_init(conn->as, __host, port, conn->host, conn->port, handshake_id, (struct asterism_stream_s*)conn))
 		goto cleanup;
-
-	conn->connection_type = ASTERISM_TCP_CONNECTOR_TYPE_DATA;
 
 	ret = 0;
 cleanup:
@@ -89,6 +87,7 @@ static int connector_parse_cmd_data(
 	}
 	//Æ¥ÅäÃüÁî
 	if (proto->cmd == ASTERISM_TRANS_PROTO_CONNECT) {
+		asterism_log(ASTERISM_LOG_DEBUG, "connection connect recv");
 		if (connector_parse_connect_data(conn, proto) != 0)
 			return -1;
 	}
@@ -114,28 +113,14 @@ static void connector_read_cb(
 {
 	struct asterism_tcp_connector_s *connector = (struct asterism_tcp_connector_s *)stream;
 	int eaten = 0;
-	if (connector->connection_type == ASTERISM_TCP_CONNECTOR_TYPE_CMD) {
-		uv_buf_t buf;
-		buf.base = connector->buffer;
-		buf.len = connector->buffer_len;
-		if (connector_parse_cmd_data(connector, &buf, &eaten) != 0) {
-			asterism_stream_close((struct asterism_stream_s*)connector);
-			return;
-		}
-		asterism_stream_eaten((struct asterism_stream_s*)stream, eaten);
+	uv_buf_t _buf;
+	_buf.base = connector->buffer;
+	_buf.len = connector->buffer_len;
+	if (connector_parse_cmd_data(connector, &_buf, &eaten) != 0) {
+		asterism_stream_close((struct asterism_stream_s*)connector);
+		return;
 	}
-
-	if (connector->buffer_len) {
-		if (connector->connection_type == ASTERISM_TCP_CONNECTOR_TYPE_DATA) {
-			if (asterism_stream_trans((struct asterism_stream_s*)stream)) {
-				asterism_stream_close((struct asterism_stream_s*)stream);
-				return;
-			}
-		}
-		else if (connector->connection_type != ASTERISM_TCP_CONNECTOR_TYPE_CMD) {
-			asterism_stream_close((struct asterism_stream_s*)connector);
-		}
-	}
+	asterism_stream_eaten((struct asterism_stream_s*)stream, eaten);
 }
 
 static void connector_send_cb(
@@ -181,6 +166,7 @@ static int connector_send_join(struct asterism_tcp_connector_s *connector)
 	{
 		goto cleanup;
 	}
+	asterism_log(ASTERISM_LOG_DEBUG, "connection join send");
 cleanup:
 	if (ret != 0)
 	{
@@ -218,6 +204,8 @@ int asterism_connector_tcp_init(struct asterism_s *as,
 {
 	int ret = 0;
 	struct asterism_tcp_connector_s *connector = __zero_malloc_st(struct asterism_tcp_connector_s);
+	connector->host = as_strdup(host);
+	connector->port = port;
 	ret = asterism_stream_connect(as, host, port,
 		connector_connect_cb, 0, connector_read_cb, connector_close_cb, (struct asterism_stream_s*)connector);
 	if (ret)

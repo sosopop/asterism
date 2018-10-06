@@ -34,8 +34,8 @@ static void incoming_close_cb(
 {
     int ret = 0;
     struct asterism_http_incoming_s *obj = (struct asterism_http_incoming_s *)handle;
-    incoming_delete(obj);
-    asterism_log(ASTERISM_LOG_DEBUG, "http connection is closing");
+	incoming_delete(obj);
+	asterism_log(ASTERISM_LOG_DEBUG, "http is closing");
 }
 
 static int on_url(http_parser *parser, const char *at, size_t length)
@@ -237,7 +237,7 @@ static int incoming_parse_connect(
 
 		req->write_buffer.base = (char *)connect_data;
 		req->write_buffer.len = packet_len;
-		
+
 		int write_ret = uv_write((uv_write_t*)req, (uv_stream_t*)session->outer, &req->write_buffer, 1, handshake_write_cb);
 		if (write_ret != 0) {
 			free(req->write_buffer.base);
@@ -248,8 +248,9 @@ static int incoming_parse_connect(
 
 		asterism_stream_eaten((struct asterism_stream_s*)incoming, incoming->buffer_len);
 
+		asterism_log(ASTERISM_LOG_DEBUG, "send handshake %d", handshake->id);
+
 		RB_INSERT(asterism_handshake_tree_s, &incoming->as->handshake_set, handshake);
-		asterism_log(ASTERISM_LOG_DEBUG, "header_parsed");
 	}
 	return 0;
 }
@@ -279,8 +280,8 @@ static void inner_accept_cb(
     uv_stream_t *stream,
     int status)
 {
-    int ret = ASTERISM_E_OK;
-    asterism_log(ASTERISM_LOG_DEBUG, "new http connection is comming");
+	int ret = ASTERISM_E_OK;
+	asterism_log(ASTERISM_LOG_DEBUG, "http connection is comming");
 
     struct asterism_http_inner_s *inner = (struct asterism_http_inner_s *)stream;
     struct asterism_http_incoming_s *incoming = 0;

@@ -10,7 +10,8 @@
 struct asterism_tcp_connector_s
 {
 	ASTERISM_STREAM_FIELDS
-	unsigned int connection_type : 1;
+	char* host;
+	unsigned int port;
 };
 
 int asterism_connector_tcp_init(

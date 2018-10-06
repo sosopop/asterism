@@ -23,7 +23,7 @@ static void incoming_close_cb(
 	int ret = 0;
 	struct asterism_tcp_incoming_s *obj = (struct asterism_tcp_incoming_s *)handle;
 	AS_FREE(obj);
-	asterism_log(ASTERISM_LOG_DEBUG, "tcp connection is closing");
+	asterism_log(ASTERISM_LOG_DEBUG, "tcp outer is closing");
 }
 
 static int parse_cmd_join(
@@ -94,7 +94,7 @@ static int parse_cmd_connect_ack(
 	//id
 	if (offset + 4 > proto->len)
 		return -1;
-	unsigned int id = ntohs(*(unsigned int*)((char*)proto + offset));
+	unsigned int id = ntohl(*(unsigned int*)((char*)proto + offset));
 	offset += 4;
 
 	struct asterism_handshake_s fh = { id };
@@ -146,10 +146,12 @@ static int incoming_parse_cmd_data(
 	}
 	//Æ¥ÅäÃüÁî
 	if (proto->cmd == ASTERISM_TRANS_PROTO_JOIN) {
+		asterism_log(ASTERISM_LOG_DEBUG, "connection join recv");
 		if (parse_cmd_join(incoming, proto) != 0)
 			return -1;
 	}
 	else if (proto->cmd == ASTERISM_TRANS_PROTO_CONNECT_ACK) {
+		asterism_log(ASTERISM_LOG_DEBUG, "connection connect ack recv");
 		if (parse_cmd_connect_ack(incoming, proto) != 0)
 			return -1;
 	}
@@ -203,7 +205,7 @@ static void outer_accept_cb(
 	int status)
 {
 	int ret = ASTERISM_E_OK;
-	asterism_log(ASTERISM_LOG_DEBUG, "new tcp connection is comming");
+	//asterism_log(ASTERISM_LOG_DEBUG, "new tcp connection is comming");
 
 	struct asterism_tcp_outer_s *outer = (struct asterism_tcp_outer_s *)stream;
 	struct asterism_tcp_incoming_s *incoming = 0;
