@@ -166,7 +166,7 @@ static int incoming_parse_connect(
 		if (!incoming->connect_host.len)
 			return -1;
 		if (!incoming->auth_info.len)
-			return -1;
+			return 407;
 		if (incoming->connect_host.len > MAX_HOST_LEN)
 			return -1;
 		struct asterism_str base_prefix = asterism_mk_str("Basic ");
@@ -183,7 +183,7 @@ static int incoming_parse_connect(
 			return -1;
 		char *split_pos = strchr(decode_buffer, ':');
 		if (!split_pos)
-			return -1;
+			return 407;
 		*split_pos = 0;
 		char* username = decode_buffer;
 		char* password = split_pos + 1;
@@ -193,10 +193,10 @@ static int incoming_parse_connect(
 		struct asterism_session_s* session = RB_FIND(asterism_session_tree_s, &incoming->as->sessions, &sefilter);
 		//获取步到此用户
 		if (!session)
-			return -1;
+			return 407;
 		//密码验证失败
 		if (strcmp(session->password, password))
-			return -1;
+			return 407;
 
 		//创建握手会话
 		struct asterism_handshake_s* handshake = __zero_malloc_st(struct asterism_handshake_s);
@@ -222,6 +222,8 @@ static int incoming_parse_connect(
 		memcpy(off, incoming->connect_host.p, incoming->connect_host.len);
 		off += incoming->connect_host.len;
 
+		asterism_log(ASTERISM_LOG_DEBUG, "connect to %.*s", incoming->connect_host.len, incoming->connect_host.p);
+
 		uint16_t packet_len = (uint16_t)(off - (char *)connect_data);
 		connect_data->len = htons(packet_len);
 
@@ -245,13 +247,36 @@ static int incoming_parse_connect(
 	return 0;
 }
 
+
+static void resp_auth_write_cb(
+	uv_write_t *req,
+	int status)
+{
+	struct asterism_stream_s *stream = (struct asterism_stream_s *)req->data;
+	free(req);
+	//asterism_stream_end(stream);
+}
+
 static void incoming_read_cb(
     uv_stream_t *stream,
     ssize_t nread,
     const uv_buf_t *buf)
 {
     struct asterism_http_incoming_s *incoming = (struct asterism_http_incoming_s *)stream;
-	if (incoming_parse_connect(incoming, nread, buf) != 0) {
+	int ret = incoming_parse_connect(incoming, nread, buf);
+	if (ret == 0) {
+		return;
+	}
+	else if (ret == 407) {
+		uv_write_t* req = __zero_malloc_st(uv_write_t);
+		req->data = incoming;
+		uv_buf_t buf = uv_buf_init((char *)HTTP_RESP_407, sizeof(HTTP_RESP_407) - 1);
+		int write_ret = uv_write((uv_write_t*)req, (uv_stream_t*)incoming, &buf, 1, resp_auth_write_cb);
+		if (write_ret != 0) {
+			free(req);
+		}
+	}
+	else {
 		asterism_stream_close((struct asterism_stream_s*)incoming);
 	}
 }

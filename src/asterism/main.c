@@ -10,7 +10,6 @@
 #include "test/asterism_test01.h"
 #include "test/asterism_test02.h"
 
-//target_link_libraries(uv advapi32 iphlpapi psapi userenv shell32 ws2_32)
 int main(int argc, char const *argv[])
 {
 #ifdef WIN32

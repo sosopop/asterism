@@ -190,6 +190,12 @@ void asterism_stream_close(
 		uv_close((uv_handle_t *)stream, stream_close_cb);
 }
 
+void asterism_stream_end(
+	struct asterism_stream_s * stream)
+{
+	stream_end(stream);
+}
+
 int asterism_stream_connect(
 	struct asterism_s* as,
 	const char *host,

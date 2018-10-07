@@ -54,6 +54,10 @@ void asterism_stream_close(
 	struct asterism_stream_s* stream
 );
 
+void asterism_stream_end(
+	struct asterism_stream_s* stream
+);
+
 int asterism_stream_trans(
 	struct asterism_stream_s* stream
 );

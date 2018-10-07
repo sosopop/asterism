@@ -143,7 +143,7 @@ int asterism_test02()
 
  	ret = asterism_set_option(as, ASTERISM_OPT_OUTER_BIND_ADDR, "tcp://0.0.0.0:1234");
  	assert(!ret);
-	ret = asterism_set_option(as, ASTERISM_OPT_INNER_BIND_ADDR, "http://0.0.0.0:8080");
+	ret = asterism_set_option(as, ASTERISM_OPT_INNER_BIND_ADDR, "http://0.0.0.0:8081");
 	assert(!ret);
 
 

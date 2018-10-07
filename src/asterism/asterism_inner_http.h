@@ -6,6 +6,11 @@
 #include "asterism_core.h"
 #include "asterism_utils.h"
 
+#define HTTP_RESP_407 \
+"HTTP/1.1 407 Proxy Authentication Required\r\n"\
+"Proxy-Authenticate: Basic realm=\"Asterism Authorization\"\r\n"\
+"Content-Length: 0\r\n\r\n"
+
 struct asterism_http_inner_s
 {
     uv_tcp_t socket;
