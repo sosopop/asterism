@@ -88,10 +88,13 @@ int asterism_set_option(asterism as, asterism_option opt, ...)
             free(__as->password);
         __as->password = as_strdup(password);
 	}
-        break;
-    case ASTERISM_OPT_CONNECT_REDIRECT_HOOK:
-        __as->connect_redirect_hook_cb = va_arg(ap, asterism_connnect_redirect_hook);
-        break;
+	break;
+	case ASTERISM_OPT_CONNECT_REDIRECT_HOOK:
+		__as->connect_redirect_hook_cb = va_arg(ap, asterism_connnect_redirect_hook);
+		break;
+	case ASTERISM_OPT_CONNECT_REDIRECT_HOOK_DATA:
+		__as->connect_redirect_hook_data = va_arg(ap, void*);
+		break;
     default:
         ret = ASTERISM_E_INVALID_ARGS;
         break;
@@ -150,6 +153,12 @@ int asterism_stop(asterism as)
 	struct asterism_s *__as = (struct asterism_s *)as;
 	uv_walk(__as->loop, handles_close_cb, __as);
     return ret;
+}
+
+
+void* asterism_alloc(unsigned int size)
+{
+	return AS_MALLOC(size);
 }
 
 void asterism_free(void *data)

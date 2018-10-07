@@ -127,8 +127,15 @@ int asterism_core_destory(struct asterism_s *as)
         AS_FREE(as->inner_bind_addr);
     if (as->outer_bind_addr)
         AS_FREE(as->outer_bind_addr);
-    AS_FREE(as);
 
+	struct asterism_handshake_s* h = 0;
+	struct asterism_handshake_s* _h = 0;
+	RB_FOREACH_SAFE(h, asterism_handshake_tree_s, &as->handshake_set, _h) {
+		RB_REMOVE(asterism_handshake_tree_s, &as->handshake_set, h);
+		AS_FREE(h);
+	}
+	RB_INIT(&as->handshake_set);
+    AS_FREE(as);
     return ret;
 }
 

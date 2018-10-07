@@ -94,6 +94,7 @@ struct asterism_s
 	struct asterism_session_tree_s sessions;
 	struct asterism_handshake_tree_s handshake_set;
     asterism_connnect_redirect_hook connect_redirect_hook_cb;
+	void* connect_redirect_hook_data;
     uv_loop_t *loop;
 };
 

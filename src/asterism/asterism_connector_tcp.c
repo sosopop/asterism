@@ -48,6 +48,17 @@ static int connector_parse_connect_data(
 	asterism_log(ASTERISM_LOG_DEBUG, "connect to: %.*s", (int)host_len, host);
 
 	char* target = as_strdup2(host, host_len);
+	if (conn->as->connect_redirect_hook_cb) {
+		char* new_target = conn->as->connect_redirect_hook_cb(
+			target, conn->as->connect_redirect_hook_data);
+		if (new_target == 0) {
+			goto cleanup;
+		}
+		else if (target != new_target) {
+			AS_FREE(target);
+			target = new_target;
+		}
+	}
 
 	struct asterism_str scheme = {0};
 	struct asterism_str host_str = { 0 };

@@ -108,9 +108,25 @@
 //      uv_write(wreq, stream, &buf, 1, client_write_callback);
 //  }
 
+static char* redirect_hook(char *target_addr, void* data) {
+	printf("remote request %s\n", target_addr);
+	if (strcmp(target_addr, "www.baidu.com:80") == 0) {
+		printf("remote redirect => 202.102.94.124:80\n");
+// 		char* new_addr = asterism_alloc(sizeof("202.102.94.124:80"));
+// 		return strcpy(new_addr, "202.102.94.124:80");
+	}
+	else if (strcmp(target_addr, "exit:80") == 0){
+		asterism_stop((asterism)data);
+		return 0;
+	}
+	return (char*)target_addr;
+}
+
 int asterism_test02()
 {
     int ret = ASTERISM_E_OK;
+
+	//asterism_log(ASTERISM_LOG_DEBUG, "%s", uv_strerror(ret));
 	//{
 	//	int ret = 0;
 	//	uv_loop_t *loop = uv_loop_new();
@@ -153,7 +169,11 @@ int asterism_test02()
 	ret = asterism_set_option(as, ASTERISM_OPT_PASSWORD, "12345678");
 	assert(!ret);
 	ret = asterism_set_option(as, ASTERISM_OPT_CONNECT_ADDR, "tcp://127.0.0.1:1234");
-    assert(!ret);
+	assert(!ret);
+	ret = asterism_set_option(as, ASTERISM_OPT_CONNECT_REDIRECT_HOOK, redirect_hook);
+	assert(!ret);
+	ret = asterism_set_option(as, ASTERISM_OPT_CONNECT_REDIRECT_HOOK_DATA, as);
+	assert(!ret);
 
     //asterism_slist_free_all(inner_addrs);
 
