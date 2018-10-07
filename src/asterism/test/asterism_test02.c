@@ -141,14 +141,14 @@ int asterism_test02()
 	//asterism_set_option(as, ASTERISM_OPT_OUTER_BIND_ADDR, "tcp://0.0.0.0:8081");
 	//asterism_set_option(as, ASTERISM_OPT_OUTER_BIND_ADDR, "tcp://0.0.0.0:1234");
 
-//  	ret = asterism_set_option(as, ASTERISM_OPT_OUTER_BIND_ADDR, "tcp://0.0.0.0:1234");
-//  	assert(!ret);
-// 	ret = asterism_set_option(as, ASTERISM_OPT_INNER_BIND_ADDR, "http://0.0.0.0:8080");
-// 	assert(!ret);
+ 	ret = asterism_set_option(as, ASTERISM_OPT_OUTER_BIND_ADDR, "tcp://0.0.0.0:1234");
+ 	assert(!ret);
+	ret = asterism_set_option(as, ASTERISM_OPT_INNER_BIND_ADDR, "http://0.0.0.0:8080");
+	assert(!ret);
 
 
 
-	ret = asterism_set_option(as, ASTERISM_OPT_USERNAME, "sosopop1");
+	ret = asterism_set_option(as, ASTERISM_OPT_USERNAME, "sosopop");
 	assert(!ret);
 	ret = asterism_set_option(as, ASTERISM_OPT_PASSWORD, "12345678");
 	assert(!ret);

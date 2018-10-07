@@ -170,6 +170,26 @@ cleanup:
 		asterism_stream_close(stream);
 }
 
+static void stream_close_cb(
+	uv_handle_t *handle)
+{
+	struct asterism_stream_s *stream = (struct asterism_stream_s *)handle;
+	if (stream->link) {
+		asterism_stream_close(stream->link);
+		stream->link->link = 0;
+	}
+	stream->_close_cb((uv_handle_t *)stream);
+
+	asterism_log(ASTERISM_LOG_DEBUG, "tcp connection is closing %p", handle);
+}
+
+void asterism_stream_close(
+	struct asterism_stream_s* stream)
+{
+	if (stream && !uv_is_closing((uv_handle_t *)stream))
+		uv_close((uv_handle_t *)stream, stream_close_cb);
+}
+
 int asterism_stream_connect(
 	struct asterism_s* as,
 	const char *host,
@@ -182,6 +202,7 @@ int asterism_stream_connect(
 	)
 {
 	stream->as = as;
+	stream->socket.data = stream_close_cb;
 	int ret = uv_tcp_init(as->loop, (uv_tcp_t *)stream);
 	if (ret != 0)
 	{
@@ -231,6 +252,7 @@ int asterism_stream_accept(
 )
 {
 	stream->as = as;
+	stream->socket.data = stream_close_cb;
 	int ret = uv_tcp_init(as->loop, (uv_tcp_t *)stream);
 	if (ret != 0)
 	{
@@ -264,26 +286,6 @@ int asterism_stream_read(
 	}
 cleanup:
 	return ret;
-}
-
-static void stream_close_cb(
-	uv_handle_t *handle)
-{
-	struct asterism_stream_s *stream = (struct asterism_stream_s *)handle;
-	if (stream->link) {
-		asterism_stream_close(stream->link);
-		stream->link->link = 0;
-	}
-	stream->_close_cb((uv_handle_t *)stream);
-
-	asterism_log(ASTERISM_LOG_DEBUG, "tcp connection is closing %p", handle);
-}
-
-void asterism_stream_close(
-	struct asterism_stream_s* stream)
-{
-	if (stream && !uv_is_closing((uv_handle_t *)stream))
-		uv_close((uv_handle_t *)stream, stream_close_cb);
 }
 
 static void link_write_cb(

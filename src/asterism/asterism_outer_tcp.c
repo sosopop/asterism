@@ -238,6 +238,7 @@ int asterism_outer_tcp_init(
 
 	struct asterism_tcp_outer_s *outer = __zero_malloc_st(struct asterism_tcp_outer_s);
 	outer->as = as;
+	outer->socket.data = outer_close_cb;
 	ret = uv_tcp_init(as->loop, &outer->socket);
 	if (ret != 0)
 	{
@@ -279,6 +280,9 @@ int asterism_outer_tcp_init(
 		goto cleanup;
 	}
 cleanup:
+	if (addr) {
+		AS_FREE(addr);
+	}
 	if (ret)
 	{
 		outer_close(outer);

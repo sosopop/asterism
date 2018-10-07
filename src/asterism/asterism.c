@@ -135,10 +135,20 @@ int asterism_run(asterism as)
     return asterism_core_run((struct asterism_s *)as);
 }
 
+void handles_close_cb(
+	uv_handle_t* handle,
+	void* arg
+)
+{
+	if (!uv_is_closing(handle))
+		uv_close(handle, (uv_close_cb)handle->data);
+}
+
 int asterism_stop(asterism as)
 {
-    int ret = ASTERISM_E_OK;
-
+	int ret = ASTERISM_E_OK;
+	struct asterism_s *__as = (struct asterism_s *)as;
+	uv_walk(__as->loop, handles_close_cb, __as);
     return ret;
 }
 

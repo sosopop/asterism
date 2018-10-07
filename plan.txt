@@ -12,4 +12,10 @@ curl "http://www.baidu.com/" --proxytunnel --proxy "http://127.0.0.1:8080" --pro
 
 
 断开命令通道后没有close
+
+定时心跳
+定时检测超时
+stop改为发async
+增加hosthook
 请求google崩溃问题
+
