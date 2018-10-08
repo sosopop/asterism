@@ -23,6 +23,7 @@ unsigned char fin_send : 1;
 typedef struct asterism_stream_s asterism_stream_t;
 
 struct asterism_stream_s {
+	ASTERISM_HANDLE_FIELDS
 	ASTERISM_STREAM_FIELDS
 };
 

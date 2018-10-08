@@ -6,8 +6,8 @@
 static void responser_close_cb(
 	uv_handle_t *handle)
 {
-	struct asterism_tcp_responser_s *responser = (struct asterism_tcp_responser_s *)handle;
-	asterism_safefree(responser->host_rhs);
+	struct asterism_tcp_responser_s *responser = __CONTAINER_PTR(struct asterism_tcp_responser_s, socket, handle);
+	AS_SAFEFREE(responser->host_rhs);
 	AS_FREE(responser);
 	asterism_log(ASTERISM_LOG_DEBUG, "responser is closing");
 }
@@ -37,11 +37,11 @@ static int responser_connect_ack(
 	uint16_t packet_len = (uint16_t)(off - (char *)connect_data);
 	connect_data->len = htons((uint16_t)(packet_len));
 
-	struct asterism_write_req_s* req = __zero_malloc_st(struct asterism_write_req_s);
+	struct asterism_write_req_s* req = __ZERO_MALLOC_ST(struct asterism_write_req_s);
 	req->write_buffer.base = (char *)connect_data;
 	req->write_buffer.len = packet_len;
 
-	int write_ret = uv_write((uv_write_t*)req, (uv_stream_t*)responser, &req->write_buffer, 1, handshake_write_cb);
+	int write_ret = uv_write((uv_write_t*)req, (uv_stream_t*)&responser->socket, &req->write_buffer, 1, handshake_write_cb);
 	if (write_ret != 0) {
 		free(req->write_buffer.base);
 		free(req);
@@ -88,7 +88,7 @@ int asterism_responser_tcp_init(
 	struct asterism_stream_s* stream)
 {
 	int ret = 0;
-	struct asterism_tcp_responser_s *responser = __zero_malloc_st(struct asterism_tcp_responser_s);
+	struct asterism_tcp_responser_s *responser = __ZERO_MALLOC_ST(struct asterism_tcp_responser_s);
 	ret = asterism_stream_connect(as, host, port,
 		responser_connect_cb, 0, 0, responser_close_cb, (struct asterism_stream_s*)responser);
 	if (ret)

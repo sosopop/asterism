@@ -30,7 +30,7 @@
 // 	 }
 //      {
 //          uv_stream_t* stream = (uv_stream_t*)req->data;
-//          uv_write_t* wreq = __zero_malloc_st(uv_write_t);
+//          uv_write_t* wreq = __ZERO_MALLOC_ST(uv_write_t);
 //          uv_buf_t buf;
 //          buf.base = b;
 //          buf.len = sizeof(b);
@@ -96,7 +96,7 @@
 // 		 return;
 // 	 }
 //      uv_stream_t* stream = (uv_stream_t*)req->data;
-//      uv_write_t* wreq = __zero_malloc_st(uv_write_t);
+//      uv_write_t* wreq = __ZERO_MALLOC_ST(uv_write_t);
 //      uv_buf_t buf;
 //      buf.base = b;
 //      buf.len = sizeof(b);
@@ -145,7 +145,7 @@ int asterism_test02()
     printf("libuv: %s\n", uv_version_string());
     printf("asterism: %s\n", asterism_version());
 
-    asterism_set_log_level(ASTERISM_LOG_DEBUG);
+    asterism_set_log_level(ASTERISM_LOG_INFO);
     asterism as = asterism_create();
     assert(as);
 
@@ -161,7 +161,6 @@ int asterism_test02()
  	assert(!ret);
 	ret = asterism_set_option(as, ASTERISM_OPT_INNER_BIND_ADDR, "http://0.0.0.0:8081");
 	assert(!ret);
-
 
 
 	ret = asterism_set_option(as, ASTERISM_OPT_USERNAME, "sosopop");

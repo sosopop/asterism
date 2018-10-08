@@ -7,7 +7,7 @@
 static void inner_close_cb(
     uv_handle_t *handle)
 {
-    struct asterism_http_inner_s *obj = (struct asterism_http_inner_s *)handle;
+    struct asterism_http_inner_s *obj = __CONTAINER_PTR(struct asterism_http_inner_s, socket, handle);
     AS_FREE(obj);
 }
 
@@ -27,15 +27,14 @@ static void incoming_close_cb(
     uv_handle_t *handle)
 {
     int ret = 0;
-	struct asterism_http_incoming_s *obj = (struct asterism_http_incoming_s *)handle;
-	//asterism_stop(obj->as);
+	struct asterism_http_incoming_s *obj = __CONTAINER_PTR(struct asterism_http_incoming_s, socket, handle);
 	incoming_delete(obj);
 	asterism_log(ASTERISM_LOG_DEBUG, "http is closing");
 }
 
 static int on_url(http_parser *parser, const char *at, size_t length)
 {
-    struct asterism_http_incoming_s *obj = __container_ptr(struct asterism_http_incoming_s, parser, parser);
+    struct asterism_http_incoming_s *obj = __CONTAINER_PTR(struct asterism_http_incoming_s, parser, parser);
     if (obj->connect_host.p)
     {
         obj->connect_host.len += length;
@@ -50,7 +49,7 @@ static int on_url(http_parser *parser, const char *at, size_t length)
 
 static int on_header_field(http_parser *parser, const char *at, size_t length)
 {
-    struct asterism_http_incoming_s *obj = __container_ptr(struct asterism_http_incoming_s, parser, parser);
+    struct asterism_http_incoming_s *obj = __CONTAINER_PTR(struct asterism_http_incoming_s, parser, parser);
     if (obj->http_header_field_temp.p)
     {
         obj->http_header_field_temp.len += length;
@@ -76,7 +75,7 @@ static int on_header_field(http_parser *parser, const char *at, size_t length)
 
 static int on_header_value(http_parser *parser, const char *at, size_t length)
 {
-    struct asterism_http_incoming_s *obj = __container_ptr(struct asterism_http_incoming_s, parser, parser);
+    struct asterism_http_incoming_s *obj = __CONTAINER_PTR(struct asterism_http_incoming_s, parser, parser);
     if (obj->http_header_value_temp.p)
     {
         obj->http_header_value_temp.len += length;
@@ -101,7 +100,7 @@ static int on_header_value(http_parser *parser, const char *at, size_t length)
 
 static int on_message_complete(http_parser *parser)
 {
-    struct asterism_http_incoming_s *obj = __container_ptr(struct asterism_http_incoming_s, parser, parser);
+    struct asterism_http_incoming_s *obj = __CONTAINER_PTR(struct asterism_http_incoming_s, parser, parser);
     obj->header_parsed = 1;
     if (obj->http_header_value_temp.p)
     {
@@ -199,12 +198,12 @@ static int incoming_parse_connect(
 			return 407;
 
 		//创建握手会话
-		struct asterism_handshake_s* handshake = __zero_malloc_st(struct asterism_handshake_s);
+		struct asterism_handshake_s* handshake = __ZERO_MALLOC_ST(struct asterism_handshake_s);
 		handshake->inner = (struct asterism_stream_s *)incoming;
 		handshake->id = asterism_tunnel_new_handshake_id();
 
 		//通过session转发连接请求
-		struct asterism_write_req_s* req = __zero_malloc_st(struct asterism_write_req_s);
+		struct asterism_write_req_s* req = __ZERO_MALLOC_ST(struct asterism_write_req_s);
 
 		//注意修改这里，分配内存****
 		struct asterism_trans_proto_s *connect_data = 
@@ -230,7 +229,7 @@ static int incoming_parse_connect(
 		req->write_buffer.base = (char *)connect_data;
 		req->write_buffer.len = packet_len;
 
-		int write_ret = uv_write((uv_write_t*)req, (uv_stream_t*)session->outer, &req->write_buffer, 1, handshake_write_cb);
+		int write_ret = uv_write((uv_write_t*)req, (uv_stream_t*)&session->outer->socket, &req->write_buffer, 1, handshake_write_cb);
 		if (write_ret != 0) {
 			free(req->write_buffer.base);
 			free(req);
@@ -262,16 +261,17 @@ static void incoming_read_cb(
     ssize_t nread,
     const uv_buf_t *buf)
 {
-    struct asterism_http_incoming_s *incoming = (struct asterism_http_incoming_s *)stream;
+
+	struct asterism_http_incoming_s *incoming = __CONTAINER_PTR(struct asterism_http_incoming_s, socket, stream);
 	int ret = incoming_parse_connect(incoming, nread, buf);
 	if (ret == 0) {
 		return;
 	}
 	else if (ret == 407) {
-		uv_write_t* req = __zero_malloc_st(uv_write_t);
+		uv_write_t* req = __ZERO_MALLOC_ST(uv_write_t);
 		req->data = incoming;
 		uv_buf_t buf = uv_buf_init((char *)HTTP_RESP_407, sizeof(HTTP_RESP_407) - 1);
-		int write_ret = uv_write((uv_write_t*)req, (uv_stream_t*)incoming, &buf, 1, resp_auth_write_cb);
+		int write_ret = uv_write((uv_write_t*)req, (uv_stream_t*)&incoming->socket, &buf, 1, resp_auth_write_cb);
 		if (write_ret != 0) {
 			free(req);
 		}
@@ -288,15 +288,16 @@ static void inner_accept_cb(
 	int ret = ASTERISM_E_OK;
 	asterism_log(ASTERISM_LOG_DEBUG, "http connection is comming");
 
-    struct asterism_http_inner_s *inner = (struct asterism_http_inner_s *)stream;
+    struct asterism_http_inner_s *inner = __CONTAINER_PTR(struct asterism_http_inner_s, socket, stream);
     struct asterism_http_incoming_s *incoming = 0;
     if (status != 0)
     {
         goto cleanup;
 	}
-	incoming = __zero_malloc_st(struct asterism_http_incoming_s);
+	incoming = __ZERO_MALLOC_ST(struct asterism_http_incoming_s);
     http_parser_init(&incoming->parser, HTTP_REQUEST);
-	ret = asterism_stream_accept(inner->as, stream, 0, incoming_read_cb, incoming_close_cb, (struct asterism_stream_s*)incoming);
+	ret = asterism_stream_accept(inner->as, stream, 0, 
+		incoming_read_cb, incoming_close_cb, (struct asterism_stream_s*)incoming);
 	if (ret != 0)
 	{
 		ret = ASTERISM_E_FAILED;
@@ -322,9 +323,9 @@ int asterism_inner_http_init(
     int ret = ASTERISM_E_OK;
     void *addr = 0;
     int name_len = 0;
-	struct asterism_http_inner_s *inner = __zero_malloc_st(struct asterism_http_inner_s);
+	struct asterism_http_inner_s *inner = __ZERO_MALLOC_ST(struct asterism_http_inner_s);
 	inner->as = as;
-	inner->socket.data = inner_close_cb;
+	inner->close_cb = inner_close_cb;
 	ret = uv_tcp_init(as->loop, &inner->socket);
 	if (ret != 0)
 	{
@@ -332,7 +333,7 @@ int asterism_inner_http_init(
 		ret = ASTERISM_E_SOCKET_LISTEN_ERROR;
 		goto cleanup;
 	}
-	addr = __zero_malloc_st(struct sockaddr_in);
+	addr = __ZERO_MALLOC_ST(struct sockaddr_in);
 	name_len = sizeof(struct sockaddr_in);
 	ret = uv_ip4_addr(ip, (int)*port, (struct sockaddr_in *)addr);
     if (ret != 0)

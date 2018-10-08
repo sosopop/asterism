@@ -4,7 +4,6 @@
 #include <uv.h>
 #include "asterism.h"
 #include <tree.h>
-#include "asterism_stream.h"
 
 #define ASTERISM_VERSION "0.0.0.1"
 #define ASTERISM_RECONNECT_DELAY 10000
@@ -47,6 +46,10 @@ handshake_id 4bytes
 #define ASTERISM_TRANS_PROTO_PING 4
 #define ASTERISM_TRANS_PROTO_PONG 5
 
+
+#define ASTERISM_HANDLE_FIELDS \
+uv_close_cb close_cb;
+
 #pragma pack(push)
 #pragma pack(1)
 
@@ -67,6 +70,11 @@ struct asterism_write_req_s
 	uv_buf_t write_buffer;
 };
 
+struct asterism_handle_s
+{
+	ASTERISM_HANDLE_FIELDS
+	uv_handle_t handle;
+};
 
 struct asterism_handshake_s {
 	unsigned int id;
@@ -78,10 +86,9 @@ RB_HEAD(asterism_handshake_tree_s, asterism_handshake_s);
 struct asterism_session_s {
 	char* username;
 	char* password;
-	void* outer;
+	struct asterism_stream_s * outer;
 	RB_ENTRY(asterism_session_s) tree_entry;
 };
-
 RB_HEAD(asterism_session_tree_s, asterism_session_s);
 
 struct asterism_s
@@ -93,6 +100,7 @@ struct asterism_s
 	char *password;
 	struct asterism_session_tree_s sessions;
 	struct asterism_handshake_tree_s handshake_set;
+	void* conns[2];
     asterism_connnect_redirect_hook connect_redirect_hook_cb;
 	void* connect_redirect_hook_data;
     uv_loop_t *loop;

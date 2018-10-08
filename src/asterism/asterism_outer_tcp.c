@@ -6,7 +6,7 @@
 static void outer_close_cb(
 	uv_handle_t *handle)
 {
-	struct asterism_tcp_outer_s *outer = (struct asterism_tcp_outer_s *)handle;
+	struct asterism_tcp_outer_s *outer = __CONTAINER_PTR(struct asterism_tcp_outer_s, socket, handle);
 	AS_FREE(outer);
 }
 
@@ -21,7 +21,7 @@ static void incoming_close_cb(
 	uv_handle_t *handle)
 {
 	int ret = 0;
-	struct asterism_tcp_incoming_s *incoming = (struct asterism_tcp_incoming_s *)handle;
+	struct asterism_tcp_incoming_s *incoming = __CONTAINER_PTR(struct asterism_tcp_incoming_s, socket, handle);
 	if (incoming->session) {
 		RB_REMOVE(asterism_session_tree_s, &incoming->as->sessions, incoming->session);
 		if(incoming->session->username) {
@@ -68,7 +68,7 @@ static int parse_cmd_join(
 	offset += password_len;
 
 	//将用户名密码写入到会话列表
-	struct asterism_session_s* session = __zero_malloc_st(struct asterism_session_s);
+	struct asterism_session_s* session = __ZERO_MALLOC_ST(struct asterism_session_s);
 	session->username = as_strdup2(username, username_len);
 	struct asterism_session_s* fs = RB_FIND(asterism_session_tree_s, &incoming->as->sessions, session);
 	if (fs) {
@@ -77,7 +77,7 @@ static int parse_cmd_join(
 		return -1;
 	}
 	session->password = as_strdup2(password, password_len);
-	session->outer = incoming;
+	session->outer = (struct asterism_stream_s *)incoming;
 	incoming->session = session;
 	//初始化握手tunnel队列
 
@@ -119,13 +119,13 @@ static int parse_cmd_connect_ack(
 	//incoming->link
 
 	//输出http ok
-	uv_write_t* req = __zero_malloc_st(uv_write_t);
+	uv_write_t* req = __ZERO_MALLOC_ST(uv_write_t);
 	req->data = incoming;
 	uv_buf_t buf;
 	buf.base = "HTTP/1.1 200 Connection Established\r\n\r\n";
 	buf.len = sizeof("HTTP/1.1 200 Connection Established\r\n\r\n") - 1;
 
-	int ret = uv_write( req, (uv_stream_t *)incoming->link, &buf, 1, write_connect_ack_cb );
+	int ret = uv_write( req, (uv_stream_t *)&incoming->link->socket, &buf, 1, write_connect_ack_cb );
 	if (ret) {
 		AS_FREE(req);
 		return -1;
@@ -182,7 +182,7 @@ static void incoming_read_cb(
 	ssize_t nread,
 	const uv_buf_t *buf)
 {
-	struct asterism_tcp_incoming_s *incoming = (struct asterism_tcp_incoming_s *)stream;
+	struct asterism_tcp_incoming_s *incoming = __CONTAINER_PTR(struct asterism_tcp_incoming_s, socket, stream);
 	int eaten = 0;
 
 	uv_buf_t _buf;
@@ -192,7 +192,7 @@ static void incoming_read_cb(
 		asterism_stream_close((struct asterism_stream_s*)incoming);
 		return;
 	}
-	asterism_stream_eaten((struct asterism_stream_s*)stream, eaten);
+	asterism_stream_eaten((struct asterism_stream_s*)incoming, eaten);
 }
 
 static void outer_accept_cb(
@@ -202,13 +202,13 @@ static void outer_accept_cb(
 	int ret = ASTERISM_E_OK;
 	//asterism_log(ASTERISM_LOG_DEBUG, "new tcp connection is comming");
 
-	struct asterism_tcp_outer_s *outer = (struct asterism_tcp_outer_s *)stream;
+	struct asterism_tcp_outer_s *outer = __CONTAINER_PTR(struct asterism_tcp_outer_s, socket, stream);
 	struct asterism_tcp_incoming_s *incoming = 0;
 	if (status != 0)
 	{
 		goto cleanup;
 	}
-	incoming = __zero_malloc_st(struct asterism_tcp_incoming_s);
+	incoming = __ZERO_MALLOC_ST(struct asterism_tcp_incoming_s);
 	ret = asterism_stream_accept(outer->as, stream, 0, incoming_read_cb, incoming_close_cb, (struct asterism_stream_s*)incoming);
 	if (ret != 0)
 	{
@@ -236,9 +236,9 @@ int asterism_outer_tcp_init(
 	void *addr = 0;
 	int name_len = 0;
 
-	struct asterism_tcp_outer_s *outer = __zero_malloc_st(struct asterism_tcp_outer_s);
+	struct asterism_tcp_outer_s *outer = __ZERO_MALLOC_ST(struct asterism_tcp_outer_s);
 	outer->as = as;
-	outer->socket.data = outer_close_cb;
+	outer->close_cb = outer_close_cb;
 	ret = uv_tcp_init(as->loop, &outer->socket);
 	if (ret != 0)
 	{
@@ -246,7 +246,7 @@ int asterism_outer_tcp_init(
 		ret = ASTERISM_E_SOCKET_LISTEN_ERROR;
 		goto cleanup;
 	}
-	addr = __zero_malloc_st(struct sockaddr_in);
+	addr = __ZERO_MALLOC_ST(struct sockaddr_in);
 	name_len = sizeof(struct sockaddr_in);
 	ret = uv_ip4_addr(ip, (int)*port, (struct sockaddr_in *)addr);
 

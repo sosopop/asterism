@@ -2,10 +2,12 @@
 #define ASTERISM_REQUESTOR_TCP_H_
 #include "asterism.h"
 #include "asterism_core.h"
+#include "asterism_stream.h"
 #include <uv.h>
 
 struct asterism_tcp_requestor_s
 {
+	ASTERISM_HANDLE_FIELDS
 	ASTERISM_STREAM_FIELDS
 	unsigned int handshake_id;
 	char* host_rhs;

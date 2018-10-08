@@ -8,7 +8,7 @@ static void connector_close_cb(
 	uv_handle_t *handle)
 {
 	int ret = 0;
-	struct asterism_tcp_connector_s *obj = (struct asterism_tcp_connector_s *)handle;
+	struct asterism_tcp_connector_s *obj = __CONTAINER_PTR(struct asterism_tcp_connector_s, socket, handle);
 	if (obj->host) {
 		AS_FREE(obj->host);
 	}
@@ -45,7 +45,7 @@ static int connector_parse_connect_data(
 	host = (char*)((char*)proto + offset);
 	offset += host_len;
 
-	asterism_log(ASTERISM_LOG_DEBUG, "connect to: %.*s", (int)host_len, host);
+	asterism_log(ASTERISM_LOG_INFO, "connect to: %.*s", (int)host_len, host);
 
 	char* target = as_strdup2(host, host_len);
 	if (conn->as->connect_redirect_hook_cb) {
@@ -75,8 +75,8 @@ static int connector_parse_connect_data(
 
 	ret = 0;
 cleanup:
-	asterism_safefree(__host);
-	asterism_safefree(target);
+	AS_SAFEFREE(__host);
+	AS_SAFEFREE(target);
 	return ret;
 }
 
@@ -125,7 +125,7 @@ static void connector_read_cb(
 	ssize_t nread,
 	const uv_buf_t *buf)
 {
-	struct asterism_tcp_connector_s *connector = (struct asterism_tcp_connector_s *)stream;
+	struct asterism_tcp_connector_s *connector = __CONTAINER_PTR(struct asterism_tcp_connector_s, socket, stream);
 	int eaten = 0;
 	uv_buf_t _buf;
 	_buf.base = connector->buffer;
@@ -134,7 +134,7 @@ static void connector_read_cb(
 		asterism_stream_close((struct asterism_stream_s*)connector);
 		return;
 	}
-	asterism_stream_eaten((struct asterism_stream_s*)stream, eaten);
+	asterism_stream_eaten((struct asterism_stream_s*)connector, eaten);
 }
 
 static void connector_send_cb(
@@ -171,7 +171,7 @@ static int connector_send_join(struct asterism_tcp_connector_s *connector)
 
 	uint16_t packet_len = (uint16_t)(off - (char *)connect_data);
 	connect_data->len = htons(packet_len);
-	struct asterism_write_req_s *write_req = __zero_malloc_st(struct asterism_write_req_s);
+	struct asterism_write_req_s *write_req = __ZERO_MALLOC_ST(struct asterism_write_req_s);
 	
 	write_req->write_buffer.base = (char *)connect_data;
 	write_req->write_buffer.len = packet_len;
@@ -190,6 +190,45 @@ cleanup:
 	return ret;
 }
 
+static int connector_send_ping(struct asterism_tcp_connector_s *connector)
+{
+	int ret = 0;
+	struct asterism_s *as = connector->as;
+
+	struct asterism_trans_proto_s *connect_data = (struct asterism_trans_proto_s *)
+		malloc(sizeof(struct asterism_trans_proto_s));
+	connect_data->version = ASTERISM_TRANS_PROTO_VERSION;
+	connect_data->cmd = ASTERISM_TRANS_PROTO_PING;
+
+	connect_data->len = htons(sizeof(struct asterism_trans_proto_s));
+	struct asterism_write_req_s *write_req = __ZERO_MALLOC_ST(struct asterism_write_req_s);
+
+	write_req->write_buffer.base = (char *)connect_data;
+	write_req->write_buffer.len = sizeof(struct asterism_trans_proto_s);
+	ret = uv_write(&write_req->write_req, (uv_stream_t *)&connector->socket, &write_req->write_buffer, 1, connector_send_cb);
+	if (ret != 0)
+	{
+		goto cleanup;
+	}
+	asterism_log(ASTERISM_LOG_DEBUG, "connection ping");
+cleanup:
+	if (ret != 0)
+	{
+		if (connect_data)
+			free(connect_data);
+	}
+	return ret;
+}
+
+static void heartbeat_timeout_cb(
+	uv_timer_t* handle
+) 
+{
+	int ret = 0;
+	//struct asterism_tcp_connector_s *connector = (struct asterism_tcp_connector_s *)handle->data;
+	//ret = connector_send_ping(connector);
+}
+
 static void connector_connect_cb(
 	uv_connect_t *req,
 	int status)
@@ -206,10 +245,23 @@ static void connector_connect_cb(
 	{
 		goto cleanup;
 	}
+// 	connector->heartbeat_timer = __ZERO_MALLOC_ST(uv_timer_t);
+// 	connector->heartbeat_timer->data = connector;
+// 	ret = uv_timer_init(connector->as->loop, connector->heartbeat_timer);
+// 	if (ret != 0)
+// 	{
+// 		goto cleanup;
+// 	}
+// 	ret = uv_timer_start(connector->heartbeat_timer, heartbeat_timeout_cb, 60*1000, -1);
+// 	if (ret != 0)
+// 	{
+// 		goto cleanup;
+// 	}
 cleanup:
 	if (ret != 0)
 	{
 		asterism_stream_close((struct asterism_stream_s*)connector);
+		AS_SAFEFREE(connector->heartbeat_timer);
 	}
 }
 
@@ -217,7 +269,7 @@ int asterism_connector_tcp_init(struct asterism_s *as,
 								const char *host, unsigned int port)
 {
 	int ret = 0;
-	struct asterism_tcp_connector_s *connector = __zero_malloc_st(struct asterism_tcp_connector_s);
+	struct asterism_tcp_connector_s *connector = __ZERO_MALLOC_ST(struct asterism_tcp_connector_s);
 	connector->host = as_strdup(host);
 	connector->port = port;
 	ret = asterism_stream_connect(as, host, port,

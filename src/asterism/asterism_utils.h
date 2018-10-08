@@ -13,16 +13,16 @@
 #define AS_FREE free
 #define AS_REALLOC realloc
 
-#define asterism_safefree(d) \
+#define AS_SAFEFREE(d) \
     if (d)                   \
     {                        \
         AS_FREE(d);          \
         d = 0;               \
     }
 
-#define __zero_malloc_st(s) (s *)memset(AS_MALLOC(sizeof(s)), 0, sizeof(s))
-#define __dup_mem(b, s) memcpy(AS_MALLOC(s), b, s)
-#define __container_ptr(s, m, p) (s *)((unsigned char *)p - (unsigned char *)(&((s *)0)->m))
+#define __ZERO_MALLOC_ST(s) (s *)memset(AS_MALLOC(sizeof(s)), 0, sizeof(s))
+#define __DUP_MEM(b, s) memcpy(AS_MALLOC(s), b, s)
+#define __CONTAINER_PTR(s, m, p) (s *)((unsigned char *)p - (unsigned char *)(&((s *)0)->m))
 
 #define ASTERISM_SNPRINTF_FLAG_ZERO 1
 

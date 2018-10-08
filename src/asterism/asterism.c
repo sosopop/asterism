@@ -4,6 +4,7 @@
 #include <string.h>
 #include "asterism_core.h"
 #include "asterism_utils.h"
+#include "asterism_stream.h"
 
 #define ASTERISM_ERROR_GEN(n, s) {"ASTERISM_E_" #n, s},
 static struct
@@ -27,7 +28,7 @@ const char *asterism_version()
 asterism asterism_create()
 {
     asterism_log(ASTERISM_LOG_DEBUG, "%s", "asterism_create");
-    return (asterism)__zero_malloc_st(struct asterism_s);
+    return (asterism)__ZERO_MALLOC_ST(struct asterism_s);
 }
 
 void asterism_destroy(asterism as)
@@ -143,8 +144,10 @@ void handles_close_cb(
 	void* arg
 )
 {
-	if (!uv_is_closing(handle))
-		uv_close(handle, (uv_close_cb)handle->data);
+	if (!uv_is_closing(handle)) {
+		struct asterism_handle_s *_handle = __CONTAINER_PTR(struct asterism_handle_s, handle, handle);
+		uv_close(handle, _handle->close_cb);
+	}
 }
 
 int asterism_stop(asterism as)
