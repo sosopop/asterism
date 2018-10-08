@@ -128,7 +128,36 @@ static int parse_cmd_connect_ack(
 	int ret = uv_write( req, (uv_stream_t *)&incoming->link->socket, &buf, 1, write_connect_ack_cb );
 	if (ret) {
 		AS_FREE(req);
-		return -1;
+		return ret;
+	}
+	return 0;
+}
+
+static void write_cmd_pong_cb(
+	uv_write_t *req,
+	int status)
+{
+	struct asterism_tcp_incoming_s *incoming = (struct asterism_tcp_incoming_s *)req->data;
+	int ret = asterism_stream_read((struct asterism_stream_s*)incoming);
+	if (ret)
+		asterism_stream_close((struct asterism_stream_s*)incoming);
+}
+
+static int parse_cmd_ping(
+	struct asterism_tcp_incoming_s *incoming,
+	struct asterism_trans_proto_s* proto)
+{
+	memset(&incoming->write_req, 0, sizeof(incoming->write_req));
+	incoming->write_req.data = incoming;
+	uv_buf_t buf = uv_buf_init((char*)&_global_proto_pong, sizeof(_global_proto_pong));
+	int ret = uv_write(&incoming->write_req, (uv_stream_t *)&incoming->socket, &buf, 1, write_cmd_pong_cb);
+	if (ret) {
+		return ret;
+	}
+	ret = uv_read_stop((uv_stream_t*)&incoming->socket);
+	if (ret != 0)
+	{
+		return ret;
 	}
 	return 0;
 }
@@ -161,6 +190,11 @@ static int incoming_parse_cmd_data(
 	else if (proto->cmd == ASTERISM_TRANS_PROTO_CONNECT_ACK) {
 		asterism_log(ASTERISM_LOG_DEBUG, "connection connect ack recv");
 		if (parse_cmd_connect_ack(incoming, proto) != 0)
+			return -1;
+	}
+	else if (proto->cmd == ASTERISM_TRANS_PROTO_PING) {
+		asterism_log(ASTERISM_LOG_DEBUG, "connection ping recv");
+		if (parse_cmd_ping(incoming, proto) != 0)
 			return -1;
 	}
 	else {

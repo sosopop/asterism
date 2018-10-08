@@ -4,6 +4,18 @@
 #include "asterism_connector_tcp.h"
 #include "asterism_utils.h"
 
+struct asterism_trans_proto_s _global_proto_ping = {
+	ASTERISM_TRANS_PROTO_VERSION,
+	ASTERISM_TRANS_PROTO_PING,
+	0
+};
+
+struct asterism_trans_proto_s _global_proto_pong = {
+	ASTERISM_TRANS_PROTO_VERSION,
+	ASTERISM_TRANS_PROTO_PONG,
+	0
+};
+
 unsigned int asterism_tunnel_new_handshake_id()
 {
 	static unsigned int id = 0;
@@ -142,6 +154,10 @@ int asterism_core_destory(struct asterism_s *as)
 int asterism_core_run(struct asterism_s *as)
 {
     int ret = ASTERISM_E_OK;
+
+	_global_proto_ping.len = htons(sizeof(_global_proto_ping));
+	_global_proto_pong.len = htons(sizeof(_global_proto_pong));
+
     ret = uv_run(as->loop, UV_RUN_DEFAULT);
     if (ret)
     {

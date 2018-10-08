@@ -4,6 +4,9 @@
 #include "asterism_utils.h"
 #include "asterism_log.h"
 
+static void close_hearbeat(
+	struct asterism_timer_s* timer);
+
 static void connector_close_cb(
 	uv_handle_t *handle)
 {
@@ -11,6 +14,10 @@ static void connector_close_cb(
 	struct asterism_tcp_connector_s *obj = __CONTAINER_PTR(struct asterism_tcp_connector_s, socket, handle);
 	if (obj->host) {
 		AS_FREE(obj->host);
+	}
+	if (obj->heartbeat_timer) {
+		close_hearbeat(obj->heartbeat_timer);
+		obj->heartbeat_timer->connector = 0;
 	}
 	AS_FREE(obj);
 	asterism_log(ASTERISM_LOG_DEBUG, "connector is closing");
@@ -105,6 +112,9 @@ static int connector_parse_cmd_data(
 		if (connector_parse_connect_data(conn, proto) != 0)
 			return -1;
 	}
+	else if (proto->cmd == ASTERISM_TRANS_PROTO_PONG) {
+		asterism_log(ASTERISM_LOG_DEBUG, "connection pong recv");
+	}
 	else
 	{
 		return -1;
@@ -137,11 +147,95 @@ static void connector_read_cb(
 	asterism_stream_eaten((struct asterism_stream_s*)connector, eaten);
 }
 
+static void heartbeat_close_cb(
+	uv_handle_t *handle)
+{
+	struct asterism_timer_s *timer = __CONTAINER_PTR(struct asterism_timer_s, timer, handle);
+	AS_FREE(timer);
+}
+
+static void close_hearbeat(
+	struct asterism_timer_s* timer)
+{
+	if (!uv_is_closing((uv_handle_t *)&timer->timer))
+		uv_close((uv_handle_t *)&timer->timer, heartbeat_close_cb);
+}
+
+static void connector_send_ping_cb(
+	uv_write_t *req,
+	int status)
+{
+	struct asterism_write_req_s *write_req = (struct asterism_write_req_s *)req;
+	struct asterism_tcp_connector_s *connector = (struct asterism_tcp_connector_s *)req->data;
+	int ret = asterism_stream_read((struct asterism_stream_s*)connector);
+	if (ret)
+		asterism_stream_close((struct asterism_stream_s*)connector);
+}
+
+static int connector_send_ping(struct asterism_tcp_connector_s *connector)
+{
+	int ret = 0;
+	memset(&connector->write_req, 0, sizeof(connector->write_req));
+	connector->write_req.data = connector;
+	uv_buf_t buf = uv_buf_init((char*)&_global_proto_ping, sizeof(_global_proto_ping));
+	ret = uv_write(&connector->write_req, (uv_stream_t *)&connector->socket, &buf, 1, connector_send_ping_cb);
+	if (ret != 0)
+	{
+		goto cleanup;
+	}
+	ret = uv_read_stop((uv_stream_t*)&connector->socket);
+	if (ret != 0)
+	{
+		goto cleanup;
+	}
+	asterism_log(ASTERISM_LOG_DEBUG, "connection send ping");
+cleanup:
+	return ret;
+}
+
+static void heartbeat_timeout_cb(
+	uv_timer_t* handle
+)
+{
+	struct asterism_timer_s *timer = __CONTAINER_PTR(struct asterism_timer_s, timer, handle);
+	if (!timer->connector || uv_is_closing((uv_handle_t*)&timer->connector->socket)) {
+		return;
+	}
+	int ret = connector_send_ping(timer->connector);
+	if (ret != 0)
+		asterism_stream_close((struct asterism_stream_s*)timer->connector);
+}
+
 static void connector_send_cb(
 	uv_write_t *req,
 	int status)
 {
 	struct asterism_write_req_s *write_req = (struct asterism_write_req_s *)req;
+	struct asterism_tcp_connector_s *connector = (struct asterism_tcp_connector_s *)req->data;
+	int ret = asterism_stream_read((struct asterism_stream_s*)connector);
+	if (ret != 0)
+	{
+		goto cleanup;
+	}
+	connector->heartbeat_timer = __ZERO_MALLOC_ST(struct asterism_timer_s);
+	connector->heartbeat_timer->close_cb = heartbeat_close_cb;
+	connector->heartbeat_timer->connector = connector;
+	ret = uv_timer_init(connector->as->loop, &connector->heartbeat_timer->timer);
+	if (ret != 0)
+	{
+		goto cleanup;
+	}
+	ret = uv_timer_start(&connector->heartbeat_timer->timer, heartbeat_timeout_cb, 1 * 1000, 1 * 1000);
+	if (ret != 0)
+	{
+		goto cleanup;
+	}
+cleanup:
+	if (ret != 0) {
+		if (connector->heartbeat_timer)
+			close_hearbeat(connector->heartbeat_timer);
+		asterism_stream_close((struct asterism_stream_s*)connector);
+	}
 	free(write_req->write_buffer.base);
 	free(write_req);
 }
@@ -171,62 +265,27 @@ static int connector_send_join(struct asterism_tcp_connector_s *connector)
 
 	uint16_t packet_len = (uint16_t)(off - (char *)connect_data);
 	connect_data->len = htons(packet_len);
+
 	struct asterism_write_req_s *write_req = __ZERO_MALLOC_ST(struct asterism_write_req_s);
-	
 	write_req->write_buffer.base = (char *)connect_data;
 	write_req->write_buffer.len = packet_len;
+	write_req->write_req.data = connector;
 	ret = uv_write(&write_req->write_req, (uv_stream_t *)&connector->socket, &write_req->write_buffer, 1, connector_send_cb);
+	if (ret != 0)
+	{
+		AS_FREE(write_req);
+		if (connect_data)
+			free(connect_data);
+		goto cleanup;
+	}
+	ret = uv_read_stop((uv_stream_t*)&connector->socket);
 	if (ret != 0)
 	{
 		goto cleanup;
 	}
 	asterism_log(ASTERISM_LOG_DEBUG, "connection join send");
 cleanup:
-	if (ret != 0)
-	{
-		if (connect_data)
-			free(connect_data);
-	}
 	return ret;
-}
-
-static int connector_send_ping(struct asterism_tcp_connector_s *connector)
-{
-	int ret = 0;
-	struct asterism_s *as = connector->as;
-
-	struct asterism_trans_proto_s *connect_data = (struct asterism_trans_proto_s *)
-		malloc(sizeof(struct asterism_trans_proto_s));
-	connect_data->version = ASTERISM_TRANS_PROTO_VERSION;
-	connect_data->cmd = ASTERISM_TRANS_PROTO_PING;
-
-	connect_data->len = htons(sizeof(struct asterism_trans_proto_s));
-	struct asterism_write_req_s *write_req = __ZERO_MALLOC_ST(struct asterism_write_req_s);
-
-	write_req->write_buffer.base = (char *)connect_data;
-	write_req->write_buffer.len = sizeof(struct asterism_trans_proto_s);
-	ret = uv_write(&write_req->write_req, (uv_stream_t *)&connector->socket, &write_req->write_buffer, 1, connector_send_cb);
-	if (ret != 0)
-	{
-		goto cleanup;
-	}
-	asterism_log(ASTERISM_LOG_DEBUG, "connection ping");
-cleanup:
-	if (ret != 0)
-	{
-		if (connect_data)
-			free(connect_data);
-	}
-	return ret;
-}
-
-static void heartbeat_timeout_cb(
-	uv_timer_t* handle
-) 
-{
-	int ret = 0;
-	//struct asterism_tcp_connector_s *connector = (struct asterism_tcp_connector_s *)handle->data;
-	//ret = connector_send_ping(connector);
 }
 
 static void connector_connect_cb(
@@ -240,28 +299,15 @@ static void connector_connect_cb(
 	{
 		goto cleanup;
 	}
-	ret = asterism_stream_read((struct asterism_stream_s*)connector);
-	if (ret != 0)
-	{
-		goto cleanup;
-	}
-// 	connector->heartbeat_timer = __ZERO_MALLOC_ST(uv_timer_t);
-// 	connector->heartbeat_timer->data = connector;
-// 	ret = uv_timer_init(connector->as->loop, connector->heartbeat_timer);
-// 	if (ret != 0)
-// 	{
-// 		goto cleanup;
-// 	}
-// 	ret = uv_timer_start(connector->heartbeat_timer, heartbeat_timeout_cb, 60*1000, -1);
-// 	if (ret != 0)
-// 	{
-// 		goto cleanup;
-// 	}
+//	ret = asterism_stream_read((struct asterism_stream_s*)connector);
+//	if (ret != 0)
+//	{
+//		goto cleanup;
+//	}
 cleanup:
 	if (ret != 0)
 	{
 		asterism_stream_close((struct asterism_stream_s*)connector);
-		AS_SAFEFREE(connector->heartbeat_timer);
 	}
 }
 

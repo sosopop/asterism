@@ -48,7 +48,8 @@ handshake_id 4bytes
 
 
 #define ASTERISM_HANDLE_FIELDS \
-uv_close_cb close_cb;
+uv_close_cb close_cb;\
+char reserved[4];
 
 #pragma pack(push)
 #pragma pack(1)
@@ -106,6 +107,8 @@ struct asterism_s
     uv_loop_t *loop;
 };
 
+extern struct asterism_trans_proto_s _global_proto_ping;
+extern struct asterism_trans_proto_s _global_proto_pong;
 
 int asterism_core_prepare(struct asterism_s *as);
 

@@ -145,7 +145,7 @@ int asterism_test02()
     printf("libuv: %s\n", uv_version_string());
     printf("asterism: %s\n", asterism_version());
 
-    asterism_set_log_level(ASTERISM_LOG_INFO);
+    asterism_set_log_level(ASTERISM_LOG_DEBUG);
     asterism as = asterism_create();
     assert(as);
 

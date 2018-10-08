@@ -17,7 +17,7 @@ struct asterism_tcp_connector_s
 	ASTERISM_STREAM_FIELDS
 	char* host;
 	unsigned int port;
-	uv_timer_t* heartbeat_timer;
+	struct asterism_timer_s* heartbeat_timer;
 };
 
 struct asterism_timer_s
