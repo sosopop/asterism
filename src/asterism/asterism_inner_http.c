@@ -14,8 +14,7 @@ static void inner_close_cb(
 static void inner_close(
     struct asterism_http_inner_s *obj)
 {
-    if (obj && !uv_is_closing((uv_handle_t *)&obj->socket))
-        uv_close((uv_handle_t *)&obj->socket, inner_close_cb);
+	asterism_handle_close((uv_handle_t *)&obj->socket);
 }
 
 static void incoming_delete(struct asterism_http_incoming_s *obj)
@@ -325,7 +324,7 @@ int asterism_inner_http_init(
     int name_len = 0;
 	struct asterism_http_inner_s *inner = __ZERO_MALLOC_ST(struct asterism_http_inner_s);
 	inner->as = as;
-	inner->close_cb = inner_close_cb;
+	ASTERISM_HANDLE_INIT(inner, socket, inner_close_cb);
 	ret = uv_tcp_init(as->loop, &inner->socket);
 	if (ret != 0)
 	{

@@ -142,6 +142,19 @@ int asterism_test02()
 	//	uv_run(loop, UV_RUN_DEFAULT);
 	//}
 
+// 	uv_write_t req;
+// 	int i = GetTickCount();
+// 	for (int a = 0; a < 10000000; a++) {
+// 		uv_write_t* q = malloc(sizeof(uv_write_t));
+// 		free(q);
+// 	}
+// 	printf("count = %d \n", GetTickCount() - i);
+// 	i = GetTickCount();
+// 	for (int a = 0; a < 10000000; a++) {
+// 		memset(&req, 0, sizeof(req));
+// 	}
+// 	printf("count = %d \n", GetTickCount() - i);
+
     printf("libuv: %s\n", uv_version_string());
     printf("asterism: %s\n", asterism_version());
 
@@ -188,8 +201,6 @@ int asterism_test02()
     asterism_set_option(as, ASTERISM_OPT_CONNECT_ADDR, connect_addr);
     asterism_slist_free_all(connect_addr);
     */
-	ret = asterism_prepare(as);
-    assert(!ret);
 	ret = asterism_run(as);
     assert(!ret);
 

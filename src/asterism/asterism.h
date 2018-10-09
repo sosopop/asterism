@@ -98,8 +98,6 @@ extern "C"
 
     int asterism_get_info(asterism as, asterism_info info, ...);
 
-    int asterism_prepare(asterism as);
-
     int asterism_run(asterism as);
 
     int asterism_stop(asterism as);

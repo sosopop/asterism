@@ -4,6 +4,7 @@
 #include <uv.h>
 #include "asterism.h"
 #include <tree.h>
+#include "queue.h"
 
 #define ASTERISM_VERSION "0.0.0.1"
 #define ASTERISM_RECONNECT_DELAY 10000
@@ -19,6 +20,8 @@
 #define ASTERISM_TRANS_PROTO_VERSION 0x10
 
 #define MAX_HOST_LEN 256
+
+#define ASTERISM_CONNECTION_MAX_IDLE_COUNT 60
 
 /*
 payload
@@ -48,8 +51,11 @@ handshake_id 4bytes
 
 
 #define ASTERISM_HANDLE_FIELDS \
-uv_close_cb close_cb;\
-char reserved[4];
+uv_close_cb close_cb;
+
+#define ASTERISM_HANDLE_INIT(o, m, cb) \
+o->m.data = o;\
+o->close_cb = cb;
 
 #pragma pack(push)
 #pragma pack(1)
@@ -74,7 +80,6 @@ struct asterism_write_req_s
 struct asterism_handle_s
 {
 	ASTERISM_HANDLE_FIELDS
-	uv_handle_t handle;
 };
 
 struct asterism_handshake_s {
@@ -92,6 +97,15 @@ struct asterism_session_s {
 };
 RB_HEAD(asterism_session_tree_s, asterism_session_s);
 
+struct asterism_s;
+
+struct check_timer_s
+{
+	ASTERISM_HANDLE_FIELDS
+	uv_timer_t timer;
+	struct asterism_s* as;
+};
+
 struct asterism_s
 {
     char *inner_bind_addr;
@@ -101,7 +115,9 @@ struct asterism_s
 	char *password;
 	struct asterism_session_tree_s sessions;
 	struct asterism_handshake_tree_s handshake_set;
-	void* conns[2];
+	struct check_timer_s* check_timer;
+	unsigned int current_tick_count;
+	QUEUE conns_queue;
     asterism_connnect_redirect_hook connect_redirect_hook_cb;
 	void* connect_redirect_hook_data;
     uv_loop_t *loop;
@@ -115,6 +131,10 @@ int asterism_core_prepare(struct asterism_s *as);
 int asterism_core_destory(struct asterism_s *as);
 
 int asterism_core_run(struct asterism_s *as);
+
+int asterism_core_stop(struct asterism_s *as);
+
+void asterism_handle_close(uv_handle_t* handle);
 
 int asterism_session_compare(struct asterism_session_s* a, struct asterism_session_s* b);
 

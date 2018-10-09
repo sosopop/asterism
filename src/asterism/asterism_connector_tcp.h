@@ -9,7 +9,7 @@
 #define ASTERISM_TCP_CONNECTOR_TYPE_DATA 1
 
 
-struct asterism_timer_s;
+struct connector_timer_s;
 
 struct asterism_tcp_connector_s
 {
@@ -17,10 +17,10 @@ struct asterism_tcp_connector_s
 	ASTERISM_STREAM_FIELDS
 	char* host;
 	unsigned int port;
-	struct asterism_timer_s* heartbeat_timer;
+	struct connector_timer_s* heartbeat_timer;
 };
 
-struct asterism_timer_s
+struct connector_timer_s
 {
 	ASTERISM_HANDLE_FIELDS
 	uv_timer_t timer;

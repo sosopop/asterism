@@ -129,33 +129,14 @@ cleanup:
     return ret;
 }
 
-int asterism_prepare(asterism as)
-{
-    return asterism_core_prepare((struct asterism_s *)as);
-}
-
 int asterism_run(asterism as)
 {
     return asterism_core_run((struct asterism_s *)as);
 }
 
-void handles_close_cb(
-	uv_handle_t* handle,
-	void* arg
-)
-{
-	if (!uv_is_closing(handle)) {
-		struct asterism_handle_s *_handle = __CONTAINER_PTR(struct asterism_handle_s, handle, handle);
-		uv_close(handle, _handle->close_cb);
-	}
-}
-
 int asterism_stop(asterism as)
 {
-	int ret = ASTERISM_E_OK;
-	struct asterism_s *__as = (struct asterism_s *)as;
-	uv_walk(__as->loop, handles_close_cb, __as);
-    return ret;
+	return asterism_core_stop((struct asterism_s *)as);
 }
 
 

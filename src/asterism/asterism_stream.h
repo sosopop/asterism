@@ -3,6 +3,8 @@
 
 #include <uv.h>
 #include "asterism_core.h"
+#include <time.h>
+#include "queue.h"
 
 #define ASTERISM_TCP_BLOCK_SIZE 4 * 1024
 
@@ -18,6 +20,8 @@ uv_close_cb _close_cb;\
 uv_read_cb _read_cb;\
 uv_alloc_cb _alloc_cb;\
 unsigned char fin_recv : 1;\
+QUEUE queue;\
+unsigned int active_tick_count;\
 unsigned char fin_send : 1;
 
 typedef struct asterism_stream_s asterism_stream_t;
