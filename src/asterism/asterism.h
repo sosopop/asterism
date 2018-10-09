@@ -66,7 +66,7 @@ extern "C"
     } asterism_errno;
 #undef ASTERISM_ERROR_GEN
 
-    typedef char* (*asterism_connnect_redirect_hook)(char *target_addr, void* data);
+    typedef char *(*asterism_connnect_redirect_hook)(char *target_addr, void *data);
 
     typedef enum
     {
@@ -74,9 +74,9 @@ extern "C"
         ASTERISM_OPT_OUTER_BIND_ADDR,
         ASTERISM_OPT_CONNECT_ADDR,
         ASTERISM_OPT_USERNAME,
-		ASTERISM_OPT_PASSWORD,
-		ASTERISM_OPT_CONNECT_REDIRECT_HOOK,
-		ASTERISM_OPT_CONNECT_REDIRECT_HOOK_DATA
+        ASTERISM_OPT_PASSWORD,
+        ASTERISM_OPT_CONNECT_REDIRECT_HOOK,
+        ASTERISM_OPT_CONNECT_REDIRECT_HOOK_DATA
     } asterism_option;
 
     typedef enum
@@ -102,7 +102,7 @@ extern "C"
 
     int asterism_stop(asterism as);
 
-	void* asterism_alloc(unsigned int size);
+    void *asterism_alloc(unsigned int size);
 
     void asterism_free(void *data);
 

@@ -225,7 +225,7 @@ struct asterism_str asterism_strdup_nul(const struct asterism_str s)
 char *as_strdup(const char *src)
 {
     size_t len = strlen(src) + 1;
-    char *ret = AS_MALLOC(len);
+    char *ret = (char *)AS_MALLOC(len);
     if (ret != NULL)
     {
         strcpy(ret, src);
@@ -235,13 +235,13 @@ char *as_strdup(const char *src)
 
 char *as_strdup2(const char *src, size_t len)
 {
-	char *ret = AS_MALLOC(len + 1);
-	if (ret != NULL)
-	{
-		memcpy(ret, src, len);
-		ret[len] = '\0';
-	}
-	return ret;
+    char *ret = (char *)AS_MALLOC(len + 1);
+    if (ret != NULL)
+    {
+        memcpy(ret, src, len);
+        ret[len] = '\0';
+    }
+    return ret;
 }
 
 const char *asterism_strchr(const struct asterism_str s, int c)

@@ -30,8 +30,8 @@ static void requestor_connect_cb(
 	asterism_log(ASTERISM_LOG_DEBUG, "request connected");
 
 	struct asterism_tcp_requestor_s *requestor = (struct asterism_tcp_requestor_s *)req->data;
-	ret = asterism_responser_tcp_init(requestor->as, requestor->host_rhs, 
-		requestor->port_rhs, requestor->handshake_id, (struct asterism_stream_s*)requestor);
+	ret = asterism_responser_tcp_init(requestor->as, requestor->host_rhs,
+									  requestor->port_rhs, requestor->handshake_id, (struct asterism_stream_s *)requestor);
 	if (ret != 0)
 	{
 		goto cleanup;
@@ -39,7 +39,7 @@ static void requestor_connect_cb(
 cleanup:
 	if (ret != 0)
 	{
-		asterism_stream_close((struct asterism_stream_s*)requestor);
+		asterism_stream_close((struct asterism_stream_s *)requestor);
 	}
 }
 
@@ -52,7 +52,7 @@ int asterism_requestor_tcp_init(
 	int ret = 0;
 	struct asterism_tcp_requestor_s *requestor = __ZERO_MALLOC_ST(struct asterism_tcp_requestor_s);
 	ret = asterism_stream_connect(as, host_lhs, port_lhs,
-		requestor_connect_cb, 0, 0, requestor_close_cb, (struct asterism_stream_s*)requestor);
+								  requestor_connect_cb, 0, 0, requestor_close_cb, (struct asterism_stream_s *)requestor);
 	if (ret)
 		goto cleanup;
 	requestor->host_rhs = as_strdup(host_rhs);
@@ -61,7 +61,7 @@ int asterism_requestor_tcp_init(
 cleanup:
 	if (ret)
 	{
-		asterism_stream_close((struct asterism_stream_s*)requestor);
+		asterism_stream_close((struct asterism_stream_s *)requestor);
 	}
 	return ret;
 }

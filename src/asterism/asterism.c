@@ -63,7 +63,7 @@ int asterism_set_option(asterism as, asterism_option opt, ...)
         __as->connect_addr = as_strdup(va_arg(ap, const char *));
         break;
     case ASTERISM_OPT_USERNAME:
-	{
+    {
         const char *username = va_arg(ap, const char *);
         size_t username_len = strlen(username);
         if (username_len > ASTREISM_USERNAME_MAX_LEN || username_len == 0)
@@ -74,10 +74,10 @@ int asterism_set_option(asterism as, asterism_option opt, ...)
         if (__as->username)
             free(__as->username);
         __as->username = as_strdup(username);
-	}
-        break;
+    }
+    break;
     case ASTERISM_OPT_PASSWORD:
-	{
+    {
         const char *password = va_arg(ap, const char *);
         size_t password_len = strlen(password);
         if (password_len > ASTREISM_PASSWORD_MAX_LEN || password_len == 0)
@@ -88,14 +88,14 @@ int asterism_set_option(asterism as, asterism_option opt, ...)
         if (__as->password)
             free(__as->password);
         __as->password = as_strdup(password);
-	}
-	break;
-	case ASTERISM_OPT_CONNECT_REDIRECT_HOOK:
-		__as->connect_redirect_hook_cb = va_arg(ap, asterism_connnect_redirect_hook);
-		break;
-	case ASTERISM_OPT_CONNECT_REDIRECT_HOOK_DATA:
-		__as->connect_redirect_hook_data = va_arg(ap, void*);
-		break;
+    }
+    break;
+    case ASTERISM_OPT_CONNECT_REDIRECT_HOOK:
+        __as->connect_redirect_hook_cb = va_arg(ap, asterism_connnect_redirect_hook);
+        break;
+    case ASTERISM_OPT_CONNECT_REDIRECT_HOOK_DATA:
+        __as->connect_redirect_hook_data = va_arg(ap, void *);
+        break;
     default:
         ret = ASTERISM_E_INVALID_ARGS;
         break;
@@ -136,13 +136,12 @@ int asterism_run(asterism as)
 
 int asterism_stop(asterism as)
 {
-	return asterism_core_stop((struct asterism_s *)as);
+    return asterism_core_stop((struct asterism_s *)as);
 }
 
-
-void* asterism_alloc(unsigned int size)
+void *asterism_alloc(unsigned int size)
 {
-	return AS_MALLOC(size);
+    return AS_MALLOC(size);
 }
 
 void asterism_free(void *data)

@@ -22,7 +22,8 @@ static void handshake_write_cb(
 }
 
 static int responser_connect_ack(
-	struct asterism_tcp_responser_s *responser) {
+	struct asterism_tcp_responser_s *responser)
+{
 	int ret = 0;
 
 	struct asterism_trans_proto_s *connect_data =
@@ -37,12 +38,13 @@ static int responser_connect_ack(
 	uint16_t packet_len = (uint16_t)(off - (char *)connect_data);
 	connect_data->len = htons((uint16_t)(packet_len));
 
-	struct asterism_write_req_s* req = __ZERO_MALLOC_ST(struct asterism_write_req_s);
+	struct asterism_write_req_s *req = __ZERO_MALLOC_ST(struct asterism_write_req_s);
 	req->write_buffer.base = (char *)connect_data;
 	req->write_buffer.len = packet_len;
 
-	int write_ret = uv_write((uv_write_t*)req, (uv_stream_t*)&responser->socket, &req->write_buffer, 1, handshake_write_cb);
-	if (write_ret != 0) {
+	int write_ret = uv_write((uv_write_t *)req, (uv_stream_t *)&responser->socket, &req->write_buffer, 1, handshake_write_cb);
+	if (write_ret != 0)
+	{
 		free(req->write_buffer.base);
 		free(req);
 		return -1;
@@ -69,7 +71,7 @@ static void responser_connect_cb(
 	{
 		goto cleanup;
 	}
-	ret = asterism_stream_read((struct asterism_stream_s*)responser);
+	ret = asterism_stream_read((struct asterism_stream_s *)responser);
 	if (ret != 0)
 	{
 		goto cleanup;
@@ -77,7 +79,7 @@ static void responser_connect_cb(
 cleanup:
 	if (ret != 0)
 	{
-		asterism_stream_close((struct asterism_stream_s*)responser);
+		asterism_stream_close((struct asterism_stream_s *)responser);
 	}
 }
 
@@ -85,12 +87,12 @@ int asterism_responser_tcp_init(
 	struct asterism_s *as,
 	const char *host, unsigned int port,
 	unsigned int handshake_id,
-	struct asterism_stream_s* stream)
+	struct asterism_stream_s *stream)
 {
 	int ret = 0;
 	struct asterism_tcp_responser_s *responser = __ZERO_MALLOC_ST(struct asterism_tcp_responser_s);
 	ret = asterism_stream_connect(as, host, port,
-		responser_connect_cb, 0, 0, responser_close_cb, (struct asterism_stream_s*)responser);
+								  responser_connect_cb, 0, 0, responser_close_cb, (struct asterism_stream_s *)responser);
 	if (ret)
 		goto cleanup;
 	responser->handshake_id = handshake_id;
@@ -98,7 +100,7 @@ int asterism_responser_tcp_init(
 cleanup:
 	if (ret)
 	{
-		asterism_stream_close((struct asterism_stream_s*)responser);
+		asterism_stream_close((struct asterism_stream_s *)responser);
 	}
 	return ret;
 }

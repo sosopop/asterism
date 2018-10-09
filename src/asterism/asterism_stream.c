@@ -34,7 +34,8 @@ static int stream_end(
 	req = __ZERO_MALLOC_ST(uv_shutdown_t);
 	req->data = stream;
 	ret = uv_shutdown(req, (uv_stream_t *)&stream->socket, stream_shutdown_cb);
-	if (ret != 0) {
+	if (ret != 0)
+	{
 		asterism_log(ASTERISM_LOG_DEBUG, "%s", uv_strerror((int)ret));
 		goto cleanup;
 	}
@@ -55,13 +56,16 @@ static void stream_read_alloc_cb(
 	uv_buf_t *buf)
 {
 	struct asterism_stream_s *stream = __CONTAINER_PTR(struct asterism_stream_s, socket, handle);
-	if (stream->_alloc_cb) {
+	if (stream->_alloc_cb)
+	{
 		stream->_alloc_cb(handle, suggested_size, buf);
 	}
-	else {
+	else
+	{
 		buf->base = stream->buffer + stream->buffer_len;
 		buf->len = ASTERISM_TCP_BLOCK_SIZE - stream->buffer_len;
-		if (buf->len == 0) {
+		if (buf->len == 0)
+		{
 			asterism_stream_close(stream);
 		}
 	}
@@ -81,12 +85,15 @@ static void stream_read_cb(
 		QUEUE_INSERT_TAIL(&as->conns_queue, &stm->queue);
 
 		stm->buffer_len += (unsigned int)nread;
-		if (stm->link) {
-			if (asterism_stream_trans(stm)) {
+		if (stm->link)
+		{
+			if (asterism_stream_trans(stm))
+			{
 				asterism_stream_close(stm);
 			}
 		}
-		else {
+		else
+		{
 			stm->_read_cb(stream, nread, buf);
 		}
 	}
@@ -101,12 +108,14 @@ static void stream_read_cb(
 		{
 			asterism_stream_close(stm);
 		}
-		else 
+		else
 		{
-			if (stm->link) {
+			if (stm->link)
+			{
 				stream_end(stm->link);
 			}
-			else {
+			else
+			{
 				stream_end(stm);
 			}
 		}
@@ -148,7 +157,7 @@ static void stream_getaddrinfo(
 	int ret = ASTERISM_E_OK;
 	uv_connect_t *connect_req = 0;
 	struct asterism_stream_s *stream = (struct asterism_stream_s *)req->data;
-	char addr[17] = { '\0' };
+	char addr[17] = {'\0'};
 	if (status < 0)
 	{
 		goto cleanup;
@@ -182,7 +191,8 @@ static void stream_close_cb(
 
 	QUEUE_REMOVE(&stream->queue);
 
-	if (stream->link) {
+	if (stream->link)
+	{
 		asterism_stream_close(stream->link);
 		stream->link->link = 0;
 	}
@@ -192,25 +202,24 @@ static void stream_close_cb(
 }
 
 void asterism_stream_close(
-	struct asterism_stream_s* stream)
+	struct asterism_stream_s *stream)
 {
 	asterism_handle_close((uv_handle_t *)&stream->socket);
 }
 
 void asterism_stream_end(
-	struct asterism_stream_s * stream)
+	struct asterism_stream_s *stream)
 {
 	stream_end(stream);
 }
 
 static int stream_init(
-	asterism_stream_t* stream,
-	struct asterism_s* as
-) 
+	asterism_stream_t *stream,
+	struct asterism_s *as)
 {
 	stream->as = as;
 	ASTERISM_HANDLE_INIT(stream, socket, stream_close_cb);
-	//插入到超时检查队列
+
 	QUEUE_INSERT_TAIL(&as->conns_queue, &stream->queue);
 	int ret = uv_tcp_init(as->loop, (uv_tcp_t *)&stream->socket);
 	if (ret != 0)
@@ -218,22 +227,21 @@ static int stream_init(
 		asterism_log(ASTERISM_LOG_DEBUG, "%s", uv_strerror(ret));
 		return ret;
 	}
-	//初始tick
+	//锟斤拷始tick
 	stream->active_tick_count = as->current_tick_count;
 	asterism_log(ASTERISM_LOG_DEBUG, "tcp init %p", stream);
 	return ret;
 }
 
 int asterism_stream_connect(
-	struct asterism_s* as,
+	struct asterism_s *as,
 	const char *host,
 	unsigned int port,
 	uv_connect_cb connect_cb,
 	uv_alloc_cb alloc_cb,
 	uv_read_cb read_cb,
 	uv_close_cb close_cb,
-	asterism_stream_t* stream
-	)
+	asterism_stream_t *stream)
 {
 	int ret = stream_init(stream, as);
 	if (ret != 0)
@@ -256,7 +264,7 @@ int asterism_stream_connect(
 	hints.ai_protocol = IPPROTO_TCP;
 	hints.ai_flags = 0;
 
-	char port_str[10] = { 0 };
+	char port_str[10] = {0};
 	asterism_itoa(port_str, sizeof(port_str), port, 10, 0, 0);
 	ret = uv_getaddrinfo(as->loop, addr_info, stream_getaddrinfo, host, port_str, &hints);
 	if (ret != 0)
@@ -266,20 +274,20 @@ int asterism_stream_connect(
 	}
 	ret = 0;
 cleanup:
-	if (ret) {
+	if (ret)
+	{
 		AS_SAFEFREE(addr_info);
 	}
 	return ret;
 }
 
 int asterism_stream_accept(
-	struct asterism_s* as,
+	struct asterism_s *as,
 	uv_stream_t *server_stream,
 	uv_alloc_cb alloc_cb,
 	uv_read_cb read_cb,
 	uv_close_cb close_cb,
-	asterism_stream_t* stream
-)
+	asterism_stream_t *stream)
 {
 	int ret = stream_init(stream, as);
 	if (ret != 0)
@@ -302,7 +310,7 @@ cleanup:
 }
 
 int asterism_stream_read(
-	struct asterism_stream_s* stream)
+	struct asterism_stream_s *stream)
 {
 	int ret = uv_read_start((uv_stream_t *)&stream->socket, stream_read_alloc_cb, stream_read_cb);
 	if (ret != 0)
@@ -319,13 +327,14 @@ static void link_write_cb(
 	int status)
 {
 	struct asterism_stream_s *stream = (struct asterism_stream_s *)req->data;
-	if (asterism_stream_read(stream)) {
+	if (asterism_stream_read(stream))
+	{
 		asterism_stream_close(stream);
 	}
 }
 
 int asterism_stream_trans(
-	struct asterism_stream_s* stream)
+	struct asterism_stream_s *stream)
 {
 	int ret = 0;
 	memset(&stream->link->write_req, 0, sizeof(stream->link->write_req));
@@ -335,23 +344,27 @@ int asterism_stream_trans(
 	_buf.len = stream->buffer_len;
 	stream->buffer_len = 0;
 	ret = uv_write(&stream->link->write_req, (uv_stream_t *)&stream->link->socket, &_buf, 1, link_write_cb);
-	if (ret) {
+	if (ret)
+	{
 		goto cleanup;
 	}
-	ret = uv_read_stop((uv_stream_t*)&stream->socket);
-	if (ret) {
+	ret = uv_read_stop((uv_stream_t *)&stream->socket);
+	if (ret)
+	{
 		goto cleanup;
 	}
 cleanup:
 	return ret;
 }
 
-void asterism_stream_eaten(struct asterism_stream_s * stream, unsigned int eaten)
+void asterism_stream_eaten(struct asterism_stream_s *stream, unsigned int eaten)
 {
-	if (eaten == stream->buffer_len) {
+	if (eaten == stream->buffer_len)
+	{
 		stream->buffer_len = 0;
 	}
-	else if (eaten <= stream->buffer_len) {
+	else if (eaten <= stream->buffer_len)
+	{
 		memmove(stream->buffer, stream->buffer + eaten, eaten);
 		stream->buffer_len -= eaten;
 	}

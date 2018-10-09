@@ -14,10 +14,10 @@
 #define AS_REALLOC realloc
 
 #define AS_SAFEFREE(d) \
-    if (d)                   \
-    {                        \
-        AS_FREE(d);          \
-        d = 0;               \
+    if (d)             \
+    {                  \
+        AS_FREE(d);    \
+        d = 0;         \
     }
 
 #define __ZERO_MALLOC_ST(s) (s *)memset(AS_MALLOC(sizeof(s)), 0, sizeof(s))

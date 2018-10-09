@@ -49,22 +49,21 @@ handshake_id 4bytes
 #define ASTERISM_TRANS_PROTO_PING 4
 #define ASTERISM_TRANS_PROTO_PONG 5
 
-
 #define ASTERISM_HANDLE_FIELDS \
-uv_close_cb close_cb;
+	uv_close_cb close_cb;
 
 #define ASTERISM_HANDLE_INIT(o, m, cb) \
-o->m.data = o;\
-o->close_cb = cb;
+	o->m.data = o;                     \
+	o->close_cb = cb;
 
 #pragma pack(push)
 #pragma pack(1)
 
 struct asterism_trans_proto_s
 {
-    uint8_t version;
-    uint8_t cmd;
-    uint16_t len;
+	uint8_t version;
+	uint8_t cmd;
+	uint16_t len;
 };
 
 #pragma pack(pop)
@@ -82,18 +81,22 @@ struct asterism_handle_s
 	ASTERISM_HANDLE_FIELDS
 };
 
-struct asterism_handshake_s {
+struct asterism_handshake_s
+{
 	unsigned int id;
-	struct asterism_stream_s* inner;
-	RB_ENTRY(asterism_handshake_s) tree_entry;
+	struct asterism_stream_s *inner;
+	RB_ENTRY(asterism_handshake_s)
+	tree_entry;
 };
 RB_HEAD(asterism_handshake_tree_s, asterism_handshake_s);
 
-struct asterism_session_s {
-	char* username;
-	char* password;
-	struct asterism_stream_s * outer;
-	RB_ENTRY(asterism_session_s) tree_entry;
+struct asterism_session_s
+{
+	char *username;
+	char *password;
+	struct asterism_stream_s *outer;
+	RB_ENTRY(asterism_session_s)
+	tree_entry;
 };
 RB_HEAD(asterism_session_tree_s, asterism_session_s);
 
@@ -103,24 +106,24 @@ struct check_timer_s
 {
 	ASTERISM_HANDLE_FIELDS
 	uv_timer_t timer;
-	struct asterism_s* as;
+	struct asterism_s *as;
 };
 
 struct asterism_s
 {
-    char *inner_bind_addr;
-    char *outer_bind_addr;
-    char *connect_addr;
-    char *username;
+	char *inner_bind_addr;
+	char *outer_bind_addr;
+	char *connect_addr;
+	char *username;
 	char *password;
 	struct asterism_session_tree_s sessions;
 	struct asterism_handshake_tree_s handshake_set;
-	struct check_timer_s* check_timer;
+	struct check_timer_s *check_timer;
 	unsigned int current_tick_count;
 	QUEUE conns_queue;
-    asterism_connnect_redirect_hook connect_redirect_hook_cb;
-	void* connect_redirect_hook_data;
-    uv_loop_t *loop;
+	asterism_connnect_redirect_hook connect_redirect_hook_cb;
+	void *connect_redirect_hook_data;
+	uv_loop_t *loop;
 	unsigned char stoped : 1;
 };
 
@@ -135,13 +138,13 @@ int asterism_core_run(struct asterism_s *as);
 
 int asterism_core_stop(struct asterism_s *as);
 
-void asterism_handle_close(uv_handle_t* handle);
+void asterism_handle_close(uv_handle_t *handle);
 
-int asterism_session_compare(struct asterism_session_s* a, struct asterism_session_s* b);
+int asterism_session_compare(struct asterism_session_s *a, struct asterism_session_s *b);
 
 RB_PROTOTYPE(asterism_session_tree_s, asterism_session_s, tree_entry, asterism_session_compare);
 
-int asterism_handshake_compare(struct asterism_handshake_s* a, struct asterism_handshake_s* b);
+int asterism_handshake_compare(struct asterism_handshake_s *a, struct asterism_handshake_s *b);
 
 RB_PROTOTYPE(asterism_handshake_tree_s, asterism_handshake_s, tree_entry, asterism_handshake_compare);
 

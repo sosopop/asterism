@@ -5,21 +5,19 @@
 #include "asterism_log.h"
 
 static void connector_delete(
-	struct asterism_tcp_connector_s *obj
-)
+	struct asterism_tcp_connector_s *obj)
 {
-	if (obj->host) {
+	if (obj->host)
+	{
 		AS_FREE(obj->host);
 	}
 	AS_FREE(obj);
 }
 static void close_hearbeat(
-	struct connector_timer_s* timer);
-
+	struct connector_timer_s *timer);
 
 static void reconnect_timer_cb(
-	uv_timer_t* handle
-)
+	uv_timer_t *handle)
 {
 	struct connector_timer_s *timer = __CONTAINER_PTR(struct connector_timer_s, timer, handle);
 	asterism_handle_close((uv_handle_t *)&timer->timer);
@@ -31,10 +29,11 @@ static void reconnect_close_cb(
 	struct connector_timer_s *timer = __CONTAINER_PTR(struct connector_timer_s, timer, handle);
 	struct asterism_tcp_connector_s *connector = timer->connector;
 
-	if (connector->as->stoped != 1) {
+	if (connector->as->stoped != 1)
+	{
 		asterism_log(ASTERISM_LOG_DEBUG, "connector reconnect");
 		asterism_connector_tcp_init(connector->as,
-			connector->host, connector->port);
+									connector->host, connector->port);
 	}
 
 	connector_delete(connector);
@@ -46,18 +45,21 @@ static void connector_close_cb(
 {
 	int ret = 0;
 	struct asterism_tcp_connector_s *obj = __CONTAINER_PTR(struct asterism_tcp_connector_s, socket, handle);
-	if (obj->heartbeat_timer) {
+	if (obj->heartbeat_timer)
+	{
 		close_hearbeat(obj->heartbeat_timer);
 		obj->heartbeat_timer->connector = 0;
 	}
-	if (obj->as->stoped != 1) {
-		struct connector_timer_s* timer = __ZERO_MALLOC_ST(struct connector_timer_s);
+	if (obj->as->stoped != 1)
+	{
+		struct connector_timer_s *timer = __ZERO_MALLOC_ST(struct connector_timer_s);
 		ASTERISM_HANDLE_INIT(timer, timer, reconnect_close_cb);
 		timer->connector = obj;
 		uv_timer_init(obj->as->loop, &timer->timer);
 		uv_timer_start(&timer->timer, reconnect_timer_cb, 10 * 1000, 10 * 1000);
 	}
-	else {
+	else
+	{
 		connector_delete(obj);
 	}
 	asterism_log(ASTERISM_LOG_DEBUG, "connector is closed");
@@ -65,22 +67,22 @@ static void connector_close_cb(
 
 static int connector_parse_connect_data(
 	struct asterism_tcp_connector_s *conn,
-	struct asterism_trans_proto_s* proto)
+	struct asterism_trans_proto_s *proto)
 {
 	int ret = -1;
 	int offset = sizeof(struct asterism_trans_proto_s);
 	unsigned short host_len = 0;
-	char* host = 0;
-	char* __host = 0;
+	char *host = 0;
+	char *__host = 0;
 
 	if (offset + 4 > proto->len)
 		goto cleanup;
-	unsigned int handshake_id = ntohl(*(unsigned int*)((char*)proto + offset));
+	unsigned int handshake_id = ntohl(*(unsigned int *)((char *)proto + offset));
 	offset += 4;
-	//¶ÁÈ¡host
+	//ï¿½ï¿½È¡host
 	if (offset + 2 > proto->len)
 		goto cleanup;
-	host_len = ntohs(*(unsigned short*)((char*)proto + offset));
+	host_len = ntohs(*(unsigned short *)((char *)proto + offset));
 	offset += 2;
 
 	if (host_len > MAX_HOST_LEN)
@@ -89,26 +91,29 @@ static int connector_parse_connect_data(
 	if (offset + host_len > proto->len)
 		goto cleanup;
 
-	host = (char*)((char*)proto + offset);
+	host = (char *)((char *)proto + offset);
 	offset += host_len;
 
 	asterism_log(ASTERISM_LOG_INFO, "connect to: %.*s", (int)host_len, host);
 
-	char* target = as_strdup2(host, host_len);
-	if (conn->as->connect_redirect_hook_cb) {
-		char* new_target = conn->as->connect_redirect_hook_cb(
+	char *target = as_strdup2(host, host_len);
+	if (conn->as->connect_redirect_hook_cb)
+	{
+		char *new_target = conn->as->connect_redirect_hook_cb(
 			target, conn->as->connect_redirect_hook_data);
-		if (new_target == 0) {
+		if (new_target == 0)
+		{
 			goto cleanup;
 		}
-		else if (target != new_target) {
+		else if (target != new_target)
+		{
 			AS_FREE(target);
 			target = new_target;
 		}
 	}
 
 	struct asterism_str scheme = {0};
-	struct asterism_str host_str = { 0 };
+	struct asterism_str host_str = {0};
 	unsigned int port = 0;
 	asterism_host_type host_type;
 
@@ -130,29 +135,31 @@ cleanup:
 static int connector_parse_cmd_data(
 	struct asterism_tcp_connector_s *conn,
 	uv_buf_t *buf,
-	int* eaten
-)
+	int *eaten)
 {
-	//³¤¶È²»¹»¼ÌÐø»ñÈ¡
+	//ï¿½ï¿½ï¿½È²ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È¡
 	if (buf->len < sizeof(struct asterism_trans_proto_s))
 		return 0;
-	struct asterism_trans_proto_s* proto = (struct asterism_trans_proto_s*)buf->base;
+	struct asterism_trans_proto_s *proto = (struct asterism_trans_proto_s *)buf->base;
 	uint16_t proto_len = ntohs(proto->len);
 	if (proto->version != ASTERISM_TRANS_PROTO_VERSION)
 		return -1;
 	if (proto_len > ASTERISM_MAX_PROTO_SIZE)
 		return -1;
-	//³¤¶È²»¹»¼ÌÐø»ñÈ¡
-	if (proto_len > buf->len) {
+	//ï¿½ï¿½ï¿½È²ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È¡
+	if (proto_len > buf->len)
+	{
 		return 0;
 	}
-	//Æ¥ÅäÃüÁî
-	if (proto->cmd == ASTERISM_TRANS_PROTO_CONNECT) {
+	//Æ¥ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+	if (proto->cmd == ASTERISM_TRANS_PROTO_CONNECT)
+	{
 		asterism_log(ASTERISM_LOG_DEBUG, "connection connect recv");
 		if (connector_parse_connect_data(conn, proto) != 0)
 			return -1;
 	}
-	else if (proto->cmd == ASTERISM_TRANS_PROTO_PONG) {
+	else if (proto->cmd == ASTERISM_TRANS_PROTO_PONG)
+	{
 		//asterism_log(ASTERISM_LOG_DEBUG, "connection pong recv");
 	}
 	else
@@ -161,7 +168,8 @@ static int connector_parse_cmd_data(
 	}
 	*eaten += proto_len;
 	unsigned int remain = buf->len - proto_len;
-	if (remain) {
+	if (remain)
+	{
 		uv_buf_t __buf;
 		__buf.base = buf->base + proto_len;
 		__buf.len = remain;
@@ -180,11 +188,12 @@ static void connector_read_cb(
 	uv_buf_t _buf;
 	_buf.base = connector->buffer;
 	_buf.len = connector->buffer_len;
-	if (connector_parse_cmd_data(connector, &_buf, &eaten) != 0) {
-		asterism_stream_close((struct asterism_stream_s*)connector);
+	if (connector_parse_cmd_data(connector, &_buf, &eaten) != 0)
+	{
+		asterism_stream_close((struct asterism_stream_s *)connector);
 		return;
 	}
-	asterism_stream_eaten((struct asterism_stream_s*)connector, eaten);
+	asterism_stream_eaten((struct asterism_stream_s *)connector, eaten);
 }
 
 static void heartbeat_close_cb(
@@ -195,7 +204,7 @@ static void heartbeat_close_cb(
 }
 
 static void close_hearbeat(
-	struct connector_timer_s* timer)
+	struct connector_timer_s *timer)
 {
 	asterism_handle_close((uv_handle_t *)&timer->timer);
 }
@@ -211,9 +220,9 @@ static void connector_send_ping_cb(
 static int connector_send_ping(struct asterism_tcp_connector_s *connector)
 {
 	int ret = 0;
-	uv_write_t* req = __ZERO_MALLOC_ST(uv_write_t);
+	uv_write_t *req = __ZERO_MALLOC_ST(uv_write_t);
 	req->data = connector;
-	uv_buf_t buf = uv_buf_init((char*)&_global_proto_ping, sizeof(_global_proto_ping));
+	uv_buf_t buf = uv_buf_init((char *)&_global_proto_ping, sizeof(_global_proto_ping));
 	ret = uv_write(req, (uv_stream_t *)&connector->socket, &buf, 1, connector_send_ping_cb);
 	if (ret != 0)
 	{
@@ -225,16 +234,16 @@ cleanup:
 }
 
 static void heartbeat_timeout_cb(
-	uv_timer_t* handle
-)
+	uv_timer_t *handle)
 {
 	struct connector_timer_s *timer = __CONTAINER_PTR(struct connector_timer_s, timer, handle);
-	if (!timer->connector || uv_is_closing((uv_handle_t*)&timer->connector->socket)) {
+	if (!timer->connector || uv_is_closing((uv_handle_t *)&timer->connector->socket))
+	{
 		return;
 	}
 	int ret = connector_send_ping(timer->connector);
 	if (ret != 0)
-		asterism_stream_close((struct asterism_stream_s*)timer->connector);
+		asterism_stream_close((struct asterism_stream_s *)timer->connector);
 }
 
 static void connector_send_cb(
@@ -243,7 +252,7 @@ static void connector_send_cb(
 {
 	struct asterism_write_req_s *write_req = (struct asterism_write_req_s *)req;
 	struct asterism_tcp_connector_s *connector = (struct asterism_tcp_connector_s *)req->data;
-	int ret = asterism_stream_read((struct asterism_stream_s*)connector);
+	int ret = asterism_stream_read((struct asterism_stream_s *)connector);
 	if (ret != 0)
 	{
 		goto cleanup;
@@ -262,10 +271,11 @@ static void connector_send_cb(
 		goto cleanup;
 	}
 cleanup:
-	if (ret != 0) {
+	if (ret != 0)
+	{
 		if (connector->heartbeat_timer)
 			close_hearbeat(connector->heartbeat_timer);
-		asterism_stream_close((struct asterism_stream_s*)connector);
+		asterism_stream_close((struct asterism_stream_s *)connector);
 	}
 	free(write_req->write_buffer.base);
 	free(write_req);
@@ -309,7 +319,7 @@ static int connector_send_join(struct asterism_tcp_connector_s *connector)
 			free(connect_data);
 		goto cleanup;
 	}
-	ret = uv_read_stop((uv_stream_t*)&connector->socket);
+	ret = uv_read_stop((uv_stream_t *)&connector->socket);
 	if (ret != 0)
 	{
 		goto cleanup;
@@ -338,7 +348,7 @@ static void connector_connect_cb(
 cleanup:
 	if (ret != 0)
 	{
-		asterism_stream_close((struct asterism_stream_s*)connector);
+		asterism_stream_close((struct asterism_stream_s *)connector);
 	}
 }
 
@@ -350,13 +360,13 @@ int asterism_connector_tcp_init(struct asterism_s *as,
 	connector->host = as_strdup(host);
 	connector->port = port;
 	ret = asterism_stream_connect(as, host, port,
-		connector_connect_cb, 0, connector_read_cb, connector_close_cb, (struct asterism_stream_s*)connector);
+								  connector_connect_cb, 0, connector_read_cb, connector_close_cb, (struct asterism_stream_s *)connector);
 	if (ret)
 		goto cleanup;
 cleanup:
 	if (ret)
 	{
-		asterism_stream_close((struct asterism_stream_s*)connector);
+		asterism_stream_close((struct asterism_stream_s *)connector);
 	}
 	return ret;
 }

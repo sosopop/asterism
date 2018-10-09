@@ -10,12 +10,12 @@ struct asterism_tcp_responser_s
 	ASTERISM_HANDLE_FIELDS
 	ASTERISM_STREAM_FIELDS
 	unsigned int handshake_id;
-	char* host_rhs;
+	char *host_rhs;
 	unsigned int port_rhs;
 };
 
 int asterism_responser_tcp_init(struct asterism_s *as,
-	const char *host, unsigned int port,
-	unsigned int handshake_id, struct asterism_stream_s* stream);
+								const char *host, unsigned int port,
+								unsigned int handshake_id, struct asterism_stream_s *stream);
 
 #endif

@@ -7,22 +7,22 @@
 #include "asterism_utils.h"
 #include "asterism_stream.h"
 
-#define HTTP_RESP_407 \
-"HTTP/1.1 407 Proxy Authentication Required\r\n"\
-"Proxy-Authenticate: Basic realm=\"Asterism Authorization\"\r\n"\
-"Content-Length: 0\r\n\r\n"
+#define HTTP_RESP_407                                                \
+    "HTTP/1.1 407 Proxy Authentication Required\r\n"                 \
+    "Proxy-Authenticate: Basic realm=\"Asterism Authorization\"\r\n" \
+    "Content-Length: 0\r\n\r\n"
 
 struct asterism_http_inner_s
 {
-	ASTERISM_HANDLE_FIELDS
-	uv_tcp_t socket;
+    ASTERISM_HANDLE_FIELDS
+    uv_tcp_t socket;
     struct asterism_s *as;
 };
 
 struct asterism_http_incoming_s
 {
-	ASTERISM_HANDLE_FIELDS
-	ASTERISM_STREAM_FIELDS
+    ASTERISM_HANDLE_FIELDS
+    ASTERISM_STREAM_FIELDS
 
     http_parser parser;
     struct asterism_str http_header_field_temp;

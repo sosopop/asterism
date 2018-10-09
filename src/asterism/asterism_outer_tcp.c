@@ -21,12 +21,15 @@ static void incoming_close_cb(
 {
 	int ret = 0;
 	struct asterism_tcp_incoming_s *incoming = __CONTAINER_PTR(struct asterism_tcp_incoming_s, socket, handle);
-	if (incoming->session) {
+	if (incoming->session)
+	{
 		RB_REMOVE(asterism_session_tree_s, &incoming->as->sessions, incoming->session);
-		if(incoming->session->username) {
+		if (incoming->session->username)
+		{
 			AS_FREE(incoming->session->username);
 		}
-		if (incoming->session->password) {
+		if (incoming->session->password)
+		{
 			AS_FREE(incoming->session->password);
 		}
 		AS_FREE(incoming->session);
@@ -36,41 +39,40 @@ static void incoming_close_cb(
 }
 
 static int parse_cmd_join(
-	struct asterism_tcp_incoming_s *incoming, 
-	struct asterism_trans_proto_s* proto)
+	struct asterism_tcp_incoming_s *incoming,
+	struct asterism_trans_proto_s *proto)
 {
 	int offset = sizeof(struct asterism_trans_proto_s);
 	unsigned short username_len = 0;
-	char* username = 0;
+	char *username = 0;
 	unsigned short password_len = 0;
-	char* password = 0;
+	char *password = 0;
 
-	//¶ÁÈ¡ÓÃ»§ÃûÃÜÂë
 	if (offset + 2 > proto->len)
 		return -1;
-	username_len = ntohs(*(unsigned short*)((char*)proto + offset));
+	username_len = ntohs(*(unsigned short *)((char *)proto + offset));
 	offset += 2;
 
 	if (offset + username_len > proto->len)
 		return -1;
-	username = (char*)((char*)proto + offset);
+	username = (char *)((char *)proto + offset);
 	offset += username_len;
 
 	if (offset + 2 > proto->len)
 		return -1;
-	password_len = ntohs(*(unsigned short*)((char*)proto + offset));
+	password_len = ntohs(*(unsigned short *)((char *)proto + offset));
 	offset += 2;
 
 	if (offset + password_len > proto->len)
 		return -1;
-	password = (char*)((char*)proto + offset);
+	password = (char *)((char *)proto + offset);
 	offset += password_len;
 
-	//½«ÓÃ»§ÃûÃÜÂëÐ´Èëµ½»á»°ÁÐ±í
-	struct asterism_session_s* session = __ZERO_MALLOC_ST(struct asterism_session_s);
+	struct asterism_session_s *session = __ZERO_MALLOC_ST(struct asterism_session_s);
 	session->username = as_strdup2(username, username_len);
-	struct asterism_session_s* fs = RB_FIND(asterism_session_tree_s, &incoming->as->sessions, session);
-	if (fs) {
+	struct asterism_session_s *fs = RB_FIND(asterism_session_tree_s, &incoming->as->sessions, session);
+	if (fs)
+	{
 		AS_FREE(session->username);
 		AS_FREE(session);
 		return -1;
@@ -78,7 +80,6 @@ static int parse_cmd_join(
 	session->password = as_strdup2(password, password_len);
 	session->outer = (struct asterism_stream_s *)incoming;
 	incoming->session = session;
-	//³õÊ¼»¯ÎÕÊÖtunnel¶ÓÁÐ
 
 	RB_INSERT(asterism_session_tree_s, &incoming->as->sessions, session);
 
@@ -96,18 +97,19 @@ static void write_connect_ack_cb(
 
 static int parse_cmd_connect_ack(
 	struct asterism_tcp_incoming_s *incoming,
-	struct asterism_trans_proto_s* proto)
+	struct asterism_trans_proto_s *proto)
 {
 	int offset = sizeof(struct asterism_trans_proto_s);
 	//id
 	if (offset + 4 > proto->len)
 		return -1;
-	unsigned int id = ntohl(*(unsigned int*)((char*)proto + offset));
+	unsigned int id = ntohl(*(unsigned int *)((char *)proto + offset));
 	offset += 4;
 
-	struct asterism_handshake_s fh = { id };
-	struct asterism_handshake_s* handshake = RB_FIND(asterism_handshake_tree_s, &incoming->as->handshake_set, &fh);
-	if (!handshake) {
+	struct asterism_handshake_s fh = {id};
+	struct asterism_handshake_s *handshake = RB_FIND(asterism_handshake_tree_s, &incoming->as->handshake_set, &fh);
+	if (!handshake)
+	{
 		return -1;
 	}
 	RB_REMOVE(asterism_handshake_tree_s, &incoming->as->handshake_set, handshake);
@@ -117,15 +119,16 @@ static int parse_cmd_connect_ack(
 
 	//incoming->link
 
-	//Êä³öhttp ok
-	uv_write_t* req = __ZERO_MALLOC_ST(uv_write_t);
+	//ï¿½ï¿½ï¿½http ok
+	uv_write_t *req = __ZERO_MALLOC_ST(uv_write_t);
 	req->data = incoming;
 	uv_buf_t buf;
 	buf.base = "HTTP/1.1 200 Connection Established\r\n\r\n";
 	buf.len = sizeof("HTTP/1.1 200 Connection Established\r\n\r\n") - 1;
 
-	int ret = uv_write( req, (uv_stream_t *)&incoming->link->socket, &buf, 1, write_connect_ack_cb );
-	if (ret) {
+	int ret = uv_write(req, (uv_stream_t *)&incoming->link->socket, &buf, 1, write_connect_ack_cb);
+	if (ret)
+	{
 		AS_FREE(req);
 		return ret;
 	}
@@ -142,13 +145,14 @@ static void write_cmd_pong_cb(
 
 static int parse_cmd_ping(
 	struct asterism_tcp_incoming_s *incoming,
-	struct asterism_trans_proto_s* proto)
+	struct asterism_trans_proto_s *proto)
 {
-	uv_write_t* req = __ZERO_MALLOC_ST(uv_write_t);
+	uv_write_t *req = __ZERO_MALLOC_ST(uv_write_t);
 	req->data = incoming;
-	uv_buf_t buf = uv_buf_init((char*)&_global_proto_pong, sizeof(_global_proto_pong));
+	uv_buf_t buf = uv_buf_init((char *)&_global_proto_pong, sizeof(_global_proto_pong));
 	int ret = uv_write(req, (uv_stream_t *)&incoming->socket, &buf, 1, write_cmd_pong_cb);
-	if (ret) {
+	if (ret)
+	{
 		AS_FREE(req);
 		return ret;
 	}
@@ -158,44 +162,49 @@ static int parse_cmd_ping(
 static int incoming_parse_cmd_data(
 	struct asterism_tcp_incoming_s *incoming,
 	uv_buf_t *buf,
-	int* eaten
-)
+	int *eaten)
 {
-	//³¤¶È²»¹»¼ÌÐø»ñÈ¡
+	//ï¿½ï¿½ï¿½È²ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È¡
 	if (buf->len < sizeof(struct asterism_trans_proto_s))
 		return 0;
-	struct asterism_trans_proto_s* proto = (struct asterism_trans_proto_s*)buf->base;
+	struct asterism_trans_proto_s *proto = (struct asterism_trans_proto_s *)buf->base;
 	uint16_t proto_len = ntohs(proto->len);
 	if (proto->version != ASTERISM_TRANS_PROTO_VERSION)
 		return -1;
 	if (proto_len > ASTERISM_MAX_PROTO_SIZE)
 		return -1;
-	//³¤¶È²»¹»¼ÌÐø»ñÈ¡
-	if (proto_len > buf->len) {
+	//ï¿½ï¿½ï¿½È²ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È¡
+	if (proto_len > buf->len)
+	{
 		return 0;
 	}
-	//Æ¥ÅäÃüÁî
-	if (proto->cmd == ASTERISM_TRANS_PROTO_JOIN) {
+	//Æ¥ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+	if (proto->cmd == ASTERISM_TRANS_PROTO_JOIN)
+	{
 		asterism_log(ASTERISM_LOG_DEBUG, "connection join recv");
 		if (parse_cmd_join(incoming, proto) != 0)
 			return -1;
 	}
-	else if (proto->cmd == ASTERISM_TRANS_PROTO_CONNECT_ACK) {
+	else if (proto->cmd == ASTERISM_TRANS_PROTO_CONNECT_ACK)
+	{
 		asterism_log(ASTERISM_LOG_DEBUG, "connection connect ack recv");
 		if (parse_cmd_connect_ack(incoming, proto) != 0)
 			return -1;
 	}
-	else if (proto->cmd == ASTERISM_TRANS_PROTO_PING) {
+	else if (proto->cmd == ASTERISM_TRANS_PROTO_PING)
+	{
 		//asterism_log(ASTERISM_LOG_DEBUG, "connection ping recv");
 		if (parse_cmd_ping(incoming, proto) != 0)
 			return -1;
 	}
-	else {
+	else
+	{
 		return -1;
 	}
 	*eaten += proto_len;
 	unsigned int remain = buf->len - proto_len;
-	if (remain) {
+	if (remain)
+	{
 		uv_buf_t __buf;
 		__buf.base = buf->base + proto_len;
 		__buf.len = remain;
@@ -215,11 +224,12 @@ static void incoming_read_cb(
 	uv_buf_t _buf;
 	_buf.base = incoming->buffer;
 	_buf.len = incoming->buffer_len;
-	if (incoming_parse_cmd_data(incoming, &_buf, &eaten) != 0) {
-		asterism_stream_close((struct asterism_stream_s*)incoming);
+	if (incoming_parse_cmd_data(incoming, &_buf, &eaten) != 0)
+	{
+		asterism_stream_close((struct asterism_stream_s *)incoming);
 		return;
 	}
-	asterism_stream_eaten((struct asterism_stream_s*)incoming, eaten);
+	asterism_stream_eaten((struct asterism_stream_s *)incoming, eaten);
 }
 
 static void outer_accept_cb(
@@ -236,13 +246,13 @@ static void outer_accept_cb(
 		goto cleanup;
 	}
 	incoming = __ZERO_MALLOC_ST(struct asterism_tcp_incoming_s);
-	ret = asterism_stream_accept(outer->as, stream, 0, incoming_read_cb, incoming_close_cb, (struct asterism_stream_s*)incoming);
+	ret = asterism_stream_accept(outer->as, stream, 0, incoming_read_cb, incoming_close_cb, (struct asterism_stream_s *)incoming);
 	if (ret != 0)
 	{
 		ret = ASTERISM_E_FAILED;
 		goto cleanup;
 	}
-	ret = asterism_stream_read((struct asterism_stream_s*)incoming);
+	ret = asterism_stream_read((struct asterism_stream_s *)incoming);
 	if (ret != 0)
 	{
 		ret = ASTERISM_E_FAILED;
@@ -251,7 +261,7 @@ static void outer_accept_cb(
 cleanup:
 	if (ret != 0)
 	{
-		asterism_stream_close((struct asterism_stream_s*)incoming);
+		asterism_stream_close((struct asterism_stream_s *)incoming);
 	}
 }
 
@@ -307,7 +317,8 @@ int asterism_outer_tcp_init(
 		goto cleanup;
 	}
 cleanup:
-	if (addr) {
+	if (addr)
+	{
 		AS_FREE(addr);
 	}
 	if (ret)
