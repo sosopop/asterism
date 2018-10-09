@@ -8,20 +8,7 @@ static void stream_shutdown_cb(
 	int status)
 {
 	struct asterism_stream_s *stream = (struct asterism_stream_s *)req->data;
-	if (status != 0)
-	{
-		goto cleanup;
-	}
-	stream->fin_send = 1;
-	if (stream->fin_recv)
-	{
-		asterism_stream_close(stream);
-	}
-cleanup:
-	if (status != 0)
-	{
-		asterism_stream_close(stream);
-	}
+	asterism_stream_close(stream);
 	AS_FREE(req);
 }
 
@@ -103,21 +90,10 @@ static void stream_read_cb(
 	}
 	else if (nread == UV_EOF)
 	{
-		stm->fin_recv = 1;
-		if (stm->fin_send)
+		asterism_stream_close(stm);
+		if (stm->link)
 		{
-			asterism_stream_close(stm);
-		}
-		else
-		{
-			if (stm->link)
-			{
-				stream_end(stm->link);
-			}
-			else
-			{
-				stream_end(stm);
-			}
+			stream_end(stm->link);
 		}
 	}
 	else

@@ -23,7 +23,10 @@ curl "https://localhost.iku.youku.com:62079/?new_command=iku://|getP2PState|1539
 asterism: /mnt/d/code/asterism/3rdparty/libuv/src/unix/stream.c:1358: uv_write2: Assertion `(stream->type == UV_TCP || stream->type == UV_NAMED_PIPE || stream->type == UV_TTY) && "uv_write (unix) does not yet support other types of streams"' failed.
 link被释放没有置零的问题
 
+加密
 增加命令行
 增加普通http请求支持
 增加socks5支持
-
+kcp支持
+增加http的api接口
+增加curl的单元测试

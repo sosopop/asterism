@@ -162,6 +162,8 @@ int asterism_test02()
 	printf("asterism: %s\n", asterism_version());
 
 	asterism_set_log_level(ASTERISM_LOG_DEBUG);
+	//asterism_set_log_level(ASTERISM_LOG_INFO);
+
 	asterism as = asterism_create();
 	assert(as);
 
@@ -178,16 +180,16 @@ int asterism_test02()
 	ret = asterism_set_option(as, ASTERISM_OPT_INNER_BIND_ADDR, "http://0.0.0.0:8081");
 	assert(!ret);
 
-	ret = asterism_set_option(as, ASTERISM_OPT_USERNAME, "sosopop");
-	assert(!ret);
-	ret = asterism_set_option(as, ASTERISM_OPT_PASSWORD, "12345678");
-	assert(!ret);
-	ret = asterism_set_option(as, ASTERISM_OPT_CONNECT_ADDR, "tcp://127.0.0.1:1234");
-	assert(!ret);
-	ret = asterism_set_option(as, ASTERISM_OPT_CONNECT_REDIRECT_HOOK, redirect_hook);
-	assert(!ret);
-	ret = asterism_set_option(as, ASTERISM_OPT_CONNECT_REDIRECT_HOOK_DATA, as);
-	assert(!ret);
+// 	ret = asterism_set_option(as, ASTERISM_OPT_USERNAME, "sosopop");
+// 	assert(!ret);
+// 	ret = asterism_set_option(as, ASTERISM_OPT_PASSWORD, "12345678");
+// 	assert(!ret);
+// 	ret = asterism_set_option(as, ASTERISM_OPT_CONNECT_ADDR, "tcp://127.0.0.1:1234");
+// 	assert(!ret);
+// 	ret = asterism_set_option(as, ASTERISM_OPT_CONNECT_REDIRECT_HOOK, redirect_hook);
+// 	assert(!ret);
+// 	ret = asterism_set_option(as, ASTERISM_OPT_CONNECT_REDIRECT_HOOK_DATA, as);
+// 	assert(!ret);
 
 	//asterism_slist_free_all(inner_addrs);
 
@@ -207,5 +209,6 @@ int asterism_test02()
 	assert(!ret);
 
 	asterism_destroy(as);
+	printf("asterism exit\n");
 	return ret;
 }
