@@ -79,7 +79,7 @@ static int connector_parse_connect_data(
 		goto cleanup;
 	unsigned int handshake_id = ntohl(*(unsigned int *)((char *)proto + offset));
 	offset += 4;
-	//��ȡhost
+
 	if (offset + 2 > proto->len)
 		goto cleanup;
 	host_len = ntohs(*(unsigned short *)((char *)proto + offset));
@@ -334,6 +334,8 @@ static void connector_connect_cb(
 	int status)
 {
 	int ret = 0;
+	if (status != 0)
+		return;
 	struct asterism_tcp_connector_s *connector = (struct asterism_tcp_connector_s *)req->data;
 	ret = connector_send_join(connector);
 	if (ret != 0)

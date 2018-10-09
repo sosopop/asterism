@@ -8,7 +8,7 @@
 
 //  int a = 0;
 //  char b[1024];
-// 
+//
 //  static void client_shutdown(
 //      uv_shutdown_t* req,
 //      int status
@@ -16,7 +16,7 @@
 //  {
 //      AS_FREE(req);
 //  }
-// 
+//
 //  static void client_write_callback(
 //      uv_write_t* req,
 //      int status
@@ -44,8 +44,8 @@
 //      }
 //      AS_FREE(req);
 //  }
-// 
-// 
+//
+//
 //  static void incoming_read_cb(
 // 	 uv_stream_t *stream,
 // 	 ssize_t nread,
@@ -73,7 +73,7 @@
 // 	 if (buf && buf->base)
 // 		 AS_FREE(buf->base);
 //  }
-// 
+//
 //  static void incoming_data_read_alloc_cb(
 // 	 uv_handle_t *handle,
 // 	 size_t suggested_size,
@@ -82,7 +82,7 @@
 // 	 buf->len = suggested_size;
 // 	 buf->base = malloc(suggested_size);
 //  }
-// 
+//
 //  static void client_connected(
 //      uv_connect_t* req,
 //      int status
@@ -101,30 +101,33 @@
 //      buf.base = b;
 //      buf.len = sizeof(b);
 //      wreq->data = stream;
-// 
+//
 // 	 ret = uv_read_start(stream, incoming_data_read_alloc_cb, incoming_read_cb);
 // 	 ret = uv_read_stop(stream);
 //      ret = uv_is_writable(stream);
 //      uv_write(wreq, stream, &buf, 1, client_write_callback);
 //  }
 
-static char* redirect_hook(char *target_addr, void* data) {
+static char *redirect_hook(char *target_addr, void *data)
+{
 	printf("remote request %s\n", target_addr);
-	if (strcmp(target_addr, "www.baidu.com:80") == 0) {
+	if (strcmp(target_addr, "www.baidu.com:80") == 0)
+	{
 		printf("remote redirect => 202.102.94.124:80\n");
-// 		char* new_addr = asterism_alloc(sizeof("202.102.94.124:80"));
-// 		return strcpy(new_addr, "202.102.94.124:80");
+		// 		char* new_addr = asterism_alloc(sizeof("202.102.94.124:80"));
+		// 		return strcpy(new_addr, "202.102.94.124:80");
 	}
-	else if (strcmp(target_addr, "exit:80") == 0){
+	else if (strcmp(target_addr, "exit:80") == 0)
+	{
 		asterism_stop((asterism)data);
 		return 0;
 	}
-	return (char*)target_addr;
+	return (char *)target_addr;
 }
 
 int asterism_test02()
 {
-    int ret = ASTERISM_E_OK;
+	int ret = ASTERISM_E_OK;
 
 	//asterism_log(ASTERISM_LOG_DEBUG, "%s", uv_strerror(ret));
 	//{
@@ -142,54 +145,53 @@ int asterism_test02()
 	//	uv_run(loop, UV_RUN_DEFAULT);
 	//}
 
-// 	uv_write_t req;
-// 	int i = GetTickCount();
-// 	for (int a = 0; a < 10000000; a++) {
-// 		uv_write_t* q = malloc(sizeof(uv_write_t));
-// 		free(q);
-// 	}
-// 	printf("count = %d \n", GetTickCount() - i);
-// 	i = GetTickCount();
-// 	for (int a = 0; a < 10000000; a++) {
-// 		memset(&req, 0, sizeof(req));
-// 	}
-// 	printf("count = %d \n", GetTickCount() - i);
+	// 	uv_write_t req;
+	// 	int i = GetTickCount();
+	// 	for (int a = 0; a < 10000000; a++) {
+	// 		uv_write_t* q = malloc(sizeof(uv_write_t));
+	// 		free(q);
+	// 	}
+	// 	printf("count = %d \n", GetTickCount() - i);
+	// 	i = GetTickCount();
+	// 	for (int a = 0; a < 10000000; a++) {
+	// 		memset(&req, 0, sizeof(req));
+	// 	}
+	// 	printf("count = %d \n", GetTickCount() - i);
 
-    printf("libuv: %s\n", uv_version_string());
-    printf("asterism: %s\n", asterism_version());
+	printf("libuv: %s\n", uv_version_string());
+	printf("asterism: %s\n", asterism_version());
 
-    asterism_set_log_level(ASTERISM_LOG_DEBUG);
-    asterism as = asterism_create();
-    assert(as);
+	asterism_set_log_level(ASTERISM_LOG_DEBUG);
+	asterism as = asterism_create();
+	assert(as);
 
-    //struct asterism_slist *inner_addrs = 0;
-    //inner_addrs = asterism_slist_append(inner_addrs, "http://0.0.0.0:8080");
-    //inner_addrs = asterism_slist_append(inner_addrs, "http://[::]:8080");
-    //inner_addrs = asterism_slist_append(inner_addrs, "socks5://0.0.0.0:1080");
-    //asterism_set_option(as, ASTERISM_OPT_INNER_BIND_ADDR, "http://0.0.0.0:8080");
+	//struct asterism_slist *inner_addrs = 0;
+	//inner_addrs = asterism_slist_append(inner_addrs, "http://0.0.0.0:8080");
+	//inner_addrs = asterism_slist_append(inner_addrs, "http://[::]:8080");
+	//inner_addrs = asterism_slist_append(inner_addrs, "socks5://0.0.0.0:1080");
+	//asterism_set_option(as, ASTERISM_OPT_INNER_BIND_ADDR, "http://0.0.0.0:8080");
 	//asterism_set_option(as, ASTERISM_OPT_OUTER_BIND_ADDR, "tcp://0.0.0.0:8081");
 	//asterism_set_option(as, ASTERISM_OPT_OUTER_BIND_ADDR, "tcp://0.0.0.0:1234");
 
- 	ret = asterism_set_option(as, ASTERISM_OPT_OUTER_BIND_ADDR, "tcp://0.0.0.0:1234");
- 	assert(!ret);
+	ret = asterism_set_option(as, ASTERISM_OPT_OUTER_BIND_ADDR, "tcp://0.0.0.0:1234");
+	assert(!ret);
 	ret = asterism_set_option(as, ASTERISM_OPT_INNER_BIND_ADDR, "http://0.0.0.0:8081");
 	assert(!ret);
-
 
 	ret = asterism_set_option(as, ASTERISM_OPT_USERNAME, "sosopop");
 	assert(!ret);
 	ret = asterism_set_option(as, ASTERISM_OPT_PASSWORD, "12345678");
 	assert(!ret);
-	ret = asterism_set_option(as, ASTERISM_OPT_CONNECT_ADDR, "tcp://127.0.0.1:1235");
+	ret = asterism_set_option(as, ASTERISM_OPT_CONNECT_ADDR, "tcp://127.0.0.1:1234");
 	assert(!ret);
 	ret = asterism_set_option(as, ASTERISM_OPT_CONNECT_REDIRECT_HOOK, redirect_hook);
 	assert(!ret);
 	ret = asterism_set_option(as, ASTERISM_OPT_CONNECT_REDIRECT_HOOK_DATA, as);
 	assert(!ret);
 
-    //asterism_slist_free_all(inner_addrs);
+	//asterism_slist_free_all(inner_addrs);
 
-    /*
+	/*
     struct asterism_slist *outer_addrs = 0;
     outer_addrs = asterism_slist_append(outer_addrs, "tcp://0.0.0.0:8081");
     outer_addrs = asterism_slist_append(outer_addrs, "kcp://0.0.0.0:1081");
@@ -202,8 +204,8 @@ int asterism_test02()
     asterism_slist_free_all(connect_addr);
     */
 	ret = asterism_run(as);
-    assert(!ret);
+	assert(!ret);
 
-    asterism_destroy(as);
-    return ret;
+	asterism_destroy(as);
+	return ret;
 }

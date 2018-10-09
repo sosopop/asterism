@@ -29,9 +29,10 @@ static void requestor_connect_cb(
 	int ret = 0;
 	asterism_log(ASTERISM_LOG_DEBUG, "request connected");
 
+	//if connect failed send connect_ack tell server
 	struct asterism_tcp_requestor_s *requestor = (struct asterism_tcp_requestor_s *)req->data;
 	ret = asterism_responser_tcp_init(requestor->as, requestor->host_rhs,
-									  requestor->port_rhs, requestor->handshake_id, (struct asterism_stream_s *)requestor);
+									  requestor->port_rhs, requestor->handshake_id, status?0:(struct asterism_stream_s *)requestor);
 	if (ret != 0)
 	{
 		goto cleanup;

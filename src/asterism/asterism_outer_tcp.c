@@ -105,6 +105,8 @@ static int parse_cmd_connect_ack(
 		return -1;
 	unsigned int id = ntohl(*(unsigned int *)((char *)proto + offset));
 	offset += 4;
+	unsigned int success = *(unsigned char *)((char *)proto + offset);
+	offset += 1;
 
 	struct asterism_handshake_s fh = {id};
 	struct asterism_handshake_s *handshake = RB_FIND(asterism_handshake_tree_s, &incoming->as->handshake_set, &fh);
@@ -117,20 +119,20 @@ static int parse_cmd_connect_ack(
 	incoming->link->link = (struct asterism_stream_s *)incoming;
 	AS_FREE(handshake);
 
-	//incoming->link
+	if (success) {
+		//incoming->link
+		uv_write_t *req = __ZERO_MALLOC_ST(uv_write_t);
+		req->data = incoming;
+		uv_buf_t buf;
+		buf.base = "HTTP/1.1 200 Connection Established\r\n\r\n";
+		buf.len = sizeof("HTTP/1.1 200 Connection Established\r\n\r\n") - 1;
 
-	//���http ok
-	uv_write_t *req = __ZERO_MALLOC_ST(uv_write_t);
-	req->data = incoming;
-	uv_buf_t buf;
-	buf.base = "HTTP/1.1 200 Connection Established\r\n\r\n";
-	buf.len = sizeof("HTTP/1.1 200 Connection Established\r\n\r\n") - 1;
-
-	int ret = uv_write(req, (uv_stream_t *)&incoming->link->socket, &buf, 1, write_connect_ack_cb);
-	if (ret)
-	{
-		AS_FREE(req);
-		return ret;
+		int ret = uv_write(req, (uv_stream_t *)&incoming->link->socket, &buf, 1, write_connect_ack_cb);
+		if (ret)
+		{
+			AS_FREE(req);
+			return ret;
+		}
 	}
 	return 0;
 }
@@ -164,7 +166,6 @@ static int incoming_parse_cmd_data(
 	uv_buf_t *buf,
 	int *eaten)
 {
-	//���Ȳ���������ȡ
 	if (buf->len < sizeof(struct asterism_trans_proto_s))
 		return 0;
 	struct asterism_trans_proto_s *proto = (struct asterism_trans_proto_s *)buf->base;
@@ -173,12 +174,10 @@ static int incoming_parse_cmd_data(
 		return -1;
 	if (proto_len > ASTERISM_MAX_PROTO_SIZE)
 		return -1;
-	//���Ȳ���������ȡ
 	if (proto_len > buf->len)
 	{
 		return 0;
 	}
-	//ƥ������
 	if (proto->cmd == ASTERISM_TRANS_PROTO_JOIN)
 	{
 		asterism_log(ASTERISM_LOG_DEBUG, "connection join recv");

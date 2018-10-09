@@ -27,6 +27,15 @@ static void incoming_close_cb(
 {
 	int ret = 0;
 	struct asterism_http_incoming_s *obj = __CONTAINER_PTR(struct asterism_http_incoming_s, socket, handle);
+	if (!obj->link) {
+		struct asterism_handshake_s fh = { obj->handshake_id };
+		struct asterism_handshake_s *handshake = RB_FIND(asterism_handshake_tree_s, &obj->as->handshake_set, &fh);
+		if (handshake)
+		{
+			RB_REMOVE(asterism_handshake_tree_s, &obj->as->handshake_set, handshake);
+			AS_FREE(handshake);
+		}
+	}
 	incoming_delete(obj);
 	asterism_log(ASTERISM_LOG_DEBUG, "http is closing");
 }
@@ -185,29 +194,27 @@ static int incoming_parse_connect(
 		char *username = decode_buffer;
 		char *password = split_pos + 1;
 		asterism_log(ASTERISM_LOG_DEBUG, "http request username: %s , password: %s", username, password);
-		//�����˳�
+		//test exit
 		// 		if (strcmp(username, "exit") == 0) {
 		// 			asterism_stop(incoming->as);
 		// 		}
 		struct asterism_session_s sefilter;
 		sefilter.username = username;
 		struct asterism_session_s *session = RB_FIND(asterism_session_tree_s, &incoming->as->sessions, &sefilter);
-		//��ȡ�������û�
+
 		if (!session)
 			return 407;
-		//������֤ʧ��
 		if (strcmp(session->password, password))
 			return 407;
 
-		//�������ֻỰ
 		struct asterism_handshake_s *handshake = __ZERO_MALLOC_ST(struct asterism_handshake_s);
 		handshake->inner = (struct asterism_stream_s *)incoming;
 		handshake->id = asterism_tunnel_new_handshake_id();
+		incoming->handshake_id = handshake->id;
 
-		//ͨ��sessionת����������
+
 		struct asterism_write_req_s *req = __ZERO_MALLOC_ST(struct asterism_write_req_s);
 
-		//ע���޸���������ڴ�****
 		struct asterism_trans_proto_s *connect_data =
 			(struct asterism_trans_proto_s *)malloc(sizeof(struct asterism_trans_proto_s) +
 													incoming->connect_host.len + 2 + 4);

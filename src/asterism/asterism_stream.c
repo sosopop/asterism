@@ -133,13 +133,12 @@ static void stream_connected(
 {
 	int ret = 0;
 	struct asterism_stream_s *stream = (struct asterism_stream_s *)req->data;
+	stream->_connect_cb(req, status);
 	if (status < 0)
 	{
 		ret = ASTERISM_E_FAILED;
 		goto cleanup;
 	}
-
-	stream->_connect_cb(req, status);
 cleanup:
 	if (ret != 0)
 	{
@@ -227,7 +226,7 @@ static int stream_init(
 		asterism_log(ASTERISM_LOG_DEBUG, "%s", uv_strerror(ret));
 		return ret;
 	}
-	//��ʼtick
+
 	stream->active_tick_count = as->current_tick_count;
 	asterism_log(ASTERISM_LOG_DEBUG, "tcp init %p", stream);
 	return ret;

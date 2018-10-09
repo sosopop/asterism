@@ -19,7 +19,8 @@ struct asterism_trans_proto_s _global_proto_pong = {
 unsigned int asterism_tunnel_new_handshake_id()
 {
     static unsigned int id = 0;
-    return id++;
+	id = (id + 1) | 1;
+    return id;
 }
 
 int asterism_handshake_compare(struct asterism_handshake_s *a, struct asterism_handshake_s *b)

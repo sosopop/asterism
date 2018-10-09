@@ -30,6 +30,7 @@ struct asterism_http_incoming_s
     struct asterism_str connect_host;
     struct asterism_str auth_info;
 
+	unsigned int handshake_id;
     unsigned int header_parsed : 1;
     unsigned int header_auth_parsed : 1;
 };

@@ -22,12 +22,12 @@ static void handshake_write_cb(
 }
 
 static int responser_connect_ack(
-	struct asterism_tcp_responser_s *responser)
+	struct asterism_tcp_responser_s *responser, int successed)
 {
 	int ret = 0;
 
 	struct asterism_trans_proto_s *connect_data =
-		(struct asterism_trans_proto_s *)malloc(sizeof(struct asterism_trans_proto_s) + 4);
+		(struct asterism_trans_proto_s *)malloc(sizeof(struct asterism_trans_proto_s) + 4 + 1);
 
 	connect_data->version = ASTERISM_TRANS_PROTO_VERSION;
 	connect_data->cmd = ASTERISM_TRANS_PROTO_CONNECT_ACK;
@@ -35,6 +35,8 @@ static int responser_connect_ack(
 	char *off = (char *)connect_data + sizeof(struct asterism_trans_proto_s);
 	*(uint32_t *)off = htonl(responser->handshake_id);
 	off += 4;
+	*(uint8_t *)off = (uint8_t)successed;
+	off += 1;
 	uint16_t packet_len = (uint16_t)(off - (char *)connect_data);
 	connect_data->len = htons((uint16_t)(packet_len));
 
@@ -59,19 +61,26 @@ static void responser_connect_cb(
 	int status)
 {
 	int ret = 0;
+	if (status != 0)
+		return;
 	struct asterism_tcp_responser_s *responser = (struct asterism_tcp_responser_s *)req->data;
-	ret = responser_connect_ack(responser);
-	if (ret != 0)
-	{
-		goto cleanup;
-	}
-	responser->link->link = (struct asterism_stream_s *)responser;
-	ret = asterism_stream_read(responser->link);
+	ret = responser_connect_ack(responser, responser->link != 0);
 	if (ret != 0)
 	{
 		goto cleanup;
 	}
 	ret = asterism_stream_read((struct asterism_stream_s *)responser);
+	if (ret != 0)
+	{
+		goto cleanup;
+	}
+	if ( !responser->link)
+	{
+		asterism_stream_end((struct asterism_stream_s *)responser);
+		goto cleanup;
+	}
+	responser->link->link = (struct asterism_stream_s *)responser;
+	ret = asterism_stream_read(responser->link);
 	if (ret != 0)
 	{
 		goto cleanup;
