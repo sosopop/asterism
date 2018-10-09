@@ -256,7 +256,7 @@ static void stop_async_cb(uv_async_t* handle)
 int asterism_core_stop(struct asterism_s *as)
 {
 	int ret = ASTERISM_E_OK;
-
+	as->stoped = 1;
 	struct stop_async_s* async = __ZERO_MALLOC_ST(struct stop_async_s);
 	async->as = as;
 	ASTERISM_HANDLE_INIT(async, async, stop_async_close_cb);

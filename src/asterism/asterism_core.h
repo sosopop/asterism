@@ -121,6 +121,7 @@ struct asterism_s
     asterism_connnect_redirect_hook connect_redirect_hook_cb;
 	void* connect_redirect_hook_data;
     uv_loop_t *loop;
+	unsigned char stoped : 1;
 };
 
 extern struct asterism_trans_proto_s _global_proto_ping;

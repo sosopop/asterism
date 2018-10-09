@@ -1,19 +1,22 @@
-﻿循环命令方式的剩余buffer数据
-会话清理
-curl "http://www.baidu.com/" --proxytunnel --proxy "http://127.0.0.1:8080" --proxy-user "sosopop:12345678"
+﻿#循环命令方式的剩余buffer数据
+#会话清理
+curl "http://www.baidu.com/" --proxytunnel --proxy "http://127.0.0.1:8081" --proxy-user "sosopop:12345678"
+curl "http://exit" --proxytunnel --proxy "http://127.0.0.1:8081" --proxy-user "sosopop:12345678"
 
-封装通讯模块
+#封装通讯模块
 
-将通讯部分弄成6个处理类型
+#将通讯部分弄成6个处理类型
 
-断开传播
-超时断开
-超时重连
+#断开传播
+#超时断开
+#自动重连
 
 
-定时心跳
-定时检测超时
-stop改为发async
-增加hosthook，并通过指定host来stop转发
+#定时心跳
+#定时检测超时
+#stop改为发async
+#增加hosthook，并通过指定host来stop转发
 请求google崩溃问题
-
+增加命令行
+增加普通http请求支持
+增加socks5支持

@@ -180,7 +180,7 @@ int asterism_test02()
 	assert(!ret);
 	ret = asterism_set_option(as, ASTERISM_OPT_PASSWORD, "12345678");
 	assert(!ret);
-	ret = asterism_set_option(as, ASTERISM_OPT_CONNECT_ADDR, "tcp://127.0.0.1:1234");
+	ret = asterism_set_option(as, ASTERISM_OPT_CONNECT_ADDR, "tcp://127.0.0.1:1235");
 	assert(!ret);
 	ret = asterism_set_option(as, ASTERISM_OPT_CONNECT_REDIRECT_HOOK, redirect_hook);
 	assert(!ret);

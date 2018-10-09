@@ -4,23 +4,63 @@
 #include "asterism_utils.h"
 #include "asterism_log.h"
 
+static void connector_delete(
+	struct asterism_tcp_connector_s *obj
+)
+{
+	if (obj->host) {
+		AS_FREE(obj->host);
+	}
+	AS_FREE(obj);
+}
 static void close_hearbeat(
 	struct connector_timer_s* timer);
+
+
+static void reconnect_timer_cb(
+	uv_timer_t* handle
+)
+{
+	struct connector_timer_s *timer = __CONTAINER_PTR(struct connector_timer_s, timer, handle);
+	asterism_handle_close((uv_handle_t *)&timer->timer);
+}
+
+static void reconnect_close_cb(
+	uv_handle_t *handle)
+{
+	struct connector_timer_s *timer = __CONTAINER_PTR(struct connector_timer_s, timer, handle);
+	struct asterism_tcp_connector_s *connector = timer->connector;
+
+	if (connector->as->stoped != 1) {
+		asterism_log(ASTERISM_LOG_DEBUG, "connector reconnect");
+		asterism_connector_tcp_init(connector->as,
+			connector->host, connector->port);
+	}
+
+	connector_delete(connector);
+	AS_FREE(timer);
+}
 
 static void connector_close_cb(
 	uv_handle_t *handle)
 {
 	int ret = 0;
 	struct asterism_tcp_connector_s *obj = __CONTAINER_PTR(struct asterism_tcp_connector_s, socket, handle);
-	if (obj->host) {
-		AS_FREE(obj->host);
-	}
 	if (obj->heartbeat_timer) {
 		close_hearbeat(obj->heartbeat_timer);
 		obj->heartbeat_timer->connector = 0;
 	}
-	AS_FREE(obj);
-	asterism_log(ASTERISM_LOG_DEBUG, "connector is closing");
+	if (obj->as->stoped != 1) {
+		struct connector_timer_s* timer = __ZERO_MALLOC_ST(struct connector_timer_s);
+		ASTERISM_HANDLE_INIT(timer, timer, reconnect_close_cb);
+		timer->connector = obj;
+		uv_timer_init(obj->as->loop, &timer->timer);
+		uv_timer_start(&timer->timer, reconnect_timer_cb, 10 * 1000, 10 * 1000);
+	}
+	else {
+		connector_delete(obj);
+	}
+	asterism_log(ASTERISM_LOG_DEBUG, "connector is closed");
 }
 
 static int connector_parse_connect_data(
