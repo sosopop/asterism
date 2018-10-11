@@ -70,6 +70,9 @@ static void regular_http_request(
 	{
 		char* remove_buffer = (char*)remove_data[i].p - off;
 		int remove_len = remove_data[i].len;
+		if ((buffer + len) - (remove_buffer + remove_len) < 0) {
+			int a = 0;
+		}
 		memmove(remove_buffer, remove_buffer + remove_len, (buffer + len) - (remove_buffer + remove_len));
 		off += remove_len;
 	}
@@ -378,12 +381,6 @@ static int on_message_complete(http_parser *parser)
 	{
 		parse_value(obj);
 	}
-	if (parser->method == HTTP_CONNECT) {
-		return parse_connect_type(obj);
-	}
-	else {
-		return parse_normal_type(obj);
-	}
 	return 0;
 }
 
@@ -417,6 +414,15 @@ static int incoming_parse_connect(
 	{
 		if (incoming->buffer_len == ASTERISM_MAX_HTTP_HEADER_SIZE) {
 			return -1;
+		}
+	}
+	else
+	{
+		if (incoming->parser.method == HTTP_CONNECT) {
+			return parse_connect_type(incoming);
+		}
+		else {
+			return parse_normal_type(incoming);
 		}
 	}
 	return 0;

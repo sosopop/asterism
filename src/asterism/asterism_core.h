@@ -81,6 +81,8 @@ struct asterism_handle_s
 	ASTERISM_HANDLE_FIELDS
 };
 
+struct asterism_stream_s;
+
 typedef int(*connect_ack_cb)(struct asterism_stream_s* stream);
 
 struct asterism_handshake_s
