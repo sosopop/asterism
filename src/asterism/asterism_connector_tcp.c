@@ -52,7 +52,7 @@ static void connector_close_cb(
 	}
 	if (obj->as->stoped != 1)
 	{
-		struct connector_timer_s *timer = __ZERO_MALLOC_ST(struct connector_timer_s);
+		struct connector_timer_s *timer = AS_ZMALLOC(struct connector_timer_s);
 		ASTERISM_HANDLE_INIT(timer, timer, reconnect_close_cb);
 		timer->connector = obj;
 		uv_timer_init(obj->as->loop, &timer->timer);
@@ -127,8 +127,8 @@ static int connector_parse_connect_data(
 
 	ret = 0;
 cleanup:
-	AS_SAFEFREE(__host);
-	AS_SAFEFREE(target);
+	AS_SFREE(__host);
+	AS_SFREE(target);
 	return ret;
 }
 
@@ -220,7 +220,7 @@ static void connector_send_ping_cb(
 static int connector_send_ping(struct asterism_tcp_connector_s *connector)
 {
 	int ret = 0;
-	uv_write_t *req = __ZERO_MALLOC_ST(uv_write_t);
+	uv_write_t *req = AS_ZMALLOC(uv_write_t);
 	req->data = connector;
 	uv_buf_t buf = uv_buf_init((char *)&_global_proto_ping, sizeof(_global_proto_ping));
 	ret = uv_write(req, (uv_stream_t *)&connector->socket, &buf, 1, connector_send_ping_cb);
@@ -257,7 +257,7 @@ static void connector_send_cb(
 	{
 		goto cleanup;
 	}
-	connector->heartbeat_timer = __ZERO_MALLOC_ST(struct connector_timer_s);
+	connector->heartbeat_timer = AS_ZMALLOC(struct connector_timer_s);
 	ASTERISM_HANDLE_INIT(connector->heartbeat_timer, timer, heartbeat_close_cb);
 	connector->heartbeat_timer->connector = connector;
 	ret = uv_timer_init(connector->as->loop, &connector->heartbeat_timer->timer);
@@ -307,7 +307,7 @@ static int connector_send_join(struct asterism_tcp_connector_s *connector)
 	uint16_t packet_len = (uint16_t)(off - (char *)connect_data);
 	connect_data->len = htons(packet_len);
 
-	struct asterism_write_req_s *write_req = __ZERO_MALLOC_ST(struct asterism_write_req_s);
+	struct asterism_write_req_s *write_req = AS_ZMALLOC(struct asterism_write_req_s);
 	write_req->write_buffer.base = (char *)connect_data;
 	write_req->write_buffer.len = packet_len;
 	write_req->write_req.data = connector;
@@ -358,10 +358,10 @@ int asterism_connector_tcp_init(struct asterism_s *as,
 								const char *host, unsigned int port)
 {
 	int ret = 0;
-	struct asterism_tcp_connector_s *connector = __ZERO_MALLOC_ST(struct asterism_tcp_connector_s);
+	struct asterism_tcp_connector_s *connector = AS_ZMALLOC(struct asterism_tcp_connector_s);
 	connector->host = as_strdup(host);
 	connector->port = port;
-	ret = asterism_stream_connect(as, host, port,
+	ret = asterism_stream_connect(as, host, port, 1,
 								  connector_connect_cb, 0, connector_read_cb, connector_close_cb, (struct asterism_stream_s *)connector);
 	if (ret)
 		goto cleanup;

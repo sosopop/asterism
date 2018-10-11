@@ -68,7 +68,7 @@ static int parse_cmd_join(
 	password = (char *)((char *)proto + offset);
 	offset += password_len;
 
-	struct asterism_session_s *session = __ZERO_MALLOC_ST(struct asterism_session_s);
+	struct asterism_session_s *session = AS_ZMALLOC(struct asterism_session_s);
 	session->username = as_strdup2(username, username_len);
 	struct asterism_session_s *fs = RB_FIND(asterism_session_tree_s, &incoming->as->sessions, session);
 	if (fs)
@@ -86,13 +86,6 @@ static int parse_cmd_join(
 	asterism_log(ASTERISM_LOG_DEBUG, "user: %s join.", session->username);
 
 	return 0;
-}
-
-static void write_connect_ack_cb(
-	uv_write_t *req,
-	int status)
-{
-	free(req);
 }
 
 static int parse_cmd_connect_ack(
@@ -117,22 +110,11 @@ static int parse_cmd_connect_ack(
 	RB_REMOVE(asterism_handshake_tree_s, &incoming->as->handshake_set, handshake);
 	incoming->link = handshake->inner;
 	incoming->link->link = (struct asterism_stream_s *)incoming;
+	connect_ack_cb conn_ack_cb = handshake->conn_ack_cb;
 	AS_FREE(handshake);
 
 	if (success) {
-		//incoming->link
-		uv_write_t *req = __ZERO_MALLOC_ST(uv_write_t);
-		req->data = incoming;
-		uv_buf_t buf;
-		buf.base = "HTTP/1.1 200 Connection Established\r\n\r\n";
-		buf.len = sizeof("HTTP/1.1 200 Connection Established\r\n\r\n") - 1;
-
-		int ret = uv_write(req, (uv_stream_t *)&incoming->link->socket, &buf, 1, write_connect_ack_cb);
-		if (ret)
-		{
-			AS_FREE(req);
-			return ret;
-		}
+		return conn_ack_cb( incoming->link);
 	}
 	return 0;
 }
@@ -149,7 +131,7 @@ static int parse_cmd_ping(
 	struct asterism_tcp_incoming_s *incoming,
 	struct asterism_trans_proto_s *proto)
 {
-	uv_write_t *req = __ZERO_MALLOC_ST(uv_write_t);
+	uv_write_t *req = AS_ZMALLOC(uv_write_t);
 	req->data = incoming;
 	uv_buf_t buf = uv_buf_init((char *)&_global_proto_pong, sizeof(_global_proto_pong));
 	int ret = uv_write(req, (uv_stream_t *)&incoming->socket, &buf, 1, write_cmd_pong_cb);
@@ -244,8 +226,8 @@ static void outer_accept_cb(
 	{
 		goto cleanup;
 	}
-	incoming = __ZERO_MALLOC_ST(struct asterism_tcp_incoming_s);
-	ret = asterism_stream_accept(outer->as, stream, 0, incoming_read_cb, incoming_close_cb, (struct asterism_stream_s *)incoming);
+	incoming = AS_ZMALLOC(struct asterism_tcp_incoming_s);
+	ret = asterism_stream_accept(outer->as, stream, 1, 0, incoming_read_cb, incoming_close_cb, (struct asterism_stream_s *)incoming);
 	if (ret != 0)
 	{
 		ret = ASTERISM_E_FAILED;
@@ -272,7 +254,7 @@ int asterism_outer_tcp_init(
 	void *addr = 0;
 	int name_len = 0;
 
-	struct asterism_tcp_outer_s *outer = __ZERO_MALLOC_ST(struct asterism_tcp_outer_s);
+	struct asterism_tcp_outer_s *outer = AS_ZMALLOC(struct asterism_tcp_outer_s);
 	outer->as = as;
 	ASTERISM_HANDLE_INIT(outer, socket, outer_close_cb);
 	ret = uv_tcp_init(as->loop, &outer->socket);
@@ -282,7 +264,7 @@ int asterism_outer_tcp_init(
 		ret = ASTERISM_E_SOCKET_LISTEN_ERROR;
 		goto cleanup;
 	}
-	addr = __ZERO_MALLOC_ST(struct sockaddr_in);
+	addr = AS_ZMALLOC(struct sockaddr_in);
 	name_len = sizeof(struct sockaddr_in);
 	ret = uv_ip4_addr(ip, (int)*port, (struct sockaddr_in *)addr);
 

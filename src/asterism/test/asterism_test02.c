@@ -30,7 +30,7 @@
 // 	 }
 //      {
 //          uv_stream_t* stream = (uv_stream_t*)req->data;
-//          uv_write_t* wreq = __ZERO_MALLOC_ST(uv_write_t);
+//          uv_write_t* wreq = AS_ZMALLOC(uv_write_t);
 //          uv_buf_t buf;
 //          buf.base = b;
 //          buf.len = sizeof(b);
@@ -96,7 +96,7 @@
 // 		 return;
 // 	 }
 //      uv_stream_t* stream = (uv_stream_t*)req->data;
-//      uv_write_t* wreq = __ZERO_MALLOC_ST(uv_write_t);
+//      uv_write_t* wreq = AS_ZMALLOC(uv_write_t);
 //      uv_buf_t buf;
 //      buf.base = b;
 //      buf.len = sizeof(b);
@@ -180,16 +180,16 @@ int asterism_test02()
 	ret = asterism_set_option(as, ASTERISM_OPT_INNER_BIND_ADDR, "http://0.0.0.0:8081");
 	assert(!ret);
 
-// 	ret = asterism_set_option(as, ASTERISM_OPT_USERNAME, "sosopop");
-// 	assert(!ret);
-// 	ret = asterism_set_option(as, ASTERISM_OPT_PASSWORD, "12345678");
-// 	assert(!ret);
-// 	ret = asterism_set_option(as, ASTERISM_OPT_CONNECT_ADDR, "tcp://127.0.0.1:1234");
-// 	assert(!ret);
-// 	ret = asterism_set_option(as, ASTERISM_OPT_CONNECT_REDIRECT_HOOK, redirect_hook);
-// 	assert(!ret);
-// 	ret = asterism_set_option(as, ASTERISM_OPT_CONNECT_REDIRECT_HOOK_DATA, as);
-// 	assert(!ret);
+ 	ret = asterism_set_option(as, ASTERISM_OPT_USERNAME, "sosopop");
+ 	assert(!ret);
+ 	ret = asterism_set_option(as, ASTERISM_OPT_PASSWORD, "12345678");
+ 	assert(!ret);
+ 	ret = asterism_set_option(as, ASTERISM_OPT_CONNECT_ADDR, "tcp://127.0.0.1:1234");
+ 	assert(!ret);
+ 	ret = asterism_set_option(as, ASTERISM_OPT_CONNECT_REDIRECT_HOOK, redirect_hook);
+ 	assert(!ret);
+ 	ret = asterism_set_option(as, ASTERISM_OPT_CONNECT_REDIRECT_HOOK_DATA, as);
+ 	assert(!ret);
 
 	//asterism_slist_free_all(inner_addrs);
 

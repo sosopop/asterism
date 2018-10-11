@@ -28,7 +28,7 @@ const char *asterism_version()
 asterism asterism_create()
 {
     asterism_log(ASTERISM_LOG_DEBUG, "%s", "asterism_create");
-    return (asterism)__ZERO_MALLOC_ST(struct asterism_s);
+    return (asterism)AS_ZMALLOC(struct asterism_s);
 }
 
 void asterism_destroy(asterism as)

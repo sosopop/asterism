@@ -86,7 +86,7 @@ void asterism_slist_free_all(struct asterism_slist *list)
   do
   {
     next = item->next;
-    AS_SAFEFREE(item->data);
+    AS_SFREE(item->data);
     AS_FREE(item);
     item = next;
   } while (next);

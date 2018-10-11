@@ -159,7 +159,7 @@ int asterism_core_prepare(struct asterism_s *as)
             goto cleanup;
     }
 
-    as->check_timer = __ZERO_MALLOC_ST(struct check_timer_s);
+    as->check_timer = AS_ZMALLOC(struct check_timer_s);
     ASTERISM_HANDLE_INIT(as->check_timer, timer, check_timer_close_cb);
     as->check_timer->as = as;
     ret = uv_timer_init(as->loop, &as->check_timer->timer);
@@ -259,7 +259,7 @@ int asterism_core_stop(struct asterism_s *as)
 {
     int ret = ASTERISM_E_OK;
     as->stoped = 1;
-    struct stop_async_s *async = __ZERO_MALLOC_ST(struct stop_async_s);
+    struct stop_async_s *async = AS_ZMALLOC(struct stop_async_s);
     async->as = as;
     ASTERISM_HANDLE_INIT(async, async, stop_async_close_cb);
     ret = uv_async_init(as->loop, &async->async, stop_async_cb);

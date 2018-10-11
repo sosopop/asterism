@@ -81,10 +81,13 @@ struct asterism_handle_s
 	ASTERISM_HANDLE_FIELDS
 };
 
+typedef int(*connect_ack_cb)(struct asterism_stream_s* stream);
+
 struct asterism_handshake_s
 {
 	unsigned int id;
 	struct asterism_stream_s *inner;
+	connect_ack_cb conn_ack_cb;
 	RB_ENTRY(asterism_handshake_s)
 	tree_entry;
 };

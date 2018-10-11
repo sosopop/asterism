@@ -8,7 +8,7 @@ static void requestor_close_cb(
 	uv_handle_t *handle)
 {
 	struct asterism_tcp_requestor_s *requestor = __CONTAINER_PTR(struct asterism_tcp_requestor_s, socket, handle);
-	AS_SAFEFREE(requestor->host_rhs);
+	AS_SFREE(requestor->host_rhs);
 	AS_FREE(requestor);
 	asterism_log(ASTERISM_LOG_DEBUG, "requestor is closing");
 }
@@ -51,8 +51,8 @@ int asterism_requestor_tcp_init(
 	unsigned int handshake_id)
 {
 	int ret = 0;
-	struct asterism_tcp_requestor_s *requestor = __ZERO_MALLOC_ST(struct asterism_tcp_requestor_s);
-	ret = asterism_stream_connect(as, host_lhs, port_lhs,
+	struct asterism_tcp_requestor_s *requestor = AS_ZMALLOC(struct asterism_tcp_requestor_s);
+	ret = asterism_stream_connect(as, host_lhs, port_lhs, 1,
 								  requestor_connect_cb, 0, 0, requestor_close_cb, (struct asterism_stream_s *)requestor);
 	if (ret)
 		goto cleanup;

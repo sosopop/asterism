@@ -18,7 +18,7 @@ static int stream_end(
 	int ret = 0;
 	uv_shutdown_t *req = 0;
 	//////////////////////////////////////////////////////////////////////////
-	req = __ZERO_MALLOC_ST(uv_shutdown_t);
+	req = AS_ZMALLOC(uv_shutdown_t);
 	req->data = stream;
 	ret = uv_shutdown(req, (uv_stream_t *)&stream->socket, stream_shutdown_cb);
 	if (ret != 0)
@@ -72,7 +72,7 @@ static void stream_read_cb(
 		QUEUE_INSERT_TAIL(&as->conns_queue, &stm->queue);
 
 		stm->buffer_len += (unsigned int)nread;
-		if (stm->link)
+		if (stm->link && stm->auto_trans)
 		{
 			if (asterism_stream_trans(stm))
 			{
@@ -212,6 +212,7 @@ int asterism_stream_connect(
 	struct asterism_s *as,
 	const char *host,
 	unsigned int port,
+	unsigned int auto_trans,
 	uv_connect_cb connect_cb,
 	uv_alloc_cb alloc_cb,
 	uv_read_cb read_cb,
@@ -224,6 +225,7 @@ int asterism_stream_connect(
 		return ret;
 	}
 
+	stream->auto_trans = auto_trans;
 	stream->_connect_cb = connect_cb;
 	stream->_close_cb = close_cb;
 	stream->_read_cb = read_cb;
@@ -251,7 +253,7 @@ int asterism_stream_connect(
 cleanup:
 	if (ret)
 	{
-		AS_SAFEFREE(addr_info);
+		AS_SFREE(addr_info);
 	}
 	return ret;
 }
@@ -259,6 +261,7 @@ cleanup:
 int asterism_stream_accept(
 	struct asterism_s *as,
 	uv_stream_t *server_stream,
+	unsigned int auto_trans,
 	uv_alloc_cb alloc_cb,
 	uv_read_cb read_cb,
 	uv_close_cb close_cb,
@@ -270,6 +273,7 @@ int asterism_stream_accept(
 		return ret;
 	}
 
+	stream->auto_trans = auto_trans;
 	stream->_alloc_cb = alloc_cb;
 	stream->_read_cb = read_cb;
 	stream->_close_cb = close_cb;
@@ -330,6 +334,11 @@ int asterism_stream_trans(
 	}
 cleanup:
 	return ret;
+}
+
+void asterism_stream_set_autotrans(struct asterism_stream_s * stream, unsigned int enable)
+{
+	stream->auto_trans = enable;
 }
 
 void asterism_stream_eaten(struct asterism_stream_s *stream, unsigned int eaten)

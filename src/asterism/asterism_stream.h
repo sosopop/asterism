@@ -19,10 +19,9 @@
 	uv_close_cb _close_cb;                \
 	uv_read_cb _read_cb;                  \
 	uv_alloc_cb _alloc_cb;                \
-	unsigned char fin_recv : 1;           \
 	QUEUE queue;                          \
 	unsigned int active_tick_count;       \
-	unsigned char fin_send : 1;
+	unsigned int auto_trans:1;
 
 typedef struct asterism_stream_s asterism_stream_t;
 
@@ -36,6 +35,7 @@ int asterism_stream_connect(
 	struct asterism_s *as,
 	const char *host,
 	unsigned int port,
+	unsigned int auto_trans,
 	uv_connect_cb connect_cb,
 	uv_alloc_cb alloc_cb,
 	uv_read_cb read_cb,
@@ -45,6 +45,7 @@ int asterism_stream_connect(
 int asterism_stream_accept(
 	struct asterism_s *as,
 	uv_stream_t *server_stream,
+	unsigned int auto_trans,
 	uv_alloc_cb alloc_cb,
 	uv_read_cb read_cb,
 	uv_close_cb close_cb,
@@ -61,6 +62,9 @@ void asterism_stream_end(
 
 int asterism_stream_trans(
 	struct asterism_stream_s *stream);
+
+void asterism_stream_set_autotrans(
+	struct asterism_stream_s *stream, unsigned int enable);
 
 void asterism_stream_eaten(
 	struct asterism_stream_s *stream,
