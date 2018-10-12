@@ -215,8 +215,7 @@ int asterism_core_run(struct asterism_s *as)
     ret = asterism_core_prepare(as);
     if (ret)
     {
-        ret = ASTERISM_E_FAILED;
-        goto cleanup;
+		asterism_core_stop(as);
     }
 
     ret = uv_run(as->loop, UV_RUN_DEFAULT);
