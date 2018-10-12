@@ -56,7 +56,7 @@ if(WIN32)
 endif()
 
 if(UNIX)
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIC -O3 -std=c99")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIC -O3 -std=gnu99")
 endif()
 
 add_subdirectory(3rdparty/libuv)

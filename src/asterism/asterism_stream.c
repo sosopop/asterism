@@ -51,10 +51,6 @@ static void stream_read_alloc_cb(
 	{
 		buf->base = stream->buffer + stream->buffer_len;
 		buf->len = ASTERISM_TCP_BLOCK_SIZE - stream->buffer_len;
-		if (buf->len == 0)
-		{
-			asterism_stream_close(stream);
-		}
 	}
 }
 
@@ -64,6 +60,7 @@ static void stream_read_cb(
 	const uv_buf_t *buf)
 {
 	struct asterism_stream_s *stm = __CONTAINER_PTR(struct asterism_stream_s, socket, stream);
+
 	if (nread > 0)
 	{
 		struct asterism_s *as = stm->as;
@@ -86,6 +83,7 @@ static void stream_read_cb(
 	}
 	else if (nread == 0)
 	{
+		asterism_stream_close(stm);
 		return;
 	}
 	else if (nread == UV_EOF)

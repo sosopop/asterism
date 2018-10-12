@@ -475,6 +475,7 @@ static void incoming_read_cb(
 	}
 	else if (ret == 407)
 	{
+
 		uv_write_t *req = AS_ZMALLOC(uv_write_t);
 		req->data = incoming;
 		uv_buf_t buf = uv_buf_init((char *)HTTP_RESP_407, sizeof(HTTP_RESP_407) - 1);
@@ -483,6 +484,8 @@ static void incoming_read_cb(
 		{
 			free(req);
 		}
+		//asterism_stream_eaten((struct asterism_stream_s *)incoming, incoming->buffer_len);
+		asterism_stream_end((struct asterism_stream_s *)incoming);
 	}
 	else
 	{
