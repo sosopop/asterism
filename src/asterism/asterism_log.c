@@ -5,7 +5,7 @@
 #include <sys/timeb.h>
 #include "asterism_utils.h"
 
-static asterism_log_level __asterism_log_level = ASTERISM_LOG_INFO;
+static asterism_log_level __asterism_log_level = ASTERISM_LOG_NULL;
 
 void asterism_set_log_level(
     asterism_log_level level)

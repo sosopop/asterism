@@ -83,7 +83,7 @@ static int parse_cmd_join(
 
 	RB_INSERT(asterism_session_tree_s, &incoming->as->sessions, session);
 
-	asterism_log(ASTERISM_LOG_DEBUG, "user: %s join.", session->username);
+	asterism_log(ASTERISM_LOG_INFO, "user: %s join.", session->username);
 
 	return 0;
 }

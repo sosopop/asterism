@@ -68,11 +68,12 @@ static void regular_http_request(
 
 	for (int i = 0; i < __ARRAY_SIZE(remove_data); i++) 
 	{
+		if (!remove_data[i].p)
+		{
+			continue;
+		}
 		char* remove_buffer = (char*)remove_data[i].p - off;
 		int remove_len = remove_data[i].len;
-		if ((buffer + len) - (remove_buffer + remove_len) < 0) {
-			int a = 0;
-		}
 		memmove(remove_buffer, remove_buffer + remove_len, (buffer + len) - (remove_buffer + remove_len));
 		off += remove_len;
 	}
@@ -289,6 +290,8 @@ static int parse_normal_type(
 		return asterism_stream_trans((struct asterism_stream_s*)incoming);
 	}
 
+	//asterism_log(ASTERISM_LOG_INFO, "http connect to %.*s", incoming->connect_url.len, incoming->connect_url.p);
+
 	return parse_connect(incoming, host);
 }
 
@@ -373,7 +376,7 @@ static int on_header_value(http_parser *parser, const char *at, size_t length)
 	return 0;
 }
 
-static int on_message_complete(http_parser *parser)
+static int on_headers_complete(http_parser *parser)
 {
 	struct asterism_http_incoming_s *obj = __CONTAINER_PTR(struct asterism_http_incoming_s, parser, parser);
 	obj->header_parsed = 1;
@@ -384,13 +387,33 @@ static int on_message_complete(http_parser *parser)
 	return 0;
 }
 
+static int on_message_begin(http_parser *parser)
+{
+	struct asterism_http_incoming_s *obj = __CONTAINER_PTR(struct asterism_http_incoming_s, parser, parser);
+	struct asterism_str empty_str = { 0,0 };
+	obj->http_header_field_temp = empty_str;
+	obj->http_header_value_temp = empty_str;
+	obj->connect_url = empty_str;
+	obj->auth_val_info = empty_str;
+	obj->auth_key_info = empty_str;
+	obj->conn_key_info = empty_str;
+	obj->host_info = empty_str;
+	return 0;
+}
+
+
+static int on_message_complete(http_parser *parser)
+{
+	return 0;
+}
+
 static http_parser_settings parser_settings = {
-	0,
+	on_message_begin,
 	on_url,
 	0,
 	on_header_field,
 	on_header_value,
-	0,
+	on_headers_complete,
 	0,
 	on_message_complete,
 	0,

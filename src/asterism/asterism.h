@@ -38,11 +38,12 @@ extern "C"
     typedef void *asterism;
 
     typedef enum
-    {
+	{
         ASTERISM_LOG_DEBUG,
         ASTERISM_LOG_INFO,
         ASTERISM_LOG_WARN,
-        ASTERISM_LOG_ERROR
+		ASTERISM_LOG_ERROR,
+		ASTERISM_LOG_NULL
     } asterism_log_level;
 
     void asterism_set_log_level(
