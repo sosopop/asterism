@@ -18,7 +18,10 @@
 void help() {
 	printf("asterism - A solution that exposes the client's service interface to the server\n\n");
 	printf("Usage example:\n");
-	printf("    asterism [(-h|--help)] [(-v|--verbose)] [(-V|--version)] [(-i|--in-addr) string] [(-o|--out-addr) string] [(-r|--remote-addr) string] [(-u|--user) string] [(-p|--pass) string]\n\n");
+	printf("    asterism [(-h|--help)] [(-v|--verbose)] [(-V|--version)] [(-i|--in-addr) string] [(-o|--out-addr) string] [(-r|--remote-addr) string] [(-u|--user) string] [(-p|--pass) string]\n");
+	printf("    asterism.exe -i http://0.0.0.0:8081 -o tcp://0.0.0.0:1234 -v\n");
+	printf("    asterism.exe -r tcp://127.0.0.1:1234 -usosopop -p12345678 -v\n");
+	printf("\n");
 	printf("Options:\n");
 	printf("    -h or --help: Displays this information.\n");
 	printf("    -v or --verbose: Verbose mode on.\n");
@@ -64,6 +67,12 @@ int main(int argc, char *argv[])
 	asterism as = asterism_create();
 
 	parg_init(&ps);
+
+	if (argc == 1)
+	{
+		help();
+		goto cleanup;
+	}
 
 	while (1) {
 		next_option = parg_getopt_long(&ps, argc, argv, short_options, long_options, NULL);
