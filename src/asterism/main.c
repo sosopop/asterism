@@ -83,7 +83,7 @@ int main(int argc, char *argv[])
 			help();
 			goto cleanup;
 		case 'v':
-			asterism_set_log_level(ASTERISM_LOG_DEBUG);
+			asterism_set_log_level(ASTERISM_LOG_INFO);
 			break;
 		case 'V':
 			show_version();

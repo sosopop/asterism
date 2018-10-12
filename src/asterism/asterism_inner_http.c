@@ -19,6 +19,9 @@ static void inner_close(
 
 static void incoming_delete(struct asterism_http_incoming_s *obj)
 {
+	if (obj->last_host_info.p) {
+		AS_FREE((char*)obj->last_host_info.p);
+	}
 	AS_FREE(obj);
 }
 
@@ -283,6 +286,19 @@ static int parse_normal_type(
 
 	incoming->host_info.len = host_end - incoming->host_info.p;
 	struct asterism_str host = asterism_mk_str_n(host_start, host_end - host_start);
+
+	if (asterism_strcmp(host, incoming->last_host_info)) {
+		if (incoming->last_host_info.p) {
+			AS_FREE((char*)incoming->last_host_info.p);
+		}
+		incoming->last_host_info = asterism_strdup(host);
+		incoming->is_connect = 0;
+		if (incoming->link) {
+			incoming->link->link = 0;
+			asterism_stream_end(incoming->link);
+		}
+		incoming->link = 0;
+	}
 
 	if (incoming->is_connect)
 	{

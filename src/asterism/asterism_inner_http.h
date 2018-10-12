@@ -49,6 +49,7 @@ struct asterism_http_incoming_s
 	struct asterism_str auth_key_info;
 	struct asterism_str conn_key_info;
 	struct asterism_str host_info;
+	struct asterism_str last_host_info;
 
 	unsigned int handshake_id;
     unsigned char header_parsed : 1;
