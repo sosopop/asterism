@@ -88,7 +88,7 @@ struct asterism_handle_s
 
 struct asterism_stream_s;
 
-typedef int (*connect_ack_cb)(struct asterism_stream_s *stream);
+typedef int (*connect_ack_cb)(struct asterism_stream_s *stream, int success);
 
 struct asterism_handshake_s
 {

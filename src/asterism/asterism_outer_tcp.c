@@ -113,11 +113,7 @@ static int parse_cmd_connect_ack(
     connect_ack_cb conn_ack_cb = handshake->conn_ack_cb;
     AS_FREE(handshake);
 
-    if (success)
-    {
-        return conn_ack_cb(incoming->link);
-    }
-    return 0;
+    return conn_ack_cb(incoming->link, success);
 }
 
 static void write_cmd_pong_cb(

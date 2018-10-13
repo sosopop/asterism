@@ -12,6 +12,8 @@
 #include "parg.h"
 #include "asterism.h"
 
+#ifndef UNIT_TEST
+
 static void help()
 {
     printf("asterism - A solution that exposes the client's service interface to the server\n\n");
@@ -36,7 +38,7 @@ static void show_version()
     printf("%s\n", asterism_version());
 }
 
-asterism as = 0;
+static asterism as = 0;
 
 static void stop_prog(int signo)
 {
@@ -46,7 +48,6 @@ static void stop_prog(int signo)
     }
 }
 
-#ifndef UNIT_TEST
 int main(int argc, char *argv[])
 {
     signal(SIGINT, stop_prog);

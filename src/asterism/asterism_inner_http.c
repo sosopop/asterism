@@ -77,7 +77,7 @@ static void regular_http_request(
             continue;
         }
         char *remove_buffer = (char *)remove_data[i].p - off;
-        int remove_len = remove_data[i].len;
+        int remove_len = (int)remove_data[i].len;
         memmove(remove_buffer, remove_buffer + remove_len, (buffer + len) - (remove_buffer + remove_len));
         off += remove_len;
     }
@@ -107,11 +107,15 @@ cleanup:
 }
 
 static int conn_ack_cb(
-    struct asterism_stream_s *stream)
+    struct asterism_stream_s *stream, int success)
 {
-    int ret = 0;
+    int ret = -1;
     uv_write_t *req = 0;
     struct asterism_http_incoming_s *incoming = (struct asterism_http_incoming_s *)stream;
+    if (!success) 
+    {
+        goto cleanup;
+    }
     if (incoming->parser.method == HTTP_CONNECT)
     {
         req = AS_ZMALLOC(uv_write_t);

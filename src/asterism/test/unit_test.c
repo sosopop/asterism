@@ -28,20 +28,16 @@ int main(int argc, char *argv[])
     return ret;
 }
 
-int ut_connect(const char* ip, unsigned short port)
+int ut_connect(const char *ip, unsigned short port)
 {
     int sock = 0;
     struct sockaddr_in serv_addr;
-    assert((sock = socket(AF_INET, SOCK_STREAM, 0)) > 0);
+    assert((sock = (int)socket(AF_INET, SOCK_STREAM, 0)) > 0);
     memset(&serv_addr, 0, sizeof(serv_addr));
-    serv_addr.sin_family = AF_INET;
-    serv_addr.sin_port = htons(port);
-    serv_addr.sin_addr.S_un.S_addr = inet_addr(ip);
-    assert(serv_addr.sin_addr.S_un.S_addr > 0);
+    assert(uv_ip4_addr(ip, port, &serv_addr) == 0);
     assert(connect(sock, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) >= 0);
     return sock;
 }
-
 
 void ut_sleep(int t)
 {
@@ -52,4 +48,12 @@ void ut_sleep(int t)
 #endif
 }
 
+void ut_close(int s)
+{
+#ifdef WIN32
+    closesocket(s);
+#else
+    close(s);
+#endif
+}
 #endif

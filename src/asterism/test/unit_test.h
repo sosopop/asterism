@@ -11,17 +11,22 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <uv.h>
+#include <time.h>
 
 #ifdef WIN32
 #include <winsock2.h>
+#include <WS2tcpip.h>
 #else
+#include <memory.h>
+#include <unistd.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
 #endif
 
 #include "../asterism.h"
 
-int ut_connect(const char* ip, unsigned short port);
+int ut_connect(const char *ip, unsigned short port);
 void ut_sleep(int t);
+void ut_close(int s);
 
 #endif

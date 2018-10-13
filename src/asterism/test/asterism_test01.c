@@ -10,7 +10,6 @@
 int asterism_test01()
 {
     int ret = ASTERISM_E_OK;
-    asterism_set_log_level(ASTERISM_LOG_DEBUG);
     struct asterism_slist *route_list = 0;
     route_list = asterism_slist_append(route_list, "test1");
     route_list = asterism_slist_append(route_list, "test2");

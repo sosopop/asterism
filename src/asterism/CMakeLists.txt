@@ -2,7 +2,11 @@ include_directories("../../3rdparty/libuv/include")
 include_directories("../../3rdparty/http-parser")
 
 aux_source_directory(. ASTERISM_SOURCE)
-aux_source_directory(./test ASTERISM_SOURCE)
+if(UNIT_TEST)
+    aux_source_directory(./test ASTERISM_SOURCE)
+    add_definitions(-DUNIT_TEST)
+endif()
+
 add_executable(asterism ${ASTERISM_SOURCE})
 
 if(WIN32)

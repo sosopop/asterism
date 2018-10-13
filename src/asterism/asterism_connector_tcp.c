@@ -3,6 +3,7 @@
 #include "asterism_core.h"
 #include "asterism_utils.h"
 #include "asterism_log.h"
+#include "asterism_responser_tcp.h"
 
 static void connector_delete(
     struct asterism_tcp_connector_s *obj)
@@ -108,7 +109,7 @@ static int connector_parse_connect_data(
             target, conn->as->connect_redirect_hook_data);
         if (new_target == 0)
         {
-            goto cleanup;
+            goto error;
         }
         else if (target != new_target)
         {
@@ -123,14 +124,20 @@ static int connector_parse_connect_data(
     asterism_host_type host_type;
 
     if (asterism_parse_address(target, &scheme, &host_str, &port, &host_type) || !host_str.p || !port)
-        goto cleanup;
+        goto error;
 
     __host = as_strdup2(host_str.p, host_str.len);
 
     if (asterism_requestor_tcp_init(conn->as, __host, port, conn->host, conn->port, handshake_id))
-        goto cleanup;
+        goto error;
 
     ret = 0;
+error:
+    if (ret) 
+    {
+        ret = asterism_responser_tcp_init(conn->as, conn->host,
+            conn->port, handshake_id, 0);
+    }
 cleanup:
     AS_SFREE(__host);
     AS_SFREE(target);
@@ -142,7 +149,6 @@ static int connector_parse_cmd_data(
     uv_buf_t *buf,
     int *eaten)
 {
-    //���Ȳ���������ȡ
     if (buf->len < sizeof(struct asterism_trans_proto_s))
         return 0;
     struct asterism_trans_proto_s *proto = (struct asterism_trans_proto_s *)buf->base;
@@ -151,12 +157,10 @@ static int connector_parse_cmd_data(
         return -1;
     if (proto_len > ASTERISM_MAX_PROTO_SIZE)
         return -1;
-    //���Ȳ���������ȡ
     if (proto_len > buf->len)
     {
         return 0;
     }
-    //ƥ������
     if (proto->cmd == ASTERISM_TRANS_PROTO_CONNECT)
     {
         asterism_log(ASTERISM_LOG_DEBUG, "connection connect recv");
