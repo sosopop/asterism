@@ -12,7 +12,7 @@
     "Proxy-Authenticate: Basic realm=\"Asterism Authorization\"\r\n" \
     "Content-Length: 0\r\n\r\n"
 
-#define HTTP_RESP_200                                                \
+#define HTTP_RESP_200 \
     "HTTP/1.1 200 Connection Established\r\n\r\n"
 
 #define HTTP_PROXY_AUTH_HEAD "Proxy-Authorization"
@@ -43,18 +43,18 @@ struct asterism_http_incoming_s
     http_parser parser;
     struct asterism_str http_header_field_temp;
     struct asterism_str http_header_value_temp;
-	struct asterism_str connect_url;
-	struct asterism_str auth_val_info;
-	//not connect
-	struct asterism_str auth_key_info;
-	struct asterism_str conn_key_info;
-	struct asterism_str host_info;
-	struct asterism_str last_host_info;
+    struct asterism_str connect_url;
+    struct asterism_str auth_val_info;
+    //not connect
+    struct asterism_str auth_key_info;
+    struct asterism_str conn_key_info;
+    struct asterism_str host_info;
+    struct asterism_str last_host_info;
 
-	unsigned int handshake_id;
+    unsigned int handshake_id;
     unsigned char header_parsed : 1;
-	unsigned char header_parsed_type : 2;
-	unsigned char is_connect : 1;
+    unsigned char header_parsed_type : 2;
+    unsigned char is_connect : 1;
 };
 
 int asterism_inner_http_init(

@@ -19,7 +19,7 @@ struct asterism_trans_proto_s _global_proto_pong = {
 unsigned int asterism_tunnel_new_handshake_id()
 {
     static unsigned int id = 0;
-	id = (id + 1) | 1;
+    id = (id + 1) | 1;
     return id;
 }
 
@@ -45,6 +45,15 @@ static void check_timer_close_cb(
     AS_FREE(timer);
 }
 
+static void check_timer_close(
+    uv_handle_t *handle)
+{
+    if (!uv_is_closing(handle))
+    {
+        uv_close(handle, check_timer_close_cb);
+    }
+}
+
 static void check_timer_cb(
     uv_timer_t *handle)
 {
@@ -58,7 +67,7 @@ static void check_timer_cb(
         if (as->current_tick_count - stream->active_tick_count > ASTERISM_CONNECTION_MAX_IDLE_COUNT)
         {
             asterism_log(ASTERISM_LOG_DEBUG, "tcp connection timeout!!!");
-            asterism_stream_close(stream);
+            asterism_stream_close((uv_handle_t *)&stream->socket);
         }
         else
         {
@@ -160,7 +169,7 @@ int asterism_core_prepare(struct asterism_s *as)
     }
 
     as->check_timer = AS_ZMALLOC(struct check_timer_s);
-    ASTERISM_HANDLE_INIT(as->check_timer, timer, check_timer_close_cb);
+    ASTERISM_HANDLE_INIT(as->check_timer, timer, check_timer_close);
     as->check_timer->as = as;
     ret = uv_timer_init(as->loop, &as->check_timer->timer);
     if (ret != 0)
@@ -215,7 +224,7 @@ int asterism_core_run(struct asterism_s *as)
     ret = asterism_core_prepare(as);
     if (ret)
     {
-		asterism_core_stop(as);
+        asterism_core_stop(as);
     }
 
     ret = uv_run(as->loop, UV_RUN_DEFAULT);
@@ -232,7 +241,8 @@ void handles_close_cb(
     uv_handle_t *handle,
     void *arg)
 {
-    asterism_handle_close(handle);
+    struct asterism_handle_s *_handle = (struct asterism_handle_s *)handle->data;
+    _handle->close(handle);
 }
 
 struct stop_async_s
@@ -248,6 +258,14 @@ static void stop_async_close_cb(uv_handle_t *handle)
     AS_FREE(async);
 }
 
+static void stop_async_close(uv_handle_t *handle)
+{
+    if (!uv_is_closing(handle))
+    {
+        uv_close(handle, stop_async_close_cb);
+    }
+}
+
 static void stop_async_cb(uv_async_t *handle)
 {
     struct stop_async_s *async = __CONTAINER_PTR(struct stop_async_s, async, handle);
@@ -260,7 +278,7 @@ int asterism_core_stop(struct asterism_s *as)
     as->stoped = 1;
     struct stop_async_s *async = AS_ZMALLOC(struct stop_async_s);
     async->as = as;
-    ASTERISM_HANDLE_INIT(async, async, stop_async_close_cb);
+    ASTERISM_HANDLE_INIT(async, async, stop_async_close);
     ret = uv_async_init(as->loop, &async->async, stop_async_cb);
     if (ret != 0)
         goto cleanup;
@@ -271,11 +289,11 @@ cleanup:
     return ret;
 }
 
-void asterism_handle_close(uv_handle_t *handle)
-{
-    if (handle && !uv_is_closing(handle))
-    {
-        struct asterism_handle_s *_handle = (struct asterism_handle_s *)handle->data;
-        uv_close(handle, _handle->close_cb);
-    }
-}
+// void asterism_handle_close(uv_handle_t *handle)
+// {
+//     if (handle && !uv_is_closing(handle))
+//     {
+//         struct asterism_handle_s *_handle = (struct asterism_handle_s *)handle->data;
+//         uv_close(handle, _handle->close_cb);
+//     }
+// }
