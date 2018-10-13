@@ -19,10 +19,7 @@ static void reconnect_close_cb(uv_handle_t *handle);
 
 static void reconnect_timer_close(uv_handle_t *handle)
 {
-    if (!uv_is_closing(handle))
-    {
-        uv_close(handle, reconnect_close_cb);
-    }
+    as_uv_close(handle, reconnect_close_cb);
 }
 
 static void reconnect_timer_cb(
@@ -214,10 +211,7 @@ static void heartbeat_close_cb(
 static void close_hearbeat(
     uv_handle_t *handle)
 {
-    if (!uv_is_closing(handle))
-    {
-        uv_close(handle, heartbeat_close_cb);
-    }
+    as_uv_close(handle, heartbeat_close_cb);
 }
 
 static void connector_send_ping_cb(

@@ -48,10 +48,7 @@ static void check_timer_close_cb(
 static void check_timer_close(
     uv_handle_t *handle)
 {
-    if (!uv_is_closing(handle))
-    {
-        uv_close(handle, check_timer_close_cb);
-    }
+    as_uv_close(handle, check_timer_close_cb);
 }
 
 static void check_timer_cb(
@@ -260,10 +257,7 @@ static void stop_async_close_cb(uv_handle_t *handle)
 
 static void stop_async_close(uv_handle_t *handle)
 {
-    if (!uv_is_closing(handle))
-    {
-        uv_close(handle, stop_async_close_cb);
-    }
+    as_uv_close(handle, stop_async_close_cb);
 }
 
 static void stop_async_cb(uv_async_t *handle)
@@ -288,12 +282,3 @@ int asterism_core_stop(struct asterism_s *as)
 cleanup:
     return ret;
 }
-
-// void asterism_handle_close(uv_handle_t *handle)
-// {
-//     if (handle && !uv_is_closing(handle))
-//     {
-//         struct asterism_handle_s *_handle = (struct asterism_handle_s *)handle->data;
-//         uv_close(handle, _handle->close_cb);
-//     }
-// }

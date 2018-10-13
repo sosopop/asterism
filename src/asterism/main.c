@@ -1,12 +1,12 @@
-#include <stdio.h>
-#include <assert.h>
 #ifdef WIN32
+#ifndef _CRTDBG_MAP_ALLOC
 #define _CRTDBG_MAP_ALLOC
-#include <windows.h>
+#endif
 #include <stdlib.h>
 #include <crtdbg.h>
 #endif
-
+#include <stdio.h>
+#include <assert.h>
 #include <signal.h>
 
 #include "parg.h"
@@ -46,6 +46,7 @@ static void stop_prog(int signo)
     }
 }
 
+#ifndef UNIT_TEST
 int main(int argc, char *argv[])
 {
     signal(SIGINT, stop_prog);
@@ -146,3 +147,4 @@ cleanup:
 #endif
     return ret;
 }
+#endif

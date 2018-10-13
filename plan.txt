@@ -3,6 +3,8 @@
 curl "http://www.baidu.com/" --proxytunnel --proxy "http://127.0.0.1:8081" --proxy-user "sosopop:12345678"
 curl "http://exit" --proxytunnel --proxy "http://127.0.0.1:8081" --proxy-user "sosopop:12345678"
 curl "https://localhost.iku.youku.com:62079/?new_command=iku://|getP2PState|1539094256000" --proxytunnel --proxy "http://127.0.0 .1:8081" --proxy-user "sosopop:12345678"
+asterism.exe -ihttp://0.0.0.0:8081 -otcp://0.0.0.0:1234 -v -rtcp://127.0.0.1:1234 -usosopop -p12345678
+asterism.exe -ihttp://0.0.0.0:8081 -otcp://0.0.0.0:1234 -v -rtcp://127.0.0.1:1234 -usosopop -p12345678
 
 #封装通讯模块
 

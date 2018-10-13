@@ -13,10 +13,7 @@ static void outer_close_cb(
 static void outer_close(
     uv_handle_t *handle)
 {
-    if (!uv_is_closing(handle))
-    {
-        uv_close(handle, outer_close_cb);
-    }
+    as_uv_close(handle, outer_close_cb);
 }
 
 static void incoming_close_cb(

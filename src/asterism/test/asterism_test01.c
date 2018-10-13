@@ -5,11 +5,12 @@
 #include <stdlib.h>
 #include <assert.h>
 
+#ifdef UNIT_TEST
+
 int asterism_test01()
 {
     int ret = ASTERISM_E_OK;
     asterism_set_log_level(ASTERISM_LOG_DEBUG);
-    //test asterism_slist
     struct asterism_slist *route_list = 0;
     route_list = asterism_slist_append(route_list, "test1");
     route_list = asterism_slist_append(route_list, "test2");
@@ -90,6 +91,7 @@ int asterism_test01()
     ret = asterism_parse_address("10.0.0.2:1080", &scheme, &host, &port, &host_type);
     assert(ret == 0 && host_type == ASTERISM_HOST_TYPE_IPV4 && asterism_str_empty(&scheme) && asterism_vcasecmp(&host, "10.0.0.2") == 0 && port == 1080);
 
-    //je_malloc_stats_print(0, 0, 0);
     return ret;
 }
+
+#endif

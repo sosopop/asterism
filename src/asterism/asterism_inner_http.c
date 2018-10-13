@@ -14,10 +14,7 @@ static void inner_close_cb(
 static void inner_close(
     uv_handle_t *handle)
 {
-    if (!uv_is_closing(handle))
-    {
-        uv_close(handle, inner_close_cb);
-    }
+    as_uv_close(handle, inner_close_cb);
 }
 
 static void incoming_delete(struct asterism_http_incoming_s *obj)

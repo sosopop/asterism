@@ -49,6 +49,9 @@ handshake_id 4bytes
 #define ASTERISM_TRANS_PROTO_PING 4
 #define ASTERISM_TRANS_PROTO_PONG 5
 
+#define as_uv_close(handle, close_cb)\
+if (!uv_is_closing(handle)) {uv_close(handle, close_cb);}
+
 typedef void (*as_close)(uv_handle_t *handle);
 
 #define ASTERISM_HANDLE_FIELDS \
@@ -144,8 +147,6 @@ int asterism_core_destory(struct asterism_s *as);
 int asterism_core_run(struct asterism_s *as);
 
 int asterism_core_stop(struct asterism_s *as);
-
-//void asterism_handle_close(uv_handle_t *handle);
 
 int asterism_session_compare(struct asterism_session_s *a, struct asterism_session_s *b);
 

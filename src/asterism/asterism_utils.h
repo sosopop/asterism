@@ -1,5 +1,13 @@
 #ifndef ASTERISM_UTILS_H_
 #define ASTERISM_UTILS_H_
+
+#ifdef WIN32
+#ifndef _CRTDBG_MAP_ALLOC
+#define _CRTDBG_MAP_ALLOC
+#endif
+#include <crtdbg.h>
+#endif
+
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
