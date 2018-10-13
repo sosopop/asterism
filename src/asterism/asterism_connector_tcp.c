@@ -209,6 +209,7 @@ static void heartbeat_close_cb(
     uv_handle_t *handle)
 {
     struct connector_timer_s *timer = __CONTAINER_PTR(struct connector_timer_s, timer, handle);
+    timer->connector->heartbeat_timer = 0;
     AS_FREE(timer);
 }
 
