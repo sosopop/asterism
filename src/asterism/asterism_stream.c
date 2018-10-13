@@ -131,9 +131,15 @@ static void stream_getaddrinfo(
 	uv_connect_t *connect_req = 0;
 	struct asterism_stream_s *stream = (struct asterism_stream_s *)req->data;
 	char addr[17] = {'\0'};
+	if (!stream) 
+	{
+		goto cleanup;
+	}
 	if (status < 0)
 	{
 		goto cleanup;
+	}
+	if (stream->addr_req == 0){
 	}
 	//only support ipv4
 	ret = uv_ip4_name((struct sockaddr_in *)res->ai_addr, addr, 16);
@@ -153,7 +159,7 @@ cleanup:
 		uv_freeaddrinfo(res);
 	if (req)
 		AS_FREE(req);
-	if (ret != 0)
+	if (ret != 0 && stream)
 		asterism_stream_close(stream);
 }
 
@@ -168,6 +174,11 @@ static void stream_close_cb(
 	{
 		asterism_stream_close(stream->link);
 		stream->link->link = 0;
+	}
+	if (stream->addr_req)
+	{
+		stream->addr_req->data = 0;
+		stream->addr_req = 0;
 	}
 	stream->_close_cb((uv_handle_t *)&stream->socket);
 
@@ -230,10 +241,10 @@ int asterism_stream_connect(
 	stream->_alloc_cb = alloc_cb;
 
 	struct addrinfo hints;
-	uv_getaddrinfo_t *addr_info = 0;
+	stream->addr_req = 0;
 
-	addr_info = (uv_getaddrinfo_t *)AS_MALLOC(sizeof(uv_getaddrinfo_t));
-	addr_info->data = stream;
+	stream->addr_req = (uv_getaddrinfo_t *)AS_MALLOC(sizeof(uv_getaddrinfo_t));
+	stream->addr_req->data = stream;
 	hints.ai_family = PF_INET;
 	hints.ai_socktype = SOCK_STREAM;
 	hints.ai_protocol = IPPROTO_TCP;
@@ -241,7 +252,7 @@ int asterism_stream_connect(
 
 	char port_str[10] = {0};
 	asterism_itoa(port_str, sizeof(port_str), port, 10, 0, 0);
-	ret = uv_getaddrinfo(as->loop, addr_info, stream_getaddrinfo, host, port_str, &hints);
+	ret = uv_getaddrinfo(as->loop, stream->addr_req, stream_getaddrinfo, host, port_str, &hints);
 	if (ret != 0)
 	{
 		asterism_log(ASTERISM_LOG_DEBUG, "%s", uv_strerror(ret));
@@ -251,7 +262,8 @@ int asterism_stream_connect(
 cleanup:
 	if (ret)
 	{
-		AS_SFREE(addr_info);
+		AS_SFREE(stream->addr_req);
+		stream->addr_req = 0;
 	}
 	return ret;
 }

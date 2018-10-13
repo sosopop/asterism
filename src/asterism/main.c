@@ -5,17 +5,14 @@
 #include <windows.h>
 #include <stdlib.h>
 #include <crtdbg.h>
-#else
-#include <signal.h>
 #endif
+
+#include <signal.h>
+
 #include "parg.h"
 #include "asterism.h"
 
-// #include "test/asterism_test01.h"
-// #include "test/asterism_test02.h"
-
-// Display help information
-void help() {
+static void help() {
 	printf("asterism - A solution that exposes the client's service interface to the server\n\n");
 	printf("Usage example:\n");
 	printf("    asterism [(-h|--help)] [(-v|--verbose)] [(-V|--version)] [(-i|--in-addr) string] [(-o|--out-addr) string] [(-r|--remote-addr) string] [(-u|--user) string] [(-p|--pass) string]\n");
@@ -33,12 +30,22 @@ void help() {
 	printf("    -p or --pass string: Client password for Server authorization.\n");
 }
 
-void show_version() {
+static void show_version() {
 	printf("%s\n", asterism_version());
+}
+
+asterism as = 0;
+
+static void stop_prog(int signo)
+{
+	if (as) {
+		asterism_stop(as);
+	}
 }
 
 int main(int argc, char *argv[])
 {
+	signal(SIGINT, stop_prog);
 #ifdef WIN32
     //_CrtSetBreakAlloc(138);
 	_CrtSetDbgFlag(_CrtSetDbgFlag(_CRTDBG_REPORT_FLAG) | _CRTDBG_LEAK_CHECK_DF);
@@ -64,7 +71,7 @@ int main(int argc, char *argv[])
 		{ NULL, 0, NULL, 0 }
 	};
 
-	asterism as = asterism_create();
+	as = asterism_create();
 
 	parg_init(&ps);
 
@@ -83,7 +90,7 @@ int main(int argc, char *argv[])
 			help();
 			goto cleanup;
 		case 'v':
-			asterism_set_log_level(ASTERISM_LOG_INFO);
+			asterism_set_log_level(ASTERISM_LOG_DEBUG);
 			break;
 		case 'V':
 			show_version();

@@ -23,6 +23,7 @@ static void incoming_close_cb(
 	struct asterism_tcp_incoming_s *incoming = __CONTAINER_PTR(struct asterism_tcp_incoming_s, socket, handle);
 	if (incoming->session)
 	{
+		asterism_log(ASTERISM_LOG_INFO, "user: %s leave", incoming->session->username);
 		RB_REMOVE(asterism_session_tree_s, &incoming->as->sessions, incoming->session);
 		if (incoming->session->username)
 		{
@@ -35,7 +36,6 @@ static void incoming_close_cb(
 		AS_FREE(incoming->session);
 	}
 	AS_FREE(incoming);
-	asterism_log(ASTERISM_LOG_DEBUG, "tcp outer is closing");
 }
 
 static int parse_cmd_join(
@@ -83,7 +83,7 @@ static int parse_cmd_join(
 
 	RB_INSERT(asterism_session_tree_s, &incoming->as->sessions, session);
 
-	asterism_log(ASTERISM_LOG_INFO, "user: %s join.", session->username);
+	asterism_log(ASTERISM_LOG_INFO, "user: %s join, pass: %s", session->username, session->password);
 
 	return 0;
 }

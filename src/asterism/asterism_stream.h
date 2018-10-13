@@ -15,6 +15,7 @@
 	char buffer[ASTERISM_TCP_BLOCK_SIZE]; \
 	unsigned int buffer_len;              \
 	uv_write_t write_req;                 \
+	uv_getaddrinfo_t *addr_req;			  \
 	uv_connect_cb _connect_cb;            \
 	uv_close_cb _close_cb;                \
 	uv_read_cb _read_cb;                  \
