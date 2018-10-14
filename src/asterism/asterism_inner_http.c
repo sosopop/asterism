@@ -490,7 +490,10 @@ static void incoming_read_cb(
     int ret = incoming_parse_connect(incoming, nread, buf);
     if (ret == 0)
     {
-        uv_read_stop(stream);
+        if (incoming->header_parsed)
+        {
+            uv_read_stop(stream);
+        }
         return;
     }
     else if (ret == 407)

@@ -58,10 +58,13 @@ static void check_timer_cb(
     struct asterism_s *as = timer->as;
     QUEUE *q;
     as->current_tick_count++;
+    unsigned int current_tick_count = as->current_tick_count;
+    unsigned int idle_timeout = as->idle_timeout;
+
     QUEUE_FOREACH(q, &as->conns_queue)
     {
         struct asterism_stream_s *stream = QUEUE_DATA(q, struct asterism_stream_s, queue);
-        if (as->current_tick_count - stream->active_tick_count > ASTERISM_CONNECTION_MAX_IDLE_COUNT)
+        if (current_tick_count - stream->active_tick_count > idle_timeout)
         {
             asterism_log(ASTERISM_LOG_DEBUG, "tcp connection timeout!!!");
             asterism_stream_close((uv_handle_t *)&stream->socket);
@@ -78,7 +81,15 @@ int asterism_core_prepare(struct asterism_s *as)
 {
     int ret = ASTERISM_E_OK;
     as->loop = uv_loop_new();
-
+    if (as->idle_timeout == 0) {
+        as->idle_timeout = ASTERISM_CONNECTION_MAX_IDLE_COUNT;
+    }
+    if (as->reconnect_delay == 0) {
+        as->reconnect_delay = ASTERISM_RECONNECT_DELAY;
+    }
+    if (as->heartbeart_interval == 0) {
+        as->heartbeart_interval = ASTERISM_HEARTBEART_INTERVAL;
+    }
     _global_proto_ping.len = htons(sizeof(_global_proto_ping));
     _global_proto_pong.len = htons(sizeof(_global_proto_pong));
 

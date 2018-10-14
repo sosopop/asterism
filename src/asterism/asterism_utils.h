@@ -32,6 +32,7 @@
 #define __DUP_MEM(b, s) memcpy(AS_MALLOC(s), b, s)
 #define __CONTAINER_PTR(s, m, p) (s *)((unsigned char *)p - (unsigned char *)(&((s *)0)->m))
 #define __ARRAY_SIZE(a) (sizeof(a) / sizeof((a)[0]))
+#define __CSLEN(s) (sizeof(s)-1)
 
 #define ASTERISM_SNPRINTF_FLAG_ZERO 1
 

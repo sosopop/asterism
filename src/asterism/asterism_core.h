@@ -7,7 +7,6 @@
 #include "queue.h"
 
 #define ASTERISM_VERSION "0.0.0.1"
-#define ASTERISM_RECONNECT_DELAY 10000
 #define ASTERISM_NET_BACKLOG 1024
 
 #define ASTREISM_USERNAME_MAX_LEN 128
@@ -22,6 +21,8 @@
 #define MAX_HOST_LEN 256
 
 #define ASTERISM_CONNECTION_MAX_IDLE_COUNT 60
+#define ASTERISM_RECONNECT_DELAY 10000
+#define ASTERISM_HEARTBEART_INTERVAL 30000
 
 /*
 payload
@@ -130,6 +131,9 @@ struct asterism_s
     struct asterism_handshake_tree_s handshake_set;
     struct check_timer_s *check_timer;
     unsigned int current_tick_count;
+    unsigned int idle_timeout;
+    unsigned int heartbeart_interval;
+    unsigned int reconnect_delay;
     QUEUE conns_queue;
     asterism_connnect_redirect_hook connect_redirect_hook_cb;
     void *connect_redirect_hook_data;

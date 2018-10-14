@@ -62,6 +62,15 @@ int asterism_set_option(asterism as, asterism_option opt, ...)
             free(__as->connect_addr);
         __as->connect_addr = as_strdup(va_arg(ap, const char *));
         break;
+    case ASTERISM_OPT_IDLE_TIMEOUT:
+        __as->idle_timeout = va_arg(ap, unsigned int);
+        break;
+    case ASTERISM_OPT_RECONNECT_DELAY:
+        __as->reconnect_delay = va_arg(ap, unsigned int);
+        break;
+    case ASTERISM_OPT_HEARTBEAT_INTERVAL:
+        __as->heartbeart_interval = va_arg(ap, unsigned int);
+        break;
     case ASTERISM_OPT_USERNAME:
     {
         const char *username = va_arg(ap, const char *);

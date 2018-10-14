@@ -61,8 +61,9 @@ static void connector_close_cb(
         struct connector_timer_s *timer = AS_ZMALLOC(struct connector_timer_s);
         ASTERISM_HANDLE_INIT(timer, timer, reconnect_timer_close);
         timer->connector = obj;
+        unsigned int reconnect_delay = obj->as->reconnect_delay;
         uv_timer_init(obj->as->loop, &timer->timer);
-        uv_timer_start(&timer->timer, reconnect_timer_cb, 10 * 1000, 10 * 1000);
+        uv_timer_start(&timer->timer, reconnect_timer_cb, reconnect_delay, reconnect_delay);
     }
     else
     {
@@ -275,7 +276,9 @@ static void connector_send_cb(
     {
         goto cleanup;
     }
-    ret = uv_timer_start(&connector->heartbeat_timer->timer, heartbeat_timeout_cb, 30 * 1000, 30 * 1000);
+    unsigned int heartbeart_interval = connector->as->heartbeart_interval;
+    ret = uv_timer_start(&connector->heartbeat_timer->timer, heartbeat_timeout_cb,
+        heartbeart_interval, heartbeart_interval);
     if (ret != 0)
     {
         goto cleanup;
