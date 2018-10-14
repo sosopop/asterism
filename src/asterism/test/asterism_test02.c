@@ -4,52 +4,7 @@
 
 #ifdef UNIT_TEST
 
-static char *redirect_hook(char *target_addr, void *data)
-{
-    //printf("remote request %s\n", target_addr);
-    if (strcmp(target_addr, "www.baidu.com:80") == 0)
-    {
-        return 0;
-    }
-    else if (strcmp(target_addr, "www.hi-asterism.com:80") == 0)
-    {
-        char *buf = asterism_alloc(sizeof("www.baidu.com:80"));
-        memcpy(buf, "www.baidu.com:80", sizeof("www.baidu.com:80"));
-        return buf;
-    }
-    return target_addr;
-}
-
-static asterism as = 0;
-
-static void asterism_test_thread(void *arg)
-{
-    asterism_set_log_level(ASTERISM_LOG_DEBUG);
-
-    int ret = 0;
-    as = asterism_create();
-    assert(as);
-    ret = asterism_set_option(as, ASTERISM_OPT_OUTER_BIND_ADDR, "tcp://0.0.0.0:1122");
-    assert(!ret);
-    ret = asterism_set_option(as, ASTERISM_OPT_INNER_BIND_ADDR, "http://0.0.0.0:8888");
-    assert(!ret);
-
-    ret = asterism_set_option(as, ASTERISM_OPT_USERNAME, "test");
-    assert(!ret);
-    ret = asterism_set_option(as, ASTERISM_OPT_PASSWORD, "test");
-    assert(!ret);
-    ret = asterism_set_option(as, ASTERISM_OPT_CONNECT_ADDR, "tcp://127.0.0.1:1122");
-    assert(!ret);
-    ret = asterism_set_option(as, ASTERISM_OPT_CONNECT_REDIRECT_HOOK, redirect_hook);
-    assert(!ret);
-    ret = asterism_set_option(as, ASTERISM_OPT_CONNECT_REDIRECT_HOOK_DATA, as);
-    assert(!ret);
-    ut_sleep(4000);
-    ret = asterism_run(as);
-    assert(!ret);
-
-    asterism_destroy(as);
-}
+#define IDLE_TIMEOUT 5
 
 #define TEST_HTTP_CONNECT_REQ1              \
     "CONNECT www.baidu.com:80 HTTP/1.1\r\n" \
@@ -74,6 +29,11 @@ static void asterism_test_thread(void *arg)
     "Host: baidu.com:80\r\n"            \
     "Proxy-Connection: Keep-Alive\r\n\r\n"
 
+#define TEST_HTTP_CONNECT_REQ5          \
+    "CONNECT baidu.com:80 HTTP/1.1\r\n" \
+    "Host: baidu.com:80\r\n"            \
+    "Proxy-Authorization: Basic aGVsbG86aGVsbG8=\r\n\r\n"
+
 #define TEST_HTTP_GET_REQ1  \
     "GET / HTTP/1.1\r\n"    \
     "Host: baidu.com\r\n"   \
@@ -93,14 +53,63 @@ static void asterism_test_thread(void *arg)
     "Connection: keep-alive\r\n"         \
     "Proxy-Authorization: Basic dGVzdDp0ZXN0\r\n\r\n"
 
+static char *redirect_hook(char *target_addr, void *data)
+{
+    //printf("remote request %s\n", target_addr);
+    if (strcmp(target_addr, "www.baidu.com:80") == 0)
+    {
+        return 0;
+    }
+    else if (strcmp(target_addr, "www.hi-asterism.com:80") == 0)
+    {
+        char *buf = asterism_alloc(sizeof("www.baidu.com:80"));
+        memcpy(buf, "www.baidu.com:80", sizeof("www.baidu.com:80"));
+        return buf;
+    }
+    return target_addr;
+}
+
+static asterism as = 0;
+
+static void asterism_test_thread(void *arg)
+{
+    asterism as = (asterism)arg;
+    int ret = 0;
+    assert(as);
+    ret = asterism_set_option(as, ASTERISM_OPT_OUTER_BIND_ADDR, "tcp://0.0.0.0:1122");
+    assert(!ret);
+    ret = asterism_set_option(as, ASTERISM_OPT_INNER_BIND_ADDR, "http://0.0.0.0:8888");
+    assert(!ret);
+
+    ret = asterism_set_option(as, ASTERISM_OPT_USERNAME, "test");
+    assert(!ret);
+    ret = asterism_set_option(as, ASTERISM_OPT_PASSWORD, "test");
+    assert(!ret);
+    ret = asterism_set_option(as, ASTERISM_OPT_CONNECT_ADDR, "tcp://127.0.0.1:1122");
+    assert(!ret);
+    ret = asterism_set_option(as, ASTERISM_OPT_CONNECT_REDIRECT_HOOK, redirect_hook);
+    assert(!ret);
+    ret = asterism_set_option(as, ASTERISM_OPT_CONNECT_REDIRECT_HOOK_DATA, as);
+    assert(!ret);
+    ret = asterism_set_option(as, ASTERISM_OPT_HEARTBEAT_INTERVAL, 1000);
+    assert(!ret);
+    ret = asterism_set_option(as, ASTERISM_OPT_IDLE_TIMEOUT, IDLE_TIMEOUT);
+    assert(!ret);
+    ret = asterism_run(as);
+    assert(!ret);
+
+    asterism_destroy(as);
+}
+
 int asterism_test02()
 {
     uv_thread_t tid;
     char buffer[1024] = {0};
     int sock = 0;
-    int ret = uv_thread_create(&tid, asterism_test_thread, 0);
+    asterism as = asterism_create();
+    int ret = uv_thread_create(&tid, asterism_test_thread, as);
     assert(!ret);
-    ut_sleep(5000);
+    ut_sleep(100);
 
     printf("test use hook forbiden access www.baidu.com\n");
     sock = ut_connect("127.0.0.1", 8888);
@@ -116,18 +125,29 @@ int asterism_test02()
     ret = send(sock, TEST_HTTP_CONNECT_REQ4, (int)strlen(TEST_HTTP_CONNECT_REQ4), 0);
     assert(ret == strlen(TEST_HTTP_CONNECT_REQ4));
     memset(buffer, 0, sizeof(buffer));
-    ut_sleep(1000);
+    ut_sleep(100);
     ret = recv(sock, buffer, sizeof(buffer), 0);
     assert(ret > 0);
     assert(strstr(buffer, "HTTP/1.1 407") == buffer);
     ut_close(sock);
 
+    printf("http tunnel access baidu.com wrong auth test\n");
+    sock = ut_connect("127.0.0.1", 8888);
+    ret = send(sock, TEST_HTTP_CONNECT_REQ5, (int)strlen(TEST_HTTP_CONNECT_REQ5), 0);
+    assert(ret == strlen(TEST_HTTP_CONNECT_REQ5));
+    memset(buffer, 0, sizeof(buffer));
+    ut_sleep(100);
+    ret = recv(sock, buffer, sizeof(buffer), 0);
+    assert(ret > 0);
+    assert(strstr(buffer, "HTTP/1.1 407") == buffer);
+    ut_close(sock);
+    
     printf("http tunnel access baidu.com test\n");
     sock = ut_connect("127.0.0.1", 8888);
     ret = send(sock, TEST_HTTP_CONNECT_REQ2, (int)strlen(TEST_HTTP_CONNECT_REQ2), 0);
     assert(ret == strlen(TEST_HTTP_CONNECT_REQ2));
     memset(buffer, 0, sizeof(buffer));
-    ut_sleep(1000);
+    ut_sleep(100);
     ret = recv(sock, buffer, sizeof(buffer), 0);
     assert(ret == strlen(HTTP_RESP_200));
     assert(strncmp(HTTP_RESP_200, buffer, ret) == 0);
@@ -135,7 +155,7 @@ int asterism_test02()
     ret = send(sock, TEST_HTTP_GET_REQ1, (int)strlen(TEST_HTTP_GET_REQ1), 0);
     assert(ret == strlen(TEST_HTTP_GET_REQ1));
     memset(buffer, 0, sizeof(buffer));
-    ut_sleep(1000);
+    ut_sleep(100);
     ret = recv(sock, buffer, sizeof(buffer), 0);
     assert(ret > 0);
     assert(strstr(buffer, "HTTP/1.1 20") == buffer);
@@ -144,7 +164,7 @@ int asterism_test02()
     ret = send(sock, TEST_HTTP_GET_REQ1, (int)strlen(TEST_HTTP_GET_REQ1), 0);
     assert(ret == strlen(TEST_HTTP_GET_REQ1));
     memset(buffer, 0, sizeof(buffer));
-    ut_sleep(1000);
+    ut_sleep(100);
     ret = recv(sock, buffer, sizeof(buffer), 0);
     assert(ret > 0);
     assert(strstr(buffer, "HTTP/1.1 20") == buffer);
@@ -155,7 +175,7 @@ int asterism_test02()
     ret = send(sock, TEST_HTTP_GET_REQ2, (int)strlen(TEST_HTTP_GET_REQ2), 0);
     assert(ret == strlen(TEST_HTTP_GET_REQ2));
     memset(buffer, 0, sizeof(buffer));
-    ut_sleep(1000);
+    ut_sleep(100);
     ret = recv(sock, buffer, sizeof(buffer), 0);
     assert(ret > 0);
     assert(strstr(buffer, "HTTP/1.1 407") == buffer);
@@ -168,7 +188,22 @@ int asterism_test02()
     ret = send(sock, TEST_HTTP_GET_REQ3, (int)strlen(TEST_HTTP_GET_REQ3), 0);
     assert(ret == strlen(TEST_HTTP_GET_REQ3));
     memset(buffer, 0, sizeof(buffer));
-    ut_sleep(1000);
+    ut_sleep(100);
+    ret = recv(sock, buffer, sizeof(buffer), 0);
+    assert(ret > 0);
+    assert(strstr(buffer, "HTTP/1.1 20") == buffer);
+    ut_close(sock);
+
+    printf("normal http proxy send one by one test\n");
+    sock = ut_connect("127.0.0.1", 8888);
+
+    for (int i = 0; i < __CSLEN(TEST_HTTP_GET_REQ3); i++)
+    {
+        ret = send(sock, TEST_HTTP_GET_REQ3+i, 1, 0);
+        assert(ret == 1);
+    }
+    memset(buffer, 0, sizeof(buffer));
+    ut_sleep(100);
     ret = recv(sock, buffer, sizeof(buffer), 0);
     assert(ret > 0);
     assert(strstr(buffer, "HTTP/1.1 20") == buffer);
@@ -179,7 +214,7 @@ int asterism_test02()
     ret = send(sock, TEST_HTTP_CONNECT_REQ3, (int)strlen(TEST_HTTP_CONNECT_REQ3), 0);
     assert(ret == strlen(TEST_HTTP_CONNECT_REQ3));
     memset(buffer, 0, sizeof(buffer));
-    ut_sleep(1000);
+    ut_sleep(100);
     ret = recv(sock, buffer, sizeof(buffer), 0);
     assert(ret == strlen(HTTP_RESP_200));
     assert(strncmp(HTTP_RESP_200, buffer, ret) == 0);
@@ -187,7 +222,7 @@ int asterism_test02()
     ret = send(sock, TEST_HTTP_GET_REQ1, (int)strlen(TEST_HTTP_GET_REQ1), 0);
     assert(ret == strlen(TEST_HTTP_GET_REQ1));
     memset(buffer, 0, sizeof(buffer));
-    ut_sleep(1000);
+    ut_sleep(100);
     ret = recv(sock, buffer, sizeof(buffer), 0);
     assert(ret > 0);
     assert(strstr(buffer, "BAIDUID") > 0);
@@ -198,11 +233,11 @@ int asterism_test02()
     time_t t = time(0);
     ret = recv(sock, buffer, sizeof(buffer), 0);
     assert(!ret);
-    assert(time(0) - t > ASTERISM_CONNECTION_MAX_IDLE_COUNT - 2);
-    assert(time(0) - t < ASTERISM_CONNECTION_MAX_IDLE_COUNT + 2);
+    assert(time(0) - t >= IDLE_TIMEOUT);
+    assert(time(0) - t <= IDLE_TIMEOUT + 1);
     ut_close(sock);
 
-    ut_sleep(1000);
+    ut_sleep(100);
     asterism_stop(as);
     ret = uv_thread_join(&tid);
     assert(!ret);

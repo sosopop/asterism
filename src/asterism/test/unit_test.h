@@ -25,6 +25,8 @@
 
 #include "../asterism.h"
 
+int ut_server(unsigned short port);
+int ut_accept(int sock);
 int ut_connect(const char *ip, unsigned short port);
 void ut_sleep(int t);
 void ut_close(int s);
