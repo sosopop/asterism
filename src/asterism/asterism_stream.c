@@ -136,8 +136,9 @@ static void stream_getaddrinfo(
         goto cleanup;
     }
     stream->addr_req = 0;
-    if (status < 0)
+    if (status != 0)
     {
+        ret = status;
         goto cleanup;
     }
     //only support ipv4
@@ -243,17 +244,12 @@ int asterism_stream_connect(
     stream->_read_cb = read_cb;
     stream->_alloc_cb = alloc_cb;
 
-    struct addrinfo hints;
     stream->addr_req = (uv_getaddrinfo_t *)AS_MALLOC(sizeof(uv_getaddrinfo_t));
     stream->addr_req->data = stream;
-    hints.ai_family = PF_INET;
-    hints.ai_socktype = SOCK_STREAM;
-    hints.ai_protocol = IPPROTO_TCP;
-    hints.ai_flags = 0;
 
     char port_str[10] = {0};
     asterism_itoa(port_str, sizeof(port_str), port, 10, 0, 0);
-    ret = uv_getaddrinfo(as->loop, stream->addr_req, stream_getaddrinfo, host, port_str, &hints);
+    ret = uv_getaddrinfo(as->loop, stream->addr_req, stream_getaddrinfo, host, port_str, 0);
     if (ret != 0)
     {
         asterism_log(ASTERISM_LOG_DEBUG, "%s", uv_strerror(ret));
