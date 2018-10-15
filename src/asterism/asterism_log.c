@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <stdarg.h>
 #include <time.h>
-#include <sys/timeb.h>
+#include <sys/time.h>
 #include "asterism_utils.h"
 
 static asterism_log_level __asterism_log_level = ASTERISM_LOG_NULL;
@@ -29,9 +29,13 @@ void _asterism_log(
 
     struct tm *time_info;
     char time_str[30];
-    struct timeb tmb;
-    ftime(&tmb);
-    time_info = localtime(&tmb.time);
+    //struct timeb tmb;
+    struct timeval tv;
+    struct timezone tz;
+    //ftime(&tmb);
+    if (gettimeofday(&tv, &tz) < 0)
+        return;
+    time_info = localtime(&tv.tv_sec);
     strftime(time_str, sizeof(time_str), "%Y-%m-%d %T", time_info);
 
     char stack_buf[128] = {0};
@@ -61,8 +65,10 @@ void _asterism_log(
     case ASTERISM_LOG_ERROR:
         debug_level = "ERROR";
         break;
+    default:
+        break;
     }
-    printf("%s.%03d %s [%s] %s\n", time_str, tmb.millitm, debug_level, fun_name, temp_buf);
+    printf("%s.%03d %s [%s] %s\n", time_str, (unsigned int)(tv.tv_usec / 1000), debug_level, fun_name, temp_buf);
 
     if (temp_buf != stack_buf)
         AS_FREE(temp_buf);

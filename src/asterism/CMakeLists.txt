@@ -21,4 +21,6 @@ endif()
 
 list(APPEND LINK_LIB uv http_parser)
 
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=gnu99")
+
 target_link_libraries(asterism ${LINK_LIB})

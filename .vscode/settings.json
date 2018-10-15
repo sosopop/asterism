@@ -22,7 +22,9 @@
         "xutility": "c",
         "jemalloc.h": "c",
         "list": "c",
-        "memory": "c"
+        "memory": "c",
+        "time.h": "c",
+        "stdarg.h": "c"
     },
     "C_Cpp.configurationWarnings": "Disabled"
 }

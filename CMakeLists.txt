@@ -56,9 +56,11 @@ if(WIN32)
 endif()
 
 if(UNIX)
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIC -O3 -std=gnu99")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIC")
+    set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -O0")
 endif()
 
 add_subdirectory(3rdparty/libuv)
+
 add_subdirectory(3rdparty/http-parser)
 add_subdirectory(src/asterism)
