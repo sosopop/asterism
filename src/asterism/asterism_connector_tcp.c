@@ -134,10 +134,10 @@ static int connector_parse_connect_data(
 
     ret = 0;
 error:
-    if (ret) 
+    if (ret)
     {
         ret = asterism_responser_tcp_init(conn->as, conn->host,
-            conn->port, handshake_id, 0);
+                                          conn->port, handshake_id, 0);
     }
 cleanup:
     AS_SFREE(__host);
@@ -278,7 +278,7 @@ static void connector_send_cb(
     }
     unsigned int heartbeart_interval = connector->as->heartbeart_interval;
     ret = uv_timer_start(&connector->heartbeat_timer->timer, heartbeat_timeout_cb,
-        heartbeart_interval, heartbeart_interval);
+                         heartbeart_interval, heartbeart_interval);
     if (ret != 0)
     {
         goto cleanup;
@@ -355,11 +355,6 @@ static void connector_connect_cb(
     {
         goto cleanup;
     }
-//    ret = asterism_stream_read((struct asterism_stream_s*)connector);
-//    if (ret != 0)
-//    {
-//        goto cleanup;
-//    }
 cleanup:
     if (ret != 0)
     {
