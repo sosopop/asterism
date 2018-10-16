@@ -36,7 +36,6 @@ extern "C"
 {
 #endif
     typedef void *asterism;
-
     typedef enum
     {
         ASTERISM_LOG_DEBUG,
@@ -46,6 +45,9 @@ extern "C"
         ASTERISM_LOG_NULL
     } asterism_log_level;
 
+    /**
+     * @brief set log level
+     */
     void asterism_set_log_level(
         asterism_log_level level);
 
@@ -67,56 +69,117 @@ extern "C"
     } asterism_errno;
 #undef ASTERISM_ERROR_GEN
 
+    /**
+     * @brief Used to redirect the connection request,
+     *        return value must alloced by asterism_alloc
+     * @see ASTERISM_OPT_CONNECT_REDIRECT_HOOK
+     * @see ASTERISM_OPT_CONNECT_REDIRECT_HOOK_DATA
+     */
     typedef char *(*asterism_connnect_redirect_hook)(char *target_addr, void *data);
 
+    /**
+     * @brief Some basic option settings for service startup
+     * @see asterism_set_option
+     */
     typedef enum
     {
+        /* Incoming proxy address binding (for server)*/
         ASTERISM_OPT_INNER_BIND_ADDR = 0,
+        /* Address binding for client incoming connections (for server)*/
         ASTERISM_OPT_OUTER_BIND_ADDR,
+        /* Destination address for the client connection server (for client)*/
         ASTERISM_OPT_CONNECT_ADDR,
+        /* Client authorized user name (for client)*/
         ASTERISM_OPT_USERNAME,
+        /* Client authorized password (for client)*/
         ASTERISM_OPT_PASSWORD,
+        /* Client request hook callback (for client)*/
         ASTERISM_OPT_CONNECT_REDIRECT_HOOK,
+        /* Client request hook callback context (for client)*/
         ASTERISM_OPT_CONNECT_REDIRECT_HOOK_DATA,
+        /* If there is no data transfer, the connection will be disconnected after the idle time*/
         ASTERISM_OPT_IDLE_TIMEOUT,
+        /* Heartbeat interval (for client)*/
         ASTERISM_OPT_HEARTBEAT_INTERVAL,
+        /* Reconnection interval (for client)*/
         ASTERISM_OPT_RECONNECT_DELAY
     } asterism_option;
 
-    typedef enum
-    {
-        ASTERISM_INFO_DUMMY = 0,
-    } asterism_info;
-
-    struct asterism_slist
-    {
-        char *data;
-        struct asterism_slist *next;
-    };
-
+    /**
+     * @brief create asterism object
+     * 
+     * @return asterism 
+     */
     asterism asterism_create();
 
-    void asterism_destroy(asterism as);
+    /**
+     * @brief destroy asterism object
+     * 
+     * @param as 
+     */
+    void asterism_destroy(
+        asterism as);
 
-    int asterism_set_option(asterism as, asterism_option opt, ...);
+    /**
+     * @brief asterism option settings
+     * 
+     * @param as 
+     * @param opt options 
+     * @see asterism_option
+     */
+    int asterism_set_option(
+        asterism as,
+        asterism_option opt,
+        ...);
 
-    int asterism_get_info(asterism as, asterism_info info, ...);
+    /**
+     * @brief Run asterism
+     * 
+     * @param as 
+     * @return int 
+     */
+    int asterism_run(
+        asterism as);
 
-    int asterism_run(asterism as);
+    /**
+     * @brief Stop asterism
+     * 
+     * @param as 
+     * @return int 
+     */
+    int asterism_stop(
+        asterism as);
 
-    int asterism_stop(asterism as);
+    /**
+     * @brief Allocate memory by asterism
+     * 
+     * @param size 
+     * @return void* 
+     */
+    void *asterism_alloc(
+        unsigned int size);
 
-    void *asterism_alloc(unsigned int size);
+    /**
+     * @brief Free memory allocated by asterism
+     * 
+     * @param data 
+     */
+    void asterism_free(
+        void *data);
 
-    void asterism_free(void *data);
-
-    void asterism_slist_free_all(struct asterism_slist *list);
-
-    struct asterism_slist *asterism_slist_append(struct asterism_slist *list, const char *data);
-
+    /**
+     * @brief Get error string
+     * 
+     * @param error 
+     */
     const char *asterism_errno_description(
         asterism_errno error);
 
+    /**
+     * @brief Get version string
+     * 
+     * @return const char* 
+     */
     const char *asterism_version();
 
 #ifdef __cplusplus
