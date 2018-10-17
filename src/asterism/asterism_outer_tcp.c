@@ -239,7 +239,10 @@ static void outer_accept_cb(
 cleanup:
     if (ret != 0)
     {
-        asterism_stream_close((uv_handle_t *)stream);
+        if (incoming)
+        {
+            asterism_stream_close((uv_handle_t *)&incoming->socket);
+        }
     }
 }
 
