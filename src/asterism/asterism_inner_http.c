@@ -187,10 +187,7 @@ static int parse_connect(
     char *username = decode_buffer;
     char *password = split_pos + 1;
     asterism_log(ASTERISM_LOG_DEBUG, "http request username: %s , password: %s", username, password);
-    //test exit
-    //         if (strcmp(username, "exit") == 0) {
-    //             asterism_stop(incoming->as);
-    //         }
+
     struct asterism_session_s sefilter;
     sefilter.username = username;
     struct asterism_session_s *session = RB_FIND(asterism_session_tree_s, &incoming->as->sessions, &sefilter);
@@ -548,7 +545,10 @@ static void inner_accept_cb(
 cleanup:
     if (ret != 0)
     {
-        asterism_stream_close((uv_handle_t *)&incoming->socket);
+        if (incoming)
+        {
+            asterism_stream_close((uv_handle_t *)&incoming->socket);
+        }
     }
 }
 
@@ -609,7 +609,7 @@ cleanup:
     }
     if (ret)
     {
-        asterism_stream_close((uv_handle_t *)&inner->socket);
+        inner_close((uv_handle_t *)&inner->socket);
     }
     return ret;
 }

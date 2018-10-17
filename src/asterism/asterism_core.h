@@ -5,6 +5,7 @@
 #include "asterism.h"
 #include <tree.h>
 #include "queue.h"
+#include "asterism_utils.h"
 
 #define ASTERISM_VERSION "0.0.0.1"
 #define ASTERISM_NET_BACKLOG 1024
@@ -122,7 +123,7 @@ struct check_timer_s
 
 struct asterism_s
 {
-    char *inner_bind_addr;
+    struct asterism_slist* inner_bind_addrs;
     char *outer_bind_addr;
     char *connect_addr;
     char *username;

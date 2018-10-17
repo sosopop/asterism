@@ -27,11 +27,11 @@ asterism: /mnt/d/code/asterism/3rdparty/libuv/src/unix/stream.c:1358: uv_write2:
 
 #增加命令行
 #增加普通http请求支持
-
-增加接口注释
+socks5单元测试
+#增加接口注释
 加密
-单元测试
-增加socks5支持
+#单元测试
+#增加socks5支持
 kcp支持
 增加http的api接口
 增加curl的单元测试

@@ -289,7 +289,10 @@ static void inner_accept_cb(
 cleanup:
     if (ret != 0)
     {
-        asterism_stream_close((uv_handle_t *)&incoming->socket);
+        if (incoming)
+        {
+            asterism_stream_close((uv_handle_t *)&incoming->socket);
+        }
     }
 }
 
@@ -350,7 +353,7 @@ cleanup:
     }
     if (ret)
     {
-        asterism_stream_close((uv_handle_t *)&inner->socket);
+        inner_close((uv_handle_t *)&inner->socket);
     }
     return ret;
 }

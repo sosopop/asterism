@@ -48,9 +48,8 @@ int asterism_set_option(asterism as, asterism_option opt, ...)
     switch (opt)
     {
     case ASTERISM_OPT_INNER_BIND_ADDR:
-        if (__as->inner_bind_addr)
-            free(__as->inner_bind_addr);
-        __as->inner_bind_addr = as_strdup(va_arg(ap, const char *));
+        __as->inner_bind_addrs = asterism_slist_append(__as->inner_bind_addrs,
+            va_arg(ap, const char *));
         break;
     case ASTERISM_OPT_OUTER_BIND_ADDR:
         if (__as->outer_bind_addr)

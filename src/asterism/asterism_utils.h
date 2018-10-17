@@ -50,6 +50,12 @@ struct asterism_str
     size_t len;    /* Memory chunk length */
 };
 
+struct asterism_slist
+{
+    char *data;
+    struct asterism_slist *next;
+};
+
 struct asterism_str asterism_mk_str(const char *s);
 
 struct asterism_str asterism_mk_str_n(const char *s, size_t len);
@@ -102,6 +108,10 @@ int asterism_vsnprintf(char **buf, size_t size, const char *fmt, va_list ap);
 int asterism_snprintf(char **buf, size_t size, const char *fmt, ...);
 
 struct asterism_slist *asterism_slist_duplicate(struct asterism_slist *inlist);
+
+void asterism_slist_free_all(struct asterism_slist *list);
+
+struct asterism_slist *asterism_slist_append(struct asterism_slist *list, const char *data);
 
 int asterism_base64_decode(const unsigned char *s, int len, char *dst, int *dec_len);
 
