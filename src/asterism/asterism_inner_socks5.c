@@ -39,238 +39,6 @@ static void incoming_close_cb(
     incoming_delete(obj);
     asterism_log(ASTERISM_LOG_DEBUG, "socks5 is closing");
 }
-/*
-static void write_connect_ack_cb(
-    uv_write_t *req,
-    int status)
-{
-    struct asterism_socks5_incoming_s *incoming = (struct asterism_socks5_incoming_s *)req->data;
-    if (status)
-    {
-        goto cleanup;
-    }
-    int ret = asterism_stream_read((struct asterism_stream_s *)incoming);
-    if (ret)
-    {
-        goto cleanup;
-    }
-cleanup:
-    if (ret || status)
-    {
-        asterism_stream_close((uv_handle_t *)&incoming->socket);
-    }
-    free(req);
-}
-
-static int conn_ack_cb(
-    struct asterism_stream_s *stream, int success)
-{
-    int ret = -1;
-    uv_write_t *req = 0;
-    struct asterism_socks5_incoming_s *incoming = (struct asterism_socks5_incoming_s *)stream;
-    if (!success)
-    {
-        goto cleanup;
-    }
-    if (incoming->parser.method == socks5_CONNECT)
-    {
-        req = AS_ZMALLOC(uv_write_t);
-        req->data = stream;
-        uv_buf_t buf;
-        buf.base = socks5_RESP_200;
-        buf.len = sizeof(socks5_RESP_200) - 1;
-        ret = uv_write(req, (uv_stream_t *)&stream->socket, &buf, 1, write_connect_ack_cb);
-        if (ret)
-        {
-            goto cleanup;
-        }
-    }
-    else
-    {
-        regular_socks5_request(incoming);
-        asterism_stream_set_autotrans(stream, 0);
-        ret = asterism_stream_trans(stream);
-        if (ret)
-        {
-            goto cleanup;
-        }
-    }
-    incoming->is_connect = 1;
-cleanup:
-    if (ret)
-    {
-        AS_SFREE(req);
-        asterism_stream_close((uv_handle_t *)&stream->socket);
-    }
-    return ret;
-}
-
-static void handshake_write_cb(
-    uv_write_t *req,
-    int status)
-{
-    struct asterism_write_req_s *write_req = (struct asterism_write_req_s *)req;
-    free(write_req->write_buffer.base);
-    free(write_req);
-}
-
-static int parse_connect(
-    struct asterism_socks5_incoming_s *incoming,
-    struct asterism_str host)
-{
-    if (!host.len)
-        return -1;
-    if (host.len > MAX_HOST_LEN)
-        return -1;
-    if (!incoming->auth_val_info.len)
-        return 407;
-    struct asterism_str base_prefix = asterism_mk_str("Basic ");
-    if (asterism_strncmp(incoming->auth_val_info, base_prefix, base_prefix.len) != 0)
-        return -1;
-    char decode_buffer[128] = {0};
-    int deocode_size = sizeof(decode_buffer);
-    int parsed = asterism_base64_decode(
-        (const unsigned char *)incoming->auth_val_info.p + base_prefix.len,
-        (int)(incoming->auth_val_info.len - base_prefix.len),
-        decode_buffer,
-        &deocode_size);
-    if (parsed != incoming->auth_val_info.len - base_prefix.len)
-        return -1;
-    char *split_pos = strchr(decode_buffer, ':');
-    if (!split_pos)
-        return 407;
-    *split_pos = 0;
-    char *username = decode_buffer;
-    char *password = split_pos + 1;
-    asterism_log(ASTERISM_LOG_DEBUG, "socks5 request username: %s , password: %s", username, password);
-    //test exit
-    //         if (strcmp(username, "exit") == 0) {
-    //             asterism_stop(incoming->as);
-    //         }
-    struct asterism_session_s sefilter;
-    sefilter.username = username;
-    struct asterism_session_s *session = RB_FIND(asterism_session_tree_s, &incoming->as->sessions, &sefilter);
-
-    if (!session)
-        return 407;
-    if (strcmp(session->password, password))
-        return 407;
-
-    struct asterism_handshake_s *handshake = AS_ZMALLOC(struct asterism_handshake_s);
-    handshake->inner = (struct asterism_stream_s *)incoming;
-    handshake->conn_ack_cb = conn_ack_cb;
-    handshake->id = asterism_tunnel_new_handshake_id();
-    incoming->handshake_id = handshake->id;
-
-    struct asterism_write_req_s *req = AS_ZMALLOC(struct asterism_write_req_s);
-
-    int port_len = 0;
-
-    //if not port, set default 80
-    const char *has_port = asterism_strchr(host, ':');
-    if (!has_port)
-        port_len = 3;
-    struct asterism_trans_proto_s *connect_data =
-        (struct asterism_trans_proto_s *)malloc(sizeof(struct asterism_trans_proto_s) +
-                                                host.len + port_len + 2 + 4);
-
-    connect_data->version = ASTERISM_TRANS_PROTO_VERSION;
-    connect_data->cmd = ASTERISM_TRANS_PROTO_CONNECT;
-
-    char *off = (char *)connect_data + sizeof(struct asterism_trans_proto_s);
-    *(uint32_t *)off = htonl(handshake->id);
-    off += 4;
-
-    *(uint16_t *)off = htons((uint16_t)host.len + port_len);
-    off += 2;
-    memcpy(off, host.p, host.len);
-    off += host.len;
-    if (!has_port)
-    {
-        memcpy(off, socks5_DEFAULT_PORT, sizeof(socks5_DEFAULT_PORT) - 1);
-        off += (sizeof(socks5_DEFAULT_PORT) - 1);
-    }
-
-    asterism_log(ASTERISM_LOG_DEBUG, "connect to %.*s", host.len, host.p);
-
-    uint16_t packet_len = (uint16_t)(off - (char *)connect_data);
-    connect_data->len = htons(packet_len);
-
-    req->write_buffer.base = (char *)connect_data;
-    req->write_buffer.len = packet_len;
-
-    int write_ret = uv_write((uv_write_t *)req, (uv_stream_t *)&session->outer->socket, &req->write_buffer, 1, handshake_write_cb);
-    if (write_ret != 0)
-    {
-        free(req->write_buffer.base);
-        free(req);
-        free(handshake);
-        return -1;
-    }
-
-    if (incoming->parser.method == socks5_CONNECT)
-    {
-        asterism_stream_eaten((struct asterism_stream_s *)incoming, incoming->buffer_len);
-    }
-
-    asterism_log(ASTERISM_LOG_DEBUG, "send handshake %d", handshake->id);
-    RB_INSERT(asterism_handshake_tree_s, &incoming->as->handshake_set, handshake);
-    return 0;
-}
-
-static int parse_connect_type(
-    struct asterism_socks5_incoming_s *incoming)
-{
-    return parse_connect(incoming, incoming->connect_url);
-}
-
-static int parse_normal_type(
-    struct asterism_socks5_incoming_s *incoming)
-{
-    struct asterism_str temp = asterism_mk_str_n(socks5_PROTOCOL_TOKEN, sizeof(socks5_PROTOCOL_TOKEN) - 1);
-    const char *host_start = asterism_strstr(incoming->connect_url, temp);
-    if (!host_start)
-        return -1;
-    incoming->host_info.p = host_start;
-    host_start += (sizeof(socks5_PROTOCOL_TOKEN) - 1);
-
-    temp.p = host_start;
-    temp.len = incoming->connect_url.len - (host_start - incoming->connect_url.p);
-
-    const char *host_end = asterism_strchr(temp, '/');
-    if (!host_end)
-        return -1;
-
-    incoming->host_info.len = host_end - incoming->host_info.p;
-    struct asterism_str host = asterism_mk_str_n(host_start, host_end - host_start);
-
-    if (asterism_strcmp(host, incoming->last_host_info))
-    {
-        if (incoming->last_host_info.p)
-        {
-            AS_FREE((char *)incoming->last_host_info.p);
-        }
-        incoming->last_host_info = asterism_strdup(host);
-        incoming->is_connect = 0;
-        if (incoming->link)
-        {
-            incoming->link->link = 0;
-            asterism_stream_end(incoming->link);
-        }
-        incoming->link = 0;
-    }
-
-    if (incoming->is_connect)
-    {
-        regular_socks5_request(incoming);
-        return asterism_stream_trans((struct asterism_stream_s *)incoming);
-    }
-
-    //asterism_log(ASTERISM_LOG_INFO, "socks5 connect to %.*s", incoming->connect_url.len, incoming->connect_url.p);
-
-    return parse_connect(incoming, host);
-}
-*/
 
 static void conn_write_done(uv_write_t *req, int status)
 {
@@ -329,7 +97,7 @@ static int incoming_parse_connect(
     ssize_t nread,
     const uv_buf_t *buf)
 {
-    unsigned int buffer_len = nread;
+    size_t buffer_len = nread;
     char *buffer = buf->base;
     unsigned int methods;
     int err;
@@ -367,9 +135,9 @@ static int incoming_parse_connect(
             return -1;
         }
         struct asterism_session_s sefilter;
-        sefilter.username = incoming->parser.username;
+        sefilter.username = (char*)incoming->parser.username;
         struct asterism_session_s *session = RB_FIND(asterism_session_tree_s, &incoming->as->sessions, &sefilter);
-        if (!session || strcmp(session->password, incoming->parser.password))
+        if (!session || strcmp(session->password, (char*)incoming->parser.password))
         {
             conn_write((struct asterism_stream_s *)incoming, "\1\1", 2); /* failed. */
             asterism_stream_end((struct asterism_stream_s *)incoming);
@@ -386,9 +154,9 @@ static int incoming_parse_connect(
             return -1;
         }
         struct asterism_session_s sefilter;
-        sefilter.username = incoming->parser.username;
+        sefilter.username = (char*)incoming->parser.username;
         struct asterism_session_s *session = RB_FIND(asterism_session_tree_s, &incoming->as->sessions, &sefilter);
-        if (!session || strcmp(session->password, incoming->parser.password))
+        if (!session || strcmp(session->password, (char*)incoming->parser.password))
         {
             return (conn_write((struct asterism_stream_s *)incoming, "\5\1\0\1\0\0\0\0\0\0", 10) ||
                 asterism_stream_end((struct asterism_stream_s *)incoming));
@@ -402,15 +170,15 @@ static int incoming_parse_connect(
         char addr[MAX_HOST_LEN] = {0};
         if (incoming->parser.atyp == s5_atyp_host)
         {
-            strncpy(addr, incoming->parser.daddr, MAX_HOST_LEN - 10);
+            strncpy(addr, (char*)incoming->parser.daddr, MAX_HOST_LEN - 10);
         }
         else if (incoming->parser.atyp == s5_atyp_ipv4)
         {
-            uv_inet_ntop(AF_INET, incoming->parser.daddr, addr, MAX_HOST_LEN);
+            uv_inet_ntop(AF_INET, (char*)incoming->parser.daddr, addr, MAX_HOST_LEN);
         }
         else if (incoming->parser.atyp == s5_atyp_ipv6)
         {
-            uv_inet_ntop(AF_INET6, incoming->parser.daddr, addr, MAX_HOST_LEN);
+            uv_inet_ntop(AF_INET6, (char*)incoming->parser.daddr, addr, MAX_HOST_LEN);
         }
         else
         {
