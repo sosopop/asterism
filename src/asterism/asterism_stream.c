@@ -195,10 +195,10 @@ void asterism_stream_close(uv_handle_t *handle)
     }
 }
 
-void asterism_stream_end(
+int asterism_stream_end(
     struct asterism_stream_s *stream)
 {
-    stream_end(stream);
+    return stream_end(stream);
 }
 
 static int stream_init(

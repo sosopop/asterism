@@ -1,5 +1,4 @@
-#include <http_parser.h>
-#include "asterism_inner_http.h"
+#include "asterism_inner_socks5.h"
 #include "asterism_core.h"
 #include "asterism_log.h"
 #include "asterism_utils.h"
@@ -7,7 +6,7 @@
 static void inner_close_cb(
     uv_handle_t *handle)
 {
-    struct asterism_http_inner_s *obj = __CONTAINER_PTR(struct asterism_http_inner_s, socket, handle);
+    struct asterism_socks5_inner_s *obj = __CONTAINER_PTR(struct asterism_socks5_inner_s, socket, handle);
     AS_FREE(obj);
 }
 
@@ -17,12 +16,8 @@ static void inner_close(
     as_uv_close(handle, inner_close_cb);
 }
 
-static void incoming_delete(struct asterism_http_incoming_s *obj)
+static void incoming_delete(struct asterism_socks5_incoming_s *obj)
 {
-    if (obj->last_host_info.p)
-    {
-        AS_FREE((char *)obj->last_host_info.p);
-    }
     AS_FREE(obj);
 }
 
@@ -30,7 +25,7 @@ static void incoming_close_cb(
     uv_handle_t *handle)
 {
     int ret = 0;
-    struct asterism_http_incoming_s *obj = __CONTAINER_PTR(struct asterism_http_incoming_s, socket, handle);
+    struct asterism_socks5_incoming_s *obj = __CONTAINER_PTR(struct asterism_socks5_incoming_s, socket, handle);
     if (!obj->link)
     {
         struct asterism_handshake_s fh = {obj->handshake_id};
@@ -42,53 +37,14 @@ static void incoming_close_cb(
         }
     }
     incoming_delete(obj);
-    asterism_log(ASTERISM_LOG_DEBUG, "http is closing");
+    asterism_log(ASTERISM_LOG_DEBUG, "socks5 is closing");
 }
-
-static void regular_http_request(
-    struct asterism_http_incoming_s *incoming)
-{
-    //remove proxy headers
-    struct asterism_str remove_data[3];
-    remove_data[0] = incoming->host_info;
-    if (incoming->auth_key_info.p > incoming->conn_key_info.p)
-    {
-        remove_data[1] = incoming->conn_key_info;
-        remove_data[1].len = (sizeof(HTTP_PROXY_PREFIX_HEAD) - 1);
-        remove_data[2] = incoming->auth_key_info;
-        remove_data[2].len = (incoming->auth_val_info.p + incoming->auth_val_info.len) - incoming->auth_key_info.p + 2;
-    }
-    else
-    {
-        remove_data[1] = incoming->auth_key_info;
-        remove_data[1].len = (incoming->auth_val_info.p + incoming->auth_val_info.len) - incoming->auth_key_info.p + 2;
-        remove_data[2] = incoming->conn_key_info;
-        remove_data[2].len = (sizeof(HTTP_PROXY_PREFIX_HEAD) - 1);
-    }
-
-    int off = 0;
-    int len = incoming->buffer_len;
-    char *buffer = incoming->buffer;
-
-    for (int i = 0; i < __ARRAY_SIZE(remove_data); i++)
-    {
-        if (!remove_data[i].p)
-        {
-            continue;
-        }
-        char *remove_buffer = (char *)remove_data[i].p - off;
-        int remove_len = (int)remove_data[i].len;
-        memmove(remove_buffer, remove_buffer + remove_len, (buffer + len) - (remove_buffer + remove_len));
-        off += remove_len;
-    }
-    incoming->buffer_len = len - off;
-}
-
+/*
 static void write_connect_ack_cb(
     uv_write_t *req,
     int status)
 {
-    struct asterism_http_incoming_s *incoming = (struct asterism_http_incoming_s *)req->data;
+    struct asterism_socks5_incoming_s *incoming = (struct asterism_socks5_incoming_s *)req->data;
     if (status)
     {
         goto cleanup;
@@ -111,18 +67,18 @@ static int conn_ack_cb(
 {
     int ret = -1;
     uv_write_t *req = 0;
-    struct asterism_http_incoming_s *incoming = (struct asterism_http_incoming_s *)stream;
+    struct asterism_socks5_incoming_s *incoming = (struct asterism_socks5_incoming_s *)stream;
     if (!success)
     {
         goto cleanup;
     }
-    if (incoming->parser.method == HTTP_CONNECT)
+    if (incoming->parser.method == socks5_CONNECT)
     {
         req = AS_ZMALLOC(uv_write_t);
         req->data = stream;
         uv_buf_t buf;
-        buf.base = HTTP_RESP_200;
-        buf.len = sizeof(HTTP_RESP_200) - 1;
+        buf.base = socks5_RESP_200;
+        buf.len = sizeof(socks5_RESP_200) - 1;
         ret = uv_write(req, (uv_stream_t *)&stream->socket, &buf, 1, write_connect_ack_cb);
         if (ret)
         {
@@ -131,7 +87,7 @@ static int conn_ack_cb(
     }
     else
     {
-        regular_http_request(incoming);
+        regular_socks5_request(incoming);
         asterism_stream_set_autotrans(stream, 0);
         ret = asterism_stream_trans(stream);
         if (ret)
@@ -159,7 +115,7 @@ static void handshake_write_cb(
 }
 
 static int parse_connect(
-    struct asterism_http_incoming_s *incoming,
+    struct asterism_socks5_incoming_s *incoming,
     struct asterism_str host)
 {
     if (!host.len)
@@ -186,7 +142,7 @@ static int parse_connect(
     *split_pos = 0;
     char *username = decode_buffer;
     char *password = split_pos + 1;
-    asterism_log(ASTERISM_LOG_DEBUG, "http request username: %s , password: %s", username, password);
+    asterism_log(ASTERISM_LOG_DEBUG, "socks5 request username: %s , password: %s", username, password);
     //test exit
     //         if (strcmp(username, "exit") == 0) {
     //             asterism_stop(incoming->as);
@@ -231,8 +187,8 @@ static int parse_connect(
     off += host.len;
     if (!has_port)
     {
-        memcpy(off, HTTP_DEFAULT_PORT, sizeof(HTTP_DEFAULT_PORT) - 1);
-        off += (sizeof(HTTP_DEFAULT_PORT) - 1);
+        memcpy(off, socks5_DEFAULT_PORT, sizeof(socks5_DEFAULT_PORT) - 1);
+        off += (sizeof(socks5_DEFAULT_PORT) - 1);
     }
 
     asterism_log(ASTERISM_LOG_DEBUG, "connect to %.*s", host.len, host.p);
@@ -252,7 +208,7 @@ static int parse_connect(
         return -1;
     }
 
-    if (incoming->parser.method == HTTP_CONNECT)
+    if (incoming->parser.method == socks5_CONNECT)
     {
         asterism_stream_eaten((struct asterism_stream_s *)incoming, incoming->buffer_len);
     }
@@ -263,20 +219,20 @@ static int parse_connect(
 }
 
 static int parse_connect_type(
-    struct asterism_http_incoming_s *incoming)
+    struct asterism_socks5_incoming_s *incoming)
 {
     return parse_connect(incoming, incoming->connect_url);
 }
 
 static int parse_normal_type(
-    struct asterism_http_incoming_s *incoming)
+    struct asterism_socks5_incoming_s *incoming)
 {
-    struct asterism_str temp = asterism_mk_str_n(HTTP_PROTOCOL_TOKEN, sizeof(HTTP_PROTOCOL_TOKEN) - 1);
+    struct asterism_str temp = asterism_mk_str_n(socks5_PROTOCOL_TOKEN, sizeof(socks5_PROTOCOL_TOKEN) - 1);
     const char *host_start = asterism_strstr(incoming->connect_url, temp);
     if (!host_start)
         return -1;
     incoming->host_info.p = host_start;
-    host_start += (sizeof(HTTP_PROTOCOL_TOKEN) - 1);
+    host_start += (sizeof(socks5_PROTOCOL_TOKEN) - 1);
 
     temp.p = host_start;
     temp.len = incoming->connect_url.len - (host_start - incoming->connect_url.p);
@@ -306,178 +262,212 @@ static int parse_normal_type(
 
     if (incoming->is_connect)
     {
-        regular_http_request(incoming);
+        regular_socks5_request(incoming);
         return asterism_stream_trans((struct asterism_stream_s *)incoming);
     }
 
-    //asterism_log(ASTERISM_LOG_INFO, "http connect to %.*s", incoming->connect_url.len, incoming->connect_url.p);
+    //asterism_log(ASTERISM_LOG_INFO, "socks5 connect to %.*s", incoming->connect_url.len, incoming->connect_url.p);
 
     return parse_connect(incoming, host);
 }
+*/
 
-static int on_url(http_parser *parser, const char *at, size_t length)
+static void conn_write_done(uv_write_t *req, int status)
 {
-    struct asterism_http_incoming_s *obj = __CONTAINER_PTR(struct asterism_http_incoming_s, parser, parser);
-    if (obj->connect_url.p)
+    struct asterism_stream_s *stream = (struct asterism_stream_s *)req->data;
+    if (status || asterism_stream_read(stream))
     {
-        obj->connect_url.len += length;
+        asterism_stream_close((uv_handle_t *)&stream->socket);
+    }
+}
+
+static int conn_write(struct asterism_stream_s *stream, const void *data, unsigned int len)
+{
+    uv_buf_t buf;
+    buf.base = (char *)data;
+    buf.len = len;
+    stream->write_req.data = stream;
+    return uv_write(&stream->write_req,
+                    (uv_stream_t *)&stream->socket,
+                    &buf,
+                    1,
+                    conn_write_done);
+}
+
+static int conn_ack_cb(
+    struct asterism_stream_s *stream, int success)
+{
+    int ret = -1;
+    uv_write_t *req = 0;
+    struct asterism_http_incoming_s *incoming = (struct asterism_http_incoming_s *)stream;
+    if (!success)
+    {
+        ret = conn_write((struct asterism_stream_s *)incoming, "\5\1\0\1\0\0\0\0\0\0", 10) ||
+            asterism_stream_end((struct asterism_stream_s *)incoming);
+        goto cleanup;
     }
     else
     {
-        obj->connect_url.p = at;
-        obj->connect_url.len += length;
+        ret = conn_write((struct asterism_stream_s *)incoming, "\5\0\0\1\0\0\0\0\0\0", 10);
+        goto cleanup;
     }
-    return 0;
+cleanup:
+    return ret;
 }
 
-static void parse_value(struct asterism_http_incoming_s *obj)
-{
-    if (obj->header_parsed_type == HEADER_PARSED_TYPE_AUTH)
-    {
-        obj->auth_val_info = obj->http_header_value_temp;
-        obj->header_parsed_type = HEADER_PARSED_TYPE_NULL;
-    }
-    obj->http_header_value_temp.p = 0;
-    obj->http_header_value_temp.len = 0;
-}
-
-static void parse_key(struct asterism_http_incoming_s *obj)
-{
-    if (asterism_vcasecmp(&obj->http_header_field_temp, HTTP_PROXY_AUTH_HEAD) == 0)
-    {
-        obj->header_parsed_type = HEADER_PARSED_TYPE_AUTH;
-        obj->auth_key_info = obj->http_header_field_temp;
-    }
-    else if (asterism_vcasecmp(&obj->http_header_field_temp, HTTP_PROXY_CONN_HEAD) == 0)
-    {
-        obj->conn_key_info = obj->http_header_field_temp;
-    }
-    //asterism_log(ASTERISM_LOG_DEBUG, "on_header_field %.*s", obj->http_header_field_temp.len, obj->http_header_field_temp.p);
-    obj->http_header_field_temp.p = 0;
-    obj->http_header_field_temp.len = 0;
-}
-
-static int on_header_field(http_parser *parser, const char *at, size_t length)
-{
-    struct asterism_http_incoming_s *obj = __CONTAINER_PTR(struct asterism_http_incoming_s, parser, parser);
-    if (obj->http_header_field_temp.p)
-    {
-        obj->http_header_field_temp.len += length;
-    }
-    else
-    {
-        obj->http_header_field_temp.p = at;
-        obj->http_header_field_temp.len += length;
-    }
-    if (obj->http_header_value_temp.p)
-    {
-        parse_value(obj);
-    }
-    return 0;
-}
-
-static int on_header_value(http_parser *parser, const char *at, size_t length)
-{
-    struct asterism_http_incoming_s *obj = __CONTAINER_PTR(struct asterism_http_incoming_s, parser, parser);
-    if (obj->http_header_value_temp.p)
-    {
-        obj->http_header_value_temp.len += length;
-    }
-    else
-    {
-        obj->http_header_value_temp.p = at;
-        obj->http_header_value_temp.len += length;
-    }
-    if (obj->http_header_field_temp.p)
-    {
-        parse_key(obj);
-    }
-    return 0;
-}
-
-static int on_headers_complete(http_parser *parser)
-{
-    struct asterism_http_incoming_s *obj = __CONTAINER_PTR(struct asterism_http_incoming_s, parser, parser);
-    obj->header_parsed = 1;
-    if (obj->http_header_value_temp.p)
-    {
-        parse_value(obj);
-    }
-    return 0;
-}
-
-static int on_message_begin(http_parser *parser)
-{
-    struct asterism_http_incoming_s *obj = __CONTAINER_PTR(struct asterism_http_incoming_s, parser, parser);
-    struct asterism_str empty_str = {0, 0};
-    obj->http_header_field_temp = empty_str;
-    obj->http_header_value_temp = empty_str;
-    obj->connect_url = empty_str;
-    obj->auth_val_info = empty_str;
-    obj->auth_key_info = empty_str;
-    obj->conn_key_info = empty_str;
-    obj->host_info = empty_str;
-    return 0;
-}
-
-static int on_message_complete(http_parser *parser)
-{
-    return 0;
-}
-
-static http_parser_settings parser_settings = {
-    on_message_begin,
-    on_url,
-    0,
-    on_header_field,
-    on_header_value,
-    on_headers_complete,
-    0,
-    on_message_complete,
-    0,
-    0};
-
-static int incoming_parse_connect(
-    struct asterism_http_incoming_s *incoming,
-    ssize_t nread,
-    const uv_buf_t *buf)
-{
-    size_t nparsed = http_parser_execute(&incoming->parser, &parser_settings, buf->base, nread);
-    if (incoming->parser.http_errno != 0)
-    {
-        asterism_log(ASTERISM_LOG_DEBUG, "%s", http_errno_description((enum http_errno)incoming->parser.http_errno));
-        return -1;
-    }
-    if (nparsed != nread)
-        return -1;
-    if (!incoming->header_parsed)
-    {
-        if (incoming->buffer_len == ASTERISM_MAX_HTTP_HEADER_SIZE)
-        {
-            return -1;
-        }
-    }
-    else
-    {
-        if (incoming->parser.method == HTTP_CONNECT)
-        {
-            return parse_connect_type(incoming);
-        }
-        else
-        {
-            return parse_normal_type(incoming);
-        }
-    }
-    return 0;
-}
-
-static void resp_auth_write_cb(
+static void handshake_write_cb(
     uv_write_t *req,
     int status)
 {
-    struct asterism_stream_s *stream = (struct asterism_stream_s *)req->data;
-    free(req);
-    //asterism_stream_end(stream);
+    struct asterism_write_req_s *write_req = (struct asterism_write_req_s *)req;
+    free(write_req->write_buffer.base);
+    free(write_req);
+}
+
+static int incoming_parse_connect(
+    struct asterism_socks5_incoming_s *incoming,
+    ssize_t nread,
+    const uv_buf_t *buf)
+{
+    unsigned int buffer_len = nread;
+    char *buffer = buf->base;
+    unsigned int methods;
+    int err;
+    err = s5_parse(&incoming->parser, (unsigned char **)&buffer, &buffer_len);
+    if (err == s5_ok)
+    {
+        return asterism_stream_read((struct asterism_stream_s *)incoming);
+    }
+    if (buffer_len != 0)
+    {
+        return -1;
+    }
+
+    if (incoming->status == SOCKS5_STATUS_HANDSHAKE)
+    {
+        if (err != s5_auth_select)
+        {
+            return -1;
+        }
+        methods = s5_auth_methods(&incoming->parser);
+        if ((methods & S5_AUTH_PASSWD))
+        {
+            s5_select_auth(&incoming->parser, S5_AUTH_PASSWD);
+            incoming->status = SOCKS5_STATUS_HANDSHAKE_AUTH;
+            return conn_write((struct asterism_stream_s *)incoming, "\5\2", 2); /* No auth required. */
+        }
+        conn_write((struct asterism_stream_s *)incoming, "\5\377", 2); /* No acceptable auth. */
+        asterism_stream_end((struct asterism_stream_s *)incoming);
+        return 0;
+    }
+    else if (incoming->status == SOCKS5_STATUS_HANDSHAKE_AUTH)
+    {
+        if (err != s5_auth_verify)
+        {
+            return -1;
+        }
+        struct asterism_session_s sefilter;
+        sefilter.username = incoming->parser.username;
+        struct asterism_session_s *session = RB_FIND(asterism_session_tree_s, &incoming->as->sessions, &sefilter);
+        if (!session || strcmp(session->password, incoming->parser.password))
+        {
+            conn_write((struct asterism_stream_s *)incoming, "\1\1", 2); /* failed. */
+            asterism_stream_end((struct asterism_stream_s *)incoming);
+            return 0;
+        }
+        incoming->status = SOCKS5_STATUS_CONNECT;
+        conn_write((struct asterism_stream_s *)incoming, "\1\0", 2);
+        return 0;
+    }
+    else if (incoming->status == SOCKS5_STATUS_CONNECT)
+    {
+        if (err != s5_exec_cmd)
+        {
+            return -1;
+        }
+        struct asterism_session_s sefilter;
+        sefilter.username = incoming->parser.username;
+        struct asterism_session_s *session = RB_FIND(asterism_session_tree_s, &incoming->as->sessions, &sefilter);
+        if (!session || strcmp(session->password, incoming->parser.password))
+        {
+            return (conn_write((struct asterism_stream_s *)incoming, "\5\1\0\1\0\0\0\0\0\0", 10) ||
+                asterism_stream_end((struct asterism_stream_s *)incoming));
+        }
+        if (incoming->parser.cmd != s5_cmd_tcp_connect)
+        {
+            return conn_write((struct asterism_stream_s *)incoming, "\5\1\0\1\0\0\0\0\0\0", 10) ||
+                   asterism_stream_end((struct asterism_stream_s *)incoming);
+        }
+
+        char addr[MAX_HOST_LEN] = {0};
+        if (incoming->parser.atyp == s5_atyp_host)
+        {
+            strncpy(addr, incoming->parser.daddr, MAX_HOST_LEN - 10);
+        }
+        else if (incoming->parser.atyp == s5_atyp_ipv4)
+        {
+            uv_inet_ntop(AF_INET, incoming->parser.daddr, addr, MAX_HOST_LEN);
+        }
+        else if (incoming->parser.atyp == s5_atyp_ipv6)
+        {
+            uv_inet_ntop(AF_INET6, incoming->parser.daddr, addr, MAX_HOST_LEN);
+        }
+        else
+        {
+            return -1;
+        }
+        char port[10] = {0};
+        sprintf(port, ":%d", incoming->parser.dport);
+        strcat(addr, port);
+
+        struct asterism_handshake_s *handshake = AS_ZMALLOC(struct asterism_handshake_s);
+        handshake->inner = (struct asterism_stream_s *)incoming;
+        handshake->conn_ack_cb = conn_ack_cb;
+        handshake->id = asterism_tunnel_new_handshake_id();
+        incoming->handshake_id = handshake->id;
+
+        struct asterism_write_req_s *req = AS_ZMALLOC(struct asterism_write_req_s);
+
+        unsigned short host_len = (unsigned short)strlen(addr);
+
+        struct asterism_trans_proto_s *connect_data =
+            (struct asterism_trans_proto_s *)AS_MALLOC(sizeof(struct asterism_trans_proto_s) +
+                host_len + 2 + 4);
+
+        connect_data->version = ASTERISM_TRANS_PROTO_VERSION;
+        connect_data->cmd = ASTERISM_TRANS_PROTO_CONNECT;
+
+        char *off = (char *)connect_data + sizeof(struct asterism_trans_proto_s);
+        *(uint32_t *)off = htonl(handshake->id);
+        off += 4;
+
+        *(uint16_t *)off = htons((uint16_t)host_len);
+        off += 2;
+        memcpy(off, addr, host_len);
+        off += host_len;
+
+        asterism_log(ASTERISM_LOG_DEBUG, "connect to %s", addr);
+
+        uint16_t packet_len = (uint16_t)(off - (char *)connect_data);
+        connect_data->len = htons(packet_len);
+
+        req->write_buffer.base = (char *)connect_data;
+        req->write_buffer.len = packet_len;
+
+        int write_ret = uv_write((uv_write_t *)req, (uv_stream_t *)&session->outer->socket, &req->write_buffer, 1, handshake_write_cb);
+        if (write_ret != 0)
+        {
+            free(req->write_buffer.base);
+            free(req);
+            free(handshake);
+            return -1;
+        }
+
+        asterism_log(ASTERISM_LOG_DEBUG, "send handshake %d", handshake->id);
+        RB_INSERT(asterism_handshake_tree_s, &incoming->as->handshake_set, handshake);
+        incoming->status = SOCKS5_STATUS_TRANS;
+    }
+    return 0;
 }
 
 static void incoming_read_cb(
@@ -486,34 +476,16 @@ static void incoming_read_cb(
     const uv_buf_t *buf)
 {
 
-    struct asterism_http_incoming_s *incoming = __CONTAINER_PTR(struct asterism_http_incoming_s, socket, stream);
+    struct asterism_socks5_incoming_s *incoming = __CONTAINER_PTR(struct asterism_socks5_incoming_s, socket, stream);
+    uv_read_stop(stream);
     int ret = incoming_parse_connect(incoming, nread, buf);
-    if (ret == 0)
+    if (ret != 0)
     {
-        //只有头部解析完成后才暂停读取，否则会无法继续完成读取头部
-        if (incoming->header_parsed)
-        {
-            uv_read_stop(stream);
-        }
-        return;
-    }
-    else if (ret == 407)
-    {
-
-        uv_write_t *req = AS_ZMALLOC(uv_write_t);
-        req->data = incoming;
-        uv_buf_t buf = uv_buf_init((char *)HTTP_RESP_407, sizeof(HTTP_RESP_407) - 1);
-        int write_ret = uv_write((uv_write_t *)req, (uv_stream_t *)&incoming->socket, &buf, 1, resp_auth_write_cb);
-        if (write_ret != 0)
-        {
-            free(req);
-        }
-        //asterism_stream_eaten((struct asterism_stream_s *)incoming, incoming->buffer_len);
-        asterism_stream_end((struct asterism_stream_s *)incoming);
+        asterism_stream_close((uv_handle_t *)&incoming->socket);
     }
     else
     {
-        asterism_stream_close((uv_handle_t *)&incoming->socket);
+        asterism_stream_eaten((struct asterism_stream_s *)incoming, incoming->buffer_len);
     }
 }
 
@@ -522,16 +494,15 @@ static void inner_accept_cb(
     int status)
 {
     int ret = ASTERISM_E_OK;
-    asterism_log(ASTERISM_LOG_DEBUG, "http connection is comming");
+    asterism_log(ASTERISM_LOG_DEBUG, "socks5 connection is comming");
 
-    struct asterism_http_inner_s *inner = __CONTAINER_PTR(struct asterism_http_inner_s, socket, stream);
-    struct asterism_http_incoming_s *incoming = 0;
+    struct asterism_socks5_inner_s *inner = __CONTAINER_PTR(struct asterism_socks5_inner_s, socket, stream);
+    struct asterism_socks5_incoming_s *incoming = 0;
     if (status != 0)
     {
         goto cleanup;
     }
-    incoming = AS_ZMALLOC(struct asterism_http_incoming_s);
-    http_parser_init(&incoming->parser, HTTP_REQUEST);
+    incoming = AS_ZMALLOC(struct asterism_socks5_incoming_s);
     ret = asterism_stream_accept(inner->as, stream, 1, 0,
                                  incoming_read_cb, incoming_close_cb, (struct asterism_stream_s *)incoming);
     if (ret != 0)
@@ -539,6 +510,8 @@ static void inner_accept_cb(
         ret = ASTERISM_E_FAILED;
         goto cleanup;
     }
+    s5_init(&incoming->parser);
+
     ret = asterism_stream_read((struct asterism_stream_s *)incoming);
     if (ret != 0)
     {
@@ -552,14 +525,14 @@ cleanup:
     }
 }
 
-int asterism_inner_http_init(
+int asterism_inner_socks5_init(
     struct asterism_s *as,
     const char *ip, unsigned int *port)
 {
     int ret = ASTERISM_E_OK;
     void *addr = 0;
     int name_len = 0;
-    struct asterism_http_inner_s *inner = AS_ZMALLOC(struct asterism_http_inner_s);
+    struct asterism_socks5_inner_s *inner = AS_ZMALLOC(struct asterism_socks5_inner_s);
     inner->as = as;
     ASTERISM_HANDLE_INIT(inner, socket, inner_close);
     ret = uv_tcp_init(as->loop, &inner->socket);

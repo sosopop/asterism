@@ -58,7 +58,7 @@ int asterism_stream_read(
 void asterism_stream_close(
     uv_handle_t *handle);
 
-void asterism_stream_end(
+int asterism_stream_end(
     struct asterism_stream_s *stream);
 
 int asterism_stream_trans(

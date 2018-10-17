@@ -24,7 +24,9 @@
         "list": "c",
         "memory": "c",
         "time.h": "c",
-        "stdarg.h": "c"
+        "stdarg.h": "c",
+        "asterism_inner_socks5.h": "c",
+        "stdint.h": "c"
     },
     "C_Cpp.configurationWarnings": "Disabled"
 }

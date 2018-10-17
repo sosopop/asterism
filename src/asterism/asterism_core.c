@@ -1,5 +1,6 @@
 #include "asterism_core.h"
 #include "asterism_inner_http.h"
+#include "asterism_inner_socks5.h"
 #include "asterism_outer_tcp.h"
 #include "asterism_connector_tcp.h"
 #include "asterism_utils.h"
@@ -109,16 +110,32 @@ int asterism_core_prepare(struct asterism_s *as)
             ret = ASTERISM_E_ADDRESS_PARSE_ERROR;
             goto cleanup;
         }
-        if (asterism_vcasecmp(&scheme, "http") && !asterism_str_empty(&scheme))
+        if (asterism_str_empty(&scheme))
         {
             ret = ASTERISM_E_PROTOCOL_NOT_SUPPORT;
             goto cleanup;
         }
-        struct asterism_str __host = asterism_strdup_nul(host);
-        ret = asterism_inner_http_init(as, __host.p, &port);
-        AS_FREE((char *)__host.p);
-        if (ret)
+        if (asterism_vcasecmp(&scheme, "http") == 0)
+        {
+            struct asterism_str __host = asterism_strdup_nul(host);
+            ret = asterism_inner_http_init(as, __host.p, &port);
+            AS_FREE((char *)__host.p);
+            if (ret)
+                goto cleanup;
+        }
+        else if(asterism_vcasecmp(&scheme, "socks5") == 0)
+        {
+            struct asterism_str __host = asterism_strdup_nul(host);
+            ret = asterism_inner_socks5_init(as, __host.p, &port);
+            AS_FREE((char *)__host.p);
+            if (ret)
+                goto cleanup;
+        }
+        else
+        {
+            ret = ASTERISM_E_PROTOCOL_NOT_SUPPORT;
             goto cleanup;
+        }
     }
     if (as->outer_bind_addr)
     {
