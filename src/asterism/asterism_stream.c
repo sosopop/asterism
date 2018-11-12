@@ -318,8 +318,8 @@ static void link_write_cb(
         asterism_stream_close((uv_handle_t *)&stream->socket);
         return;
     }
-
-    stream->active_tick_count = stream->as->current_tick_count;
+    if(stream->link)
+        stream->link->active_tick_count = stream->as->current_tick_count;
 
     if (asterism_stream_read(stream))
     {
