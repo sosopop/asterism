@@ -329,6 +329,8 @@ int asterism_stream_trans(
     _buf.base = stream->buffer;
     _buf.len = stream->buffer_len;
     stream->buffer_len = 0;
+
+    stream->active_tick_count = stream->as->current_tick_count;
     ret = uv_write(&stream->link->write_req, (uv_stream_t *)&stream->link->socket, &_buf, 1, link_write_cb);
     if (ret)
     {
