@@ -271,25 +271,20 @@ static int parse_normal_type(
 	struct asterism_str host = {0,0};
     struct asterism_str temp = asterism_mk_str_n(HTTP_PROTOCOL_TOKEN, sizeof(HTTP_PROTOCOL_TOKEN) - 1);
     const char *host_start = asterism_strstr(incoming->connect_url, temp);
-	if (!host_start) {
-        if(!incoming->last_host_info.p)
-		    return -1;
-        host = incoming->last_host_info;
-	}
-	else {
-		incoming->host_info.p = host_start;
-		host_start += (sizeof(HTTP_PROTOCOL_TOKEN) - 1);
+	if (!host_start)
+        return -1;
+	incoming->host_info.p = host_start;
+	host_start += (sizeof(HTTP_PROTOCOL_TOKEN) - 1);
 
-		temp.p = host_start;
-		temp.len = incoming->connect_url.len - (host_start - incoming->connect_url.p);
+	temp.p = host_start;
+	temp.len = incoming->connect_url.len - (host_start - incoming->connect_url.p);
 
-		const char *host_end = asterism_strchr(temp, '/');
-		if (!host_end)
-			return -1;
+	const char *host_end = asterism_strchr(temp, '/');
+	if (!host_end)
+		return -1;
 
-		incoming->host_info.len = host_end - incoming->host_info.p;
-		host = asterism_mk_str_n(host_start, host_end - host_start);
-	}
+	incoming->host_info.len = host_end - incoming->host_info.p;
+	host = asterism_mk_str_n(host_start, host_end - host_start);
 
     if (asterism_strcmp(host, incoming->last_host_info))
     {
@@ -420,11 +415,14 @@ static int on_message_begin(http_parser *parser)
     obj->auth_key_info = empty_str;
     obj->conn_key_info = empty_str;
     obj->host_info = empty_str;
+    obj->parse_body = 0;
+    obj->header_parsed = 0;
     return 0;
 }
 
 static int on_message_complete(http_parser *parser)
 {
+    struct asterism_http_incoming_s *obj = __CONTAINER_PTR(struct asterism_http_incoming_s, parser, parser);
     return 0;
 }
 
@@ -468,7 +466,13 @@ static int incoming_parse_connect(
         }
         else
         {
-            return parse_normal_type(incoming);
+            if (!incoming->parse_body) {
+                incoming->parse_body = 1;
+                return parse_normal_type(incoming);
+            }
+            else {
+                return asterism_stream_trans((struct asterism_stream_s *)incoming);
+            }
         }
     }
     return 0;
@@ -488,7 +492,6 @@ static void incoming_read_cb(
     ssize_t nread,
     const uv_buf_t *buf)
 {
-
     struct asterism_http_incoming_s *incoming = __CONTAINER_PTR(struct asterism_http_incoming_s, socket, stream);
     int ret = incoming_parse_connect(incoming, nread, buf);
     if (ret == 0)

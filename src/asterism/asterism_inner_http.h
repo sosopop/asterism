@@ -53,6 +53,7 @@ struct asterism_http_incoming_s
 
     unsigned int handshake_id;
     unsigned char header_parsed : 1;
+    unsigned char parse_body : 1;
     unsigned char header_parsed_type : 2;
     unsigned char is_connect : 1;
 };
