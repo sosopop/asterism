@@ -313,6 +313,14 @@ static void link_write_cb(
     int status)
 {
     struct asterism_stream_s *stream = (struct asterism_stream_s *)req->data;
+    if (status != 0) 
+    {
+        asterism_stream_close((uv_handle_t *)&stream->socket);
+        return;
+    }
+
+    stream->active_tick_count = stream->as->current_tick_count;
+
     if (asterism_stream_read(stream))
     {
         asterism_stream_close((uv_handle_t *)&stream->socket);
@@ -330,7 +338,6 @@ int asterism_stream_trans(
     _buf.len = stream->buffer_len;
     stream->buffer_len = 0;
 
-    stream->active_tick_count = stream->as->current_tick_count;
     ret = uv_write(&stream->link->write_req, (uv_stream_t *)&stream->link->socket, &_buf, 1, link_write_cb);
     if (ret)
     {
