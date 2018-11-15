@@ -1,9 +1,36 @@
 # asterism
-A solution that exposes the client's service interface to the server or other client through proxy<br>
+内网穿透的反向代理,可以用于访问没有公网ip客户端的各种基于tcp,http的服务程序,比如家里的nas,公司电脑的远程桌面等等,也可以用于服务器对客户端的消息推送,客户端建立saas服务,给服务器调用<br>
+支持平台:<br>
+windows linux osx android ios
 <br>
 qq:12178761<br>
 wx:mengchao1102<br>
+
 <br>
+编译:<br>
+<br>
+mkdir build<br>
+cd build<br>
+cmake ..<br>
+make<br>
+./src/asterism/asterism --help<br>
+<br>
+运行方式:<br>
+转发者(有公网ip):<br>
+asterism -i http://0.0.0.0:8081 -i socks5://0.0.0.0:8082 -o tcp://0.0.0.0:1234 -v<br>
+<br>
+服务提供者(没有公网ip):<br>
+asterism -r tcp://(server ip):1234 -usosopop -p12345678 -v<br>
+<br>
+访问者(用户名密码为服务提供者配置的):<br>
+<br>
+curl "http://vv.video.qq.com/checktime" --proxy "http://(server ip):8081" --proxy-user "sosopop:12345678"
+or
+curl "http://vv.video.qq.com/checktime" --proxy "socks5://(server ip):8081" --proxy-user "sosopop:12345678"
+<br>
+说明:<br>
+用户名密码为服务提供者配置的,服务提供者可以有多个,使用不同的用户名进行区别,访问者使用不同的用户名密码,去连接不同的服务提供者,从而可以访问服务提供者的所有本机和内网资源.<br>
+
 Usage example:<br>
     asterism [(-h|--help)] [(-v|--verbose)] [(-V|--version)] [(-i|--in-addr) string] [(-o|--out-addr) string] [(-r|--remote-addr) string] [(-u|--user) string] [(-p|--pass) string]<br>
     asterism.exe -i http://0.0.0.0:8081 -i socks5://0.0.0.0:8082 -o tcp://0.0.0.0:1234 -v<br>
