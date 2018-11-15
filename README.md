@@ -4,6 +4,7 @@
 支持平台:<br>
 windows linux osx android ios<br>
 <br>
+email:12178761@qq.com<br>
 qq:12178761<br>
 wx:mengchao1102<br>
 
