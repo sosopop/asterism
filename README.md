@@ -24,7 +24,6 @@ asterism -i http://0.0.0.0:8081 -i socks5://0.0.0.0:8082 -o tcp://0.0.0.0:1234 -
 asterism -r tcp://(server ip):1234 -usosopop -p12345678 -v<br>
 <br>
 访问者(用户名密码为服务提供者配置的):<br>
-<br>
 curl "http://vv.video.qq.com/checktime" --proxy "http://(server ip):8081" --proxy-user "sosopop:12345678"<br>
 or<br>
 curl "http://vv.video.qq.com/checktime" --proxy "socks5://(server ip):8081" --proxy-user "sosopop:12345678"<br>
