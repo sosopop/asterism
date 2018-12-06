@@ -308,17 +308,27 @@ cleanup:
     return ret;
 }
 
+int asterism_stream_write(
+    uv_write_t *req,
+    struct asterism_stream_s *stream,
+    const uv_buf_t bufs[],
+    unsigned int nbufs,
+    uv_write_cb cb)
+{
+    return uv_write(req, (uv_stream_t *)&stream->socket, bufs, nbufs, cb);
+}
+
 static void link_write_cb(
     uv_write_t *req,
     int status)
 {
     struct asterism_stream_s *stream = (struct asterism_stream_s *)req->data;
-    if (status != 0) 
+    if (status != 0)
     {
         asterism_stream_close((uv_handle_t *)&stream->socket);
         return;
     }
-    if(stream->link)
+    if (stream->link)
         stream->link->active_tick_count = stream->as->current_tick_count;
 
     if (asterism_stream_read(stream))
@@ -338,7 +348,7 @@ int asterism_stream_trans(
     _buf.len = stream->buffer_len;
     stream->buffer_len = 0;
 
-    ret = uv_write(&stream->link->write_req, (uv_stream_t *)&stream->link->socket, &_buf, 1, link_write_cb);
+    ret = asterism_stream_write(&stream->link->write_req, (struct asterism_stream_s *)stream->link, &_buf, 1, link_write_cb);
     if (ret)
     {
         goto cleanup;

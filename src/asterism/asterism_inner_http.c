@@ -123,7 +123,7 @@ static int conn_ack_cb(
         uv_buf_t buf;
         buf.base = HTTP_RESP_200;
         buf.len = sizeof(HTTP_RESP_200) - 1;
-        ret = uv_write(req, (uv_stream_t *)&stream->socket, &buf, 1, write_connect_ack_cb);
+        ret = asterism_stream_write(req, stream, &buf, 1, write_connect_ack_cb);
         if (ret)
         {
             goto cleanup;
@@ -240,7 +240,7 @@ static int parse_connect(
     req->write_buffer.base = (char *)connect_data;
     req->write_buffer.len = packet_len;
 
-    int write_ret = uv_write((uv_write_t *)req, (uv_stream_t *)&session->outer->socket, &req->write_buffer, 1, handshake_write_cb);
+    int write_ret = asterism_stream_write((uv_write_t *)req, (struct asterism_stream_s *)session->outer, &req->write_buffer, 1, handshake_write_cb);
     if (write_ret != 0)
     {
         free(req->write_buffer.base);
@@ -509,7 +509,7 @@ static void incoming_read_cb(
         uv_write_t *req = AS_ZMALLOC(uv_write_t);
         req->data = incoming;
         uv_buf_t buf = uv_buf_init((char *)HTTP_RESP_407, sizeof(HTTP_RESP_407) - 1);
-        int write_ret = uv_write((uv_write_t *)req, (uv_stream_t *)&incoming->socket, &buf, 1, resp_auth_write_cb);
+        int write_ret = asterism_stream_write((uv_write_t *)req, (struct asterism_stream_s *)incoming, &buf, 1, resp_auth_write_cb);
         if (write_ret != 0)
         {
             free(req);

@@ -44,7 +44,7 @@ static int responser_connect_ack(
     req->write_buffer.base = (char *)connect_data;
     req->write_buffer.len = packet_len;
 
-    int write_ret = uv_write((uv_write_t *)req, (uv_stream_t *)&responser->socket, &req->write_buffer, 1, handshake_write_cb);
+    int write_ret = asterism_stream_write((uv_write_t *)req, (struct asterism_stream_s*)responser, &req->write_buffer, 1, handshake_write_cb);
     if (write_ret != 0)
     {
         free(req->write_buffer.base);

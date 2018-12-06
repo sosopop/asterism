@@ -131,7 +131,7 @@ static int parse_cmd_ping(
     uv_write_t *req = AS_ZMALLOC(uv_write_t);
     req->data = incoming;
     uv_buf_t buf = uv_buf_init((char *)&_global_proto_pong, sizeof(_global_proto_pong));
-    int ret = uv_write(req, (uv_stream_t *)&incoming->socket, &buf, 1, write_cmd_pong_cb);
+    int ret = asterism_stream_write(req, (struct asterism_stream_s *)incoming, &buf, 1, write_cmd_pong_cb);
     if (ret)
     {
         AS_FREE(req);

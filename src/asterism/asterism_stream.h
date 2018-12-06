@@ -71,4 +71,11 @@ void asterism_stream_eaten(
     struct asterism_stream_s *stream,
     unsigned int eaten);
 
+int asterism_stream_write(
+    uv_write_t *req,
+    struct asterism_stream_s *stream,
+    const uv_buf_t bufs[],
+    unsigned int nbufs,
+    uv_write_cb cb);
+
 #endif // ASTERISM_STREAM_H_

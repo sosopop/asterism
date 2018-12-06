@@ -55,8 +55,8 @@ static int conn_write(struct asterism_stream_s *stream, const void *data, unsign
     buf.base = (char *)data;
     buf.len = len;
     stream->write_req.data = stream;
-    return uv_write(&stream->write_req,
-                    (uv_stream_t *)&stream->socket,
+    return asterism_stream_write(&stream->write_req,
+                    stream,
                     &buf,
                     1,
                     conn_write_done);
@@ -222,7 +222,7 @@ static int incoming_parse_connect(
         req->write_buffer.base = (char *)connect_data;
         req->write_buffer.len = packet_len;
 
-        int write_ret = uv_write((uv_write_t *)req, (uv_stream_t *)&session->outer->socket, &req->write_buffer, 1, handshake_write_cb);
+        int write_ret = asterism_stream_write((uv_write_t *)req, (struct asterism_stream_s *)session->outer, &req->write_buffer, 1, handshake_write_cb);
         if (write_ret != 0)
         {
             free(req->write_buffer.base);
