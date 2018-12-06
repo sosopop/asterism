@@ -131,7 +131,7 @@ static int parse_cmd_ping(
     uv_write_t *req = AS_ZMALLOC(uv_write_t);
     req->data = incoming;
     uv_buf_t buf = uv_buf_init((char *)&_global_proto_pong, sizeof(_global_proto_pong));
-    int ret = asterism_stream_write(req, (struct asterism_stream_s *)incoming, &buf, 1, write_cmd_pong_cb);
+    int ret = asterism_stream_write(req, (struct asterism_stream_s *)incoming, &buf, write_cmd_pong_cb);
     if (ret)
     {
         AS_FREE(req);
@@ -224,7 +224,7 @@ static void outer_accept_cb(
         goto cleanup;
     }
     incoming = AS_ZMALLOC(struct asterism_tcp_incoming_s);
-    ret = asterism_stream_accept(outer->as, stream, 1, 0, incoming_read_cb, incoming_close_cb, (struct asterism_stream_s *)incoming);
+    ret = asterism_stream_accept(outer->as, stream, 1, 1, 0, incoming_read_cb, incoming_close_cb, (struct asterism_stream_s *)incoming);
     if (ret != 0)
     {
         ret = ASTERISM_E_FAILED;

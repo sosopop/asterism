@@ -44,7 +44,7 @@ static int responser_connect_ack(
     req->write_buffer.base = (char *)connect_data;
     req->write_buffer.len = packet_len;
 
-    int write_ret = asterism_stream_write((uv_write_t *)req, (struct asterism_stream_s*)responser, &req->write_buffer, 1, handshake_write_cb);
+    int write_ret = asterism_stream_write((uv_write_t *)req, (struct asterism_stream_s*)responser, &req->write_buffer, handshake_write_cb);
     if (write_ret != 0)
     {
         free(req->write_buffer.base);
@@ -100,7 +100,7 @@ int asterism_responser_tcp_init(
 {
     int ret = 0;
     struct asterism_tcp_responser_s *responser = AS_ZMALLOC(struct asterism_tcp_responser_s);
-    ret = asterism_stream_connect(as, host, port, 1,
+    ret = asterism_stream_connect(as, host, port, 1, 1,
                                   responser_connect_cb, 0, 0, responser_close_cb, (struct asterism_stream_s *)responser);
     if (ret)
         goto cleanup;

@@ -58,7 +58,6 @@ static int conn_write(struct asterism_stream_s *stream, const void *data, unsign
     return asterism_stream_write(&stream->write_req,
                     stream,
                     &buf,
-                    1,
                     conn_write_done);
 }
 
@@ -222,7 +221,7 @@ static int incoming_parse_connect(
         req->write_buffer.base = (char *)connect_data;
         req->write_buffer.len = packet_len;
 
-        int write_ret = asterism_stream_write((uv_write_t *)req, (struct asterism_stream_s *)session->outer, &req->write_buffer, 1, handshake_write_cb);
+        int write_ret = asterism_stream_write((uv_write_t *)req, (struct asterism_stream_s *)session->outer, &req->write_buffer, handshake_write_cb);
         if (write_ret != 0)
         {
             free(req->write_buffer.base);
@@ -271,7 +270,7 @@ static void inner_accept_cb(
         goto cleanup;
     }
     incoming = AS_ZMALLOC(struct asterism_socks5_incoming_s);
-    ret = asterism_stream_accept(inner->as, stream, 1, 0,
+    ret = asterism_stream_accept(inner->as, stream, 1, 0, 0,
                                  incoming_read_cb, incoming_close_cb, (struct asterism_stream_s *)incoming);
     if (ret != 0)
     {

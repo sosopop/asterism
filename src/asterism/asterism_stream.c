@@ -63,6 +63,13 @@ static void stream_read_cb(
 
     if (nread > 0)
     {
+        if (stm->crypt)
+        {
+            for (int i = 0; i < nread; i++)
+            {
+                buf->base[i] ^= 'A';
+            }
+        }
         struct asterism_s *as = stm->as;
         stm->active_tick_count = as->current_tick_count;
         QUEUE_REMOVE(&stm->queue);
@@ -226,6 +233,7 @@ int asterism_stream_connect(
     const char *host,
     unsigned int port,
     unsigned int auto_trans,
+    unsigned int crypt,
     uv_connect_cb connect_cb,
     uv_alloc_cb alloc_cb,
     uv_read_cb read_cb,
@@ -239,6 +247,7 @@ int asterism_stream_connect(
     }
 
     stream->auto_trans = auto_trans;
+    stream->crypt = crypt;
     stream->_connect_cb = connect_cb;
     stream->_close_cb = close_cb;
     stream->_read_cb = read_cb;
@@ -269,6 +278,7 @@ int asterism_stream_accept(
     struct asterism_s *as,
     uv_stream_t *server_stream,
     unsigned int auto_trans,
+    unsigned int crypt,
     uv_alloc_cb alloc_cb,
     uv_read_cb read_cb,
     uv_close_cb close_cb,
@@ -281,6 +291,7 @@ int asterism_stream_accept(
     }
 
     stream->auto_trans = auto_trans;
+    stream->crypt = crypt;
     stream->_alloc_cb = alloc_cb;
     stream->_read_cb = read_cb;
     stream->_close_cb = close_cb;
@@ -311,11 +322,19 @@ cleanup:
 int asterism_stream_write(
     uv_write_t *req,
     struct asterism_stream_s *stream,
-    const uv_buf_t bufs[],
-    unsigned int nbufs,
+    const uv_buf_t *bufs,
     uv_write_cb cb)
 {
-    return uv_write(req, (uv_stream_t *)&stream->socket, bufs, nbufs, cb);
+    if (stream->crypt)
+    {
+        int len = bufs->len;
+        char *base = bufs->base;
+        for (int i = 0; i < len; i++)
+        {
+            base[i] ^= 'A';
+        }
+    }
+    return uv_write(req, (uv_stream_t *)&stream->socket, bufs, 1, cb);
 }
 
 static void link_write_cb(
@@ -348,7 +367,7 @@ int asterism_stream_trans(
     _buf.len = stream->buffer_len;
     stream->buffer_len = 0;
 
-    ret = asterism_stream_write(&stream->link->write_req, (struct asterism_stream_s *)stream->link, &_buf, 1, link_write_cb);
+    ret = asterism_stream_write(&stream->link->write_req, (struct asterism_stream_s *)stream->link, &_buf, link_write_cb);
     if (ret)
     {
         goto cleanup;

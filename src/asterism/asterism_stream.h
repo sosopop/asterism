@@ -22,7 +22,8 @@
     uv_alloc_cb _alloc_cb;                \
     QUEUE queue;                          \
     unsigned int active_tick_count;       \
-    unsigned int auto_trans : 1;
+    unsigned int auto_trans : 1;\
+    unsigned int crypt : 1;
 
 typedef struct asterism_stream_s asterism_stream_t;
 
@@ -37,6 +38,7 @@ int asterism_stream_connect(
     const char *host,
     unsigned int port,
     unsigned int auto_trans,
+    unsigned int crypt,
     uv_connect_cb connect_cb,
     uv_alloc_cb alloc_cb,
     uv_read_cb read_cb,
@@ -47,6 +49,7 @@ int asterism_stream_accept(
     struct asterism_s *as,
     uv_stream_t *server_stream,
     unsigned int auto_trans,
+    unsigned int crypt,
     uv_alloc_cb alloc_cb,
     uv_read_cb read_cb,
     uv_close_cb close_cb,
@@ -74,8 +77,7 @@ void asterism_stream_eaten(
 int asterism_stream_write(
     uv_write_t *req,
     struct asterism_stream_s *stream,
-    const uv_buf_t bufs[],
-    unsigned int nbufs,
+    const uv_buf_t* bufs,
     uv_write_cb cb);
 
 #endif // ASTERISM_STREAM_H_

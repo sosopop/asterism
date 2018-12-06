@@ -54,7 +54,7 @@ int asterism_requestor_tcp_init(
 {
     int ret = 0;
     struct asterism_tcp_requestor_s *requestor = AS_ZMALLOC(struct asterism_tcp_requestor_s);
-    ret = asterism_stream_connect(as, host_lhs, port_lhs, 1,
+    ret = asterism_stream_connect(as, host_lhs, port_lhs, 1, 0,
                                   requestor_connect_cb, 0, 0, requestor_close_cb, (struct asterism_stream_s *)requestor);
     if (ret)
         goto cleanup;

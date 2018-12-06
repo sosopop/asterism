@@ -234,7 +234,7 @@ static int connector_send_ping(struct asterism_tcp_connector_s *connector)
     uv_write_t *req = AS_ZMALLOC(uv_write_t);
     req->data = connector;
     uv_buf_t buf = uv_buf_init((char *)&_global_proto_ping, sizeof(_global_proto_ping));
-    ret = asterism_stream_write(req, (struct asterism_stream_s *)connector, &buf, 1, connector_send_ping_cb);
+    ret = asterism_stream_write(req, (struct asterism_stream_s *)connector, &buf, connector_send_ping_cb);
     if (ret != 0)
     {
         goto cleanup;
@@ -324,7 +324,7 @@ static int connector_send_join(struct asterism_tcp_connector_s *connector)
     write_req->write_buffer.base = (char *)connect_data;
     write_req->write_buffer.len = packet_len;
     write_req->write_req.data = connector;
-    ret = asterism_stream_write(&write_req->write_req, (struct asterism_stream_s *)connector, &write_req->write_buffer, 1, connector_send_cb);
+    ret = asterism_stream_write(&write_req->write_req, (struct asterism_stream_s *)connector, &write_req->write_buffer, connector_send_cb);
     if (ret != 0)
     {
         AS_FREE(write_req);
@@ -369,7 +369,7 @@ int asterism_connector_tcp_init(struct asterism_s *as,
     struct asterism_tcp_connector_s *connector = AS_ZMALLOC(struct asterism_tcp_connector_s);
     connector->host = as_strdup(host);
     connector->port = port;
-    ret = asterism_stream_connect(as, host, port, 1,
+    ret = asterism_stream_connect(as, host, port, 1, 1,
                                   connector_connect_cb, 0, connector_read_cb, connector_close_cb, (struct asterism_stream_s *)connector);
     if (ret)
         goto cleanup;
