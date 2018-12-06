@@ -120,21 +120,26 @@ static void write_cmd_pong_cb(
     uv_write_t *req,
     int status)
 {
+    struct asterism_write_req_s *write_req = (struct asterism_write_req_s *)req;
     struct asterism_tcp_incoming_s *incoming = (struct asterism_tcp_incoming_s *)req->data;
-    AS_FREE(req);
+
+    AS_FREE(write_req->write_buffer.base);
+    AS_FREE(write_req);
 }
 
 static int parse_cmd_ping(
     struct asterism_tcp_incoming_s *incoming,
     struct asterism_trans_proto_s *proto)
 {
-    uv_write_t *req = AS_ZMALLOC(uv_write_t);
-    req->data = incoming;
-    uv_buf_t buf = uv_buf_init((char *)&_global_proto_pong, sizeof(_global_proto_pong));
-    int ret = asterism_stream_write(req, (struct asterism_stream_s *)incoming, &buf, write_cmd_pong_cb);
+    char* pong_buf = __DUP_MEM((char *)&_global_proto_pong, sizeof(_global_proto_pong));
+    struct asterism_write_req_s *write_req = AS_ZMALLOC(struct asterism_write_req_s);
+    write_req->write_buffer = uv_buf_init(pong_buf, sizeof(_global_proto_pong));
+    write_req->write_req.data = incoming;
+
+    int ret = asterism_stream_write((uv_write_t*)write_req, (struct asterism_stream_s *)incoming, &write_req->write_buffer, write_cmd_pong_cb);
     if (ret)
     {
-        AS_FREE(req);
+        AS_FREE(write_req);
         return ret;
     }
     return 0;
