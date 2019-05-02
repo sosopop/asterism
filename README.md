@@ -30,7 +30,7 @@ asterism -r tcp://(server ip):1234 -usosopop -p12345678 -v<br>	asterism -r
 访问者(用户名密码为服务提供者配置的):<br>	
 curl "http://vv.video.qq.com/checktime" --proxy "http://(server ip):8081" --proxy-user "sosopop:12345678"<br>	
 or<br>	
-curl "http://vv.video.qq.com/checktime" --proxy "socks5://(server ip):8081" --proxy-user "sosopop:12345678"<br>	
+curl "http://vv.video.qq.com/checktime" --proxy "socks5://(server ip):8082" --proxy-user "sosopop:12345678"<br>	
 <br>	
 说明:<br>	
 用户名密码为服务提供者配置的,服务提供者可以有多个,使用不同的用户名进行区别,访问者使用不同的用户名密码,去连接不同的服务提供者,从而可以访问服务提供者的所有本机和内网资源.<br>	
