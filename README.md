@@ -10,7 +10,7 @@ windows linux osx android ios<br>
 email:12178761@qq.com<br>
 qq:12178761<br>
 wx:mengchao1102<br>
-如果您感觉对您有所帮助，please press star
+如果您感觉对您有所帮助，press star please
 
 <br>
 编译:<br>
