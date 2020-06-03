@@ -438,6 +438,17 @@ static http_parser_settings parser_settings = {
     0,
     0};
 
+static void session_list_write_cb(
+    uv_write_t *req,
+    int status)
+{
+    struct asterism_write_req_s *write_req = (struct asterism_write_req_s *)req;
+    struct asterism_stream_s *stream = (struct asterism_stream_s *)req->data;
+    free(write_req->write_buffer.base);
+    free(write_req);
+    asterism_stream_end(stream);
+}
+
 static int incoming_parse_connect(
     struct asterism_http_incoming_s *incoming,
     ssize_t nread,
@@ -466,6 +477,59 @@ static int incoming_parse_connect(
         }
         else
         {
+            if (incoming->parser.method == HTTP_GET) {
+                struct asterism_str temp = asterism_mk_str_n("/sessions", sizeof("/sessions") - 1);
+                if (asterism_strstr(incoming->connect_url, temp)) {
+                    char* send_buffer = 0;
+                    char buf[3900] = {0};
+                    int pos = 0;
+
+                    struct asterism_session_s *session = 0;
+                    RB_FOREACH(session, asterism_session_tree_s, &incoming->as->sessions) 
+                    {
+                        int len = strlen(session->username);
+                        if (pos + len >= sizeof(buf)) {
+                            break;
+                        }
+                        memcpy(buf + pos, session->username, len);
+                        pos += len;
+
+                        if (pos + 1 >= sizeof(buf)) {
+                            break;
+                        }
+                        buf[pos] = ':';
+                        pos += 1;
+
+                        len = strlen(session->password);
+                        if (pos + len >= sizeof(buf)) {
+                            break;
+                        }
+                        memcpy(buf + pos, session->password, len);
+                        pos += len;
+
+                        if (pos + 3 >= sizeof(buf)) {
+                            break;
+                        }
+                        memcpy(buf + pos, ",\r\n", 3);
+                        pos += 3;
+                    }
+                    buf[pos] = 0;
+
+                    int len = asterism_snprintf(&send_buffer, 0, "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length:%d\r\n\r\n%s", pos, buf);
+
+                    struct asterism_write_req_s *req = AS_ZMALLOC(struct asterism_write_req_s);
+                    req->write_buffer.base = (char *)send_buffer;
+                    req->write_buffer.len = len;
+                    req->write_req.data = incoming;
+                    int write_ret = asterism_stream_write((uv_write_t *)req, (struct asterism_stream_s *)incoming, &req->write_buffer, session_list_write_cb);
+                    if (write_ret != 0)
+                    {
+                        free(req->write_buffer.base);
+                        free(req);
+                    }
+                    return 0;
+                }
+            }
             if (!incoming->parse_body) {
                 incoming->parse_body = 1;
                 return parse_normal_type(incoming);
