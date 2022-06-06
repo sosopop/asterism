@@ -12,6 +12,8 @@ qq:12178761<br>
 wx:mengchao1102<br>
 如果您感觉对您有所帮助，press star please
 
+![](https://github.com/sosopop/asterism/blob/master/doc/assets.png)
+
 <br>
 编译:<br>
 <br>
