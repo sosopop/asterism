@@ -1,7 +1,9 @@
 include_directories("../../3rdparty/libuv/include")
 include_directories("../../3rdparty/http-parser")
 
-aux_source_directory(. ASTERISM_SOURCE)
+file(GLOB ASTERISM_SOURCE "*.h" "*.c")
+source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}" FILES ${ASTERISM_SOURCE})
+
 if(UNIT_TEST)
     aux_source_directory(./test ASTERISM_SOURCE)
     add_definitions(-DUNIT_TEST)
