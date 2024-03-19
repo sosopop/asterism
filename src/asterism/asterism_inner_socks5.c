@@ -2,6 +2,7 @@
 #include "asterism_core.h"
 #include "asterism_log.h"
 #include "asterism_utils.h"
+#include "asterism_inner_socks5_udp.h"
 
 static void inner_close_cb(
     uv_handle_t *handle)
@@ -79,6 +80,48 @@ static int conn_ack_cb(
         goto cleanup;
     }
 cleanup:
+    return ret;
+}
+
+static int udp_associate_ack(
+    struct asterism_stream_s* stream,
+    const char* ip, // IP address as a string
+    unsigned int port) // Port number
+{
+    int ret = -1;
+    char response[22]; // The maximum length of a SOCKS5 UDP Response is 10-byte header + 16-byte IPv6 address
+    int response_length = 0;
+
+    // Prepare success response
+    response[0] = 0x05; // SOCKS version
+    response[1] = 0x00; // Response: success
+    response[2] = 0x00; // RSV (Reserved)
+
+    // Convert IP address string to binary form
+    struct in_addr addr4;
+    if (uv_inet_pton(AF_INET, ip, &addr4) == 0) {
+        // IPv4 address
+        response[3] = 0x01; // ATYP: IPv4
+        memcpy(response + 4, &addr4, sizeof(addr4)); // BND.ADDR
+        response_length = 10;
+    }
+    else {
+        // IP address conversion failed
+        return -1;
+    }
+
+    // Convert port number to network byte order and copy to response
+    unsigned short net_port = htons((unsigned short)port);
+    memcpy(response + response_length - 2, &net_port, sizeof(net_port));
+
+    // Send response
+    ret = conn_write(stream, response, response_length);
+
+    // If failure or send error, close the connection
+    if (ret != 0) {
+        ret = ret || asterism_stream_end(stream);
+    }
+
     return ret;
 }
 
@@ -174,79 +217,126 @@ static int incoming_parse_connect(
                 return (conn_write((struct asterism_stream_s *)incoming, "\5\1\0\1\0\0\0\0\0\0", 10) ||
                     asterism_stream_end((struct asterism_stream_s *)incoming));
             }
-            if (incoming->parser.cmd != s5_cmd_tcp_connect)
+            if (incoming->parser.cmd == s5_cmd_tcp_connect)
             {
-                return conn_write((struct asterism_stream_s *)incoming, "\5\1\0\1\0\0\0\0\0\0", 10) ||
-                    asterism_stream_end((struct asterism_stream_s *)incoming);
-            }
+                char addr[MAX_HOST_LEN] = { 0 };
+                if (incoming->parser.atyp == s5_atyp_host)
+                {
+                    strncpy(addr, (char*)incoming->parser.daddr, MAX_HOST_LEN - 10);
+                }
+                else if (incoming->parser.atyp == s5_atyp_ipv4)
+                {
+                    uv_inet_ntop(AF_INET, (char*)incoming->parser.daddr, addr, MAX_HOST_LEN);
+                }
+                else if (incoming->parser.atyp == s5_atyp_ipv6)
+                {
+                    uv_inet_ntop(AF_INET6, (char*)incoming->parser.daddr, addr, MAX_HOST_LEN);
+                }
+                else
+                {
+                    return -1;
+                }
+                char port[10] = { 0 };
+                sprintf(port, ":%d", incoming->parser.dport);
+                strcat(addr, port);
 
-            char addr[MAX_HOST_LEN] = { 0 };
-            if (incoming->parser.atyp == s5_atyp_host)
-            {
-                strncpy(addr, (char*)incoming->parser.daddr, MAX_HOST_LEN - 10);
+                struct asterism_handshake_s* handshake = AS_ZMALLOC(struct asterism_handshake_s);
+                handshake->inner = (struct asterism_stream_s*)incoming;
+                handshake->conn_ack_cb = conn_ack_cb;
+                handshake->id = asterism_tunnel_new_handshake_id();
+                incoming->handshake_id = handshake->id;
+
+                struct asterism_write_req_s* req = AS_ZMALLOC(struct asterism_write_req_s);
+
+                unsigned short host_len = (unsigned short)strlen(addr);
+
+                struct asterism_trans_proto_s* connect_data =
+                    (struct asterism_trans_proto_s*)AS_MALLOC(sizeof(struct asterism_trans_proto_s) +
+                        host_len + 2 + 4);
+
+                connect_data->version = ASTERISM_TRANS_PROTO_VERSION;
+                connect_data->cmd = ASTERISM_TRANS_PROTO_CONNECT;
+
+                char* off = (char*)connect_data + sizeof(struct asterism_trans_proto_s);
+                *(uint32_t*)off = htonl(handshake->id);
+                off += 4;
+
+                *(uint16_t*)off = htons((uint16_t)host_len);
+                off += 2;
+                memcpy(off, addr, host_len);
+                off += host_len;
+
+                asterism_log(ASTERISM_LOG_DEBUG, "connect to %s", addr);
+
+                uint16_t packet_len = (uint16_t)(off - (char*)connect_data);
+                connect_data->len = htons(packet_len);
+
+                req->write_buffer.base = (char*)connect_data;
+                req->write_buffer.len = packet_len;
+
+                int write_ret = asterism_stream_write((uv_write_t*)req, (struct asterism_stream_s*)session->outer, &req->write_buffer, handshake_write_cb);
+                if (write_ret != 0)
+                {
+                    free(req->write_buffer.base);
+                    free(req);
+                    free(handshake);
+                    return -1;
+                }
+
+                asterism_log(ASTERISM_LOG_DEBUG, "send handshake %d", handshake->id);
+                RB_INSERT(asterism_handshake_tree_s, &incoming->as->handshake_set, handshake);
+                incoming->status = SOCKS5_STATUS_TRANS;
+
             }
-            else if (incoming->parser.atyp == s5_atyp_ipv4)
+            else if (incoming->parser.cmd == s5_cmd_udp_assoc)
             {
-                uv_inet_ntop(AF_INET, (char*)incoming->parser.daddr, addr, MAX_HOST_LEN);
-            }
-            else if (incoming->parser.atyp == s5_atyp_ipv6)
-            {
-                uv_inet_ntop(AF_INET6, (char*)incoming->parser.daddr, addr, MAX_HOST_LEN);
+                char ip[INET6_ADDRSTRLEN] = { 0 };
+                int port = 0;
+
+                if (session->inner_udp) {
+                    // Reuse the existing UDP association
+                    struct sockaddr_storage sockname;
+                    int namelen = sizeof(sockname);
+                    if (uv_udp_getsockname(&session->inner_udp->socket, (struct sockaddr*)&sockname, &namelen) == 0) {
+                        if (sockname.ss_family == AF_INET) {
+                            struct sockaddr_in* addr_in = (struct sockaddr_in*)&sockname;
+                            uv_ip4_name(addr_in, ip, sizeof(ip));
+                        }
+                        else {
+                            return -1;
+                        }
+                    }
+                }
+                else {
+                    // Create a new UDP association
+                    struct sockaddr_storage sockname;
+                    int namelen = sizeof(sockname);
+                    if (uv_tcp_getsockname(&incoming->socket, (struct sockaddr*)&sockname, &namelen) == 0) {
+                        if (sockname.ss_family == AF_INET) {
+                            struct sockaddr_in* addr_in = (struct sockaddr_in*)&sockname;
+                            uv_ip4_name(addr_in, ip, sizeof(ip));
+                        }
+                        else {
+                            return -1;
+                        }
+
+                        if (asterism_inner_socks5_udp_init(incoming->as, session, ip, &port) == -1)
+                        {
+                            return -1;
+                        }
+                    }
+                    else {
+                        return -1;
+                    }
+                }
+                // Send the UDP association response
+                return udp_associate_ack((struct asterism_stream_s*)incoming, ip, port);
             }
             else
             {
-                return -1;
+                return conn_write((struct asterism_stream_s*)incoming, "\5\1\0\1\0\0\0\0\0\0", 10) ||
+                    asterism_stream_end((struct asterism_stream_s*)incoming);
             }
-            char port[10] = { 0 };
-            sprintf(port, ":%d", incoming->parser.dport);
-            strcat(addr, port);
-
-            struct asterism_handshake_s *handshake = AS_ZMALLOC(struct asterism_handshake_s);
-            handshake->inner = (struct asterism_stream_s *)incoming;
-            handshake->conn_ack_cb = conn_ack_cb;
-            handshake->id = asterism_tunnel_new_handshake_id();
-            incoming->handshake_id = handshake->id;
-
-            struct asterism_write_req_s *req = AS_ZMALLOC(struct asterism_write_req_s);
-
-            unsigned short host_len = (unsigned short)strlen(addr);
-
-            struct asterism_trans_proto_s *connect_data =
-                (struct asterism_trans_proto_s *)AS_MALLOC(sizeof(struct asterism_trans_proto_s) +
-                    host_len + 2 + 4);
-
-            connect_data->version = ASTERISM_TRANS_PROTO_VERSION;
-            connect_data->cmd = ASTERISM_TRANS_PROTO_CONNECT;
-
-            char *off = (char *)connect_data + sizeof(struct asterism_trans_proto_s);
-            *(uint32_t *)off = htonl(handshake->id);
-            off += 4;
-
-            *(uint16_t *)off = htons((uint16_t)host_len);
-            off += 2;
-            memcpy(off, addr, host_len);
-            off += host_len;
-
-            asterism_log(ASTERISM_LOG_DEBUG, "connect to %s", addr);
-
-            uint16_t packet_len = (uint16_t)(off - (char *)connect_data);
-            connect_data->len = htons(packet_len);
-
-            req->write_buffer.base = (char *)connect_data;
-            req->write_buffer.len = packet_len;
-
-            int write_ret = asterism_stream_write((uv_write_t *)req, (struct asterism_stream_s *)session->outer, &req->write_buffer, handshake_write_cb);
-            if (write_ret != 0)
-            {
-                free(req->write_buffer.base);
-                free(req);
-                free(handshake);
-                return -1;
-            }
-
-            asterism_log(ASTERISM_LOG_DEBUG, "send handshake %d", handshake->id);
-            RB_INSERT(asterism_handshake_tree_s, &incoming->as->handshake_set, handshake);
-            incoming->status = SOCKS5_STATUS_TRANS;
         }
     }
     return 0;

@@ -88,12 +88,13 @@ static void write_connect_ack_cb(
     uv_write_t *req,
     int status)
 {
+    int ret = -1;
     struct asterism_http_incoming_s *incoming = (struct asterism_http_incoming_s *)req->data;
     if (status)
     {
         goto cleanup;
     }
-    int ret = asterism_stream_read((struct asterism_stream_s *)incoming);
+    ret = asterism_stream_read((struct asterism_stream_s *)incoming);
     if (ret)
     {
         goto cleanup;
@@ -487,7 +488,7 @@ static int incoming_parse_connect(
                     struct asterism_session_s *session = 0;
                     RB_FOREACH(session, asterism_session_tree_s, &incoming->as->sessions) 
                     {
-                        int len = strlen(session->username);
+                        int len = (int)strlen(session->username);
                         if (pos + len >= sizeof(buf)) {
                             break;
                         }
@@ -500,7 +501,7 @@ static int incoming_parse_connect(
                         buf[pos] = ':';
                         pos += 1;
 
-                        len = strlen(session->password);
+                        len = (int)strlen(session->password);
                         if (pos + len >= sizeof(buf)) {
                             break;
                         }

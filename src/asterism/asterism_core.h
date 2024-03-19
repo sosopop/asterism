@@ -102,11 +102,17 @@ struct asterism_handshake_s
 };
 RB_HEAD(asterism_handshake_tree_s, asterism_handshake_s);
 
+struct asterism_datagram_s;
+
 struct asterism_session_s
 {
     char *username;
     char *password;
-    struct asterism_stream_s *outer;
+    //udp
+    struct asterism_datagram_s* inner_udp;
+    struct asterism_datagram_s* outer_udp;
+    //tcp
+    struct asterism_stream_s* outer;
     RB_ENTRY(asterism_session_s)
     tree_entry;
 };
