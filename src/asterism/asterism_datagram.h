@@ -17,9 +17,10 @@
     uv_close_cb _close_cb;                \
     uv_read_cb _read_cb;                  \
     uv_alloc_cb _alloc_cb;                \
+    unsigned int active_tick_count;		  \
 
 
-typedef struct asterism_stream_s asterism_stream_t;
+typedef struct asterism_datagram_s asterism_datagram_t;
 
 struct asterism_datagram_s
 {
@@ -27,15 +28,23 @@ struct asterism_datagram_s
     ASTERISM_DATAGRAM_FIELDS
 };
 
-int asterism_stream_read(
-    struct asterism_stream_s* stream);
+int asterism_datagram_init(
+    struct asterism_s* as,
+    unsigned int crypt,
+    uv_alloc_cb alloc_cb,
+    uv_read_cb read_cb,
+    uv_close_cb close_cb,
+    struct asterism_datagram_s* datagram);
 
-void asterism_stream_close(
-    uv_handle_t* handle);
+int asterism_datagram_read(
+    struct asterism_datagram_s* stream);
 
-int asterism_stream_write(
+void asterism_datagram_close(
+    struct asterism_datagram_s* stream);
+
+int asterism_datagram_write(
     uv_write_t* req,
-    struct asterism_stream_s* stream,
+    struct asterism_datagram_s* stream,
     const uv_buf_t* bufs,
     uv_write_cb cb);
 

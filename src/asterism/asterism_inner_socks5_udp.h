@@ -11,6 +11,7 @@ struct asterism_socks5_udp_inner_s
 {
     ASTERISM_HANDLE_FIELDS
     ASTERISM_DATAGRAM_FIELDS
+    struct asterism_session_s* session;
 };
 
 int asterism_inner_socks5_udp_init(

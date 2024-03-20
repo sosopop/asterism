@@ -2,6 +2,7 @@
 #include "asterism_core.h"
 #include "asterism_utils.h"
 #include "asterism_log.h"
+#include "asterism_datagram.h"
 
 static void outer_close_cb(
     uv_handle_t *handle)
@@ -25,6 +26,10 @@ static void incoming_close_cb(
     {
         asterism_log(ASTERISM_LOG_INFO, "user: %s leave", incoming->session->username);
         RB_REMOVE(asterism_session_tree_s, &incoming->as->sessions, incoming->session);
+
+        //close socks5 comming udp handle
+        asterism_datagram_close(incoming->session->inner_datagram);
+
         if (incoming->session->username)
         {
             AS_FREE(incoming->session->username);

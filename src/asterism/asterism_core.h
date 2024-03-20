@@ -51,6 +51,22 @@ handshake_id 4bytes
 #define ASTERISM_TRANS_PROTO_PING 4
 #define ASTERISM_TRANS_PROTO_PONG 5
 
+/*
+payload
+source address 4bytes
+source port 2bytes
+socks5 udp associate remote head
+*/
+#define ASTERISM_TRANS_PROTO_DATAGRAM_REQUEST 6
+
+/*
+payload
+source address 4bytes
+source port 2bytes
+socks5 udp associate remote head
+*/
+#define ASTERISM_TRANS_PROTO_DATAGRAM_RESPONSE 7
+
 #define as_uv_close(handle, close_cb)\
 if (!uv_is_closing(handle)) {uv_close(handle, close_cb);}
 
@@ -109,8 +125,7 @@ struct asterism_session_s
     char *username;
     char *password;
     //udp
-    struct asterism_datagram_s* inner_udp;
-    struct asterism_datagram_s* outer_udp;
+    struct asterism_datagram_s* inner_datagram;
     //tcp
     struct asterism_stream_s* outer;
     RB_ENTRY(asterism_session_s)

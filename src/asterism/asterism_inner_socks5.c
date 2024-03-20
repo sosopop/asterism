@@ -223,6 +223,7 @@ static int incoming_parse_connect(
                 if (incoming->parser.atyp == s5_atyp_host)
                 {
                     strncpy(addr, (char*)incoming->parser.daddr, MAX_HOST_LEN - 10);
+                    addr[MAX_HOST_LEN - 10] = '\0';
                 }
                 else if (incoming->parser.atyp == s5_atyp_ipv4)
                 {
@@ -286,18 +287,17 @@ static int incoming_parse_connect(
                 asterism_log(ASTERISM_LOG_DEBUG, "send handshake %d", handshake->id);
                 RB_INSERT(asterism_handshake_tree_s, &incoming->as->handshake_set, handshake);
                 incoming->status = SOCKS5_STATUS_TRANS;
-
             }
             else if (incoming->parser.cmd == s5_cmd_udp_assoc)
             {
                 char ip[INET6_ADDRSTRLEN] = { 0 };
                 int port = 0;
 
-                if (session->inner_udp) {
+                if (session->inner_datagram) {
                     // Reuse the existing UDP association
                     struct sockaddr_storage sockname;
                     int namelen = sizeof(sockname);
-                    if (uv_udp_getsockname(&session->inner_udp->socket, (struct sockaddr*)&sockname, &namelen) == 0) {
+                    if (uv_udp_getsockname(&session->inner_datagram->socket, (struct sockaddr*)&sockname, &namelen) == 0) {
                         if (sockname.ss_family == AF_INET) {
                             struct sockaddr_in* addr_in = (struct sockaddr_in*)&sockname;
                             uv_ip4_name(addr_in, ip, sizeof(ip));
