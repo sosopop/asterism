@@ -17,22 +17,6 @@ static void inner_close_cb(
     AS_FREE(obj);
 }
 
-static void inner_close(
-    uv_handle_t* handle)
-{
-    as_uv_close(handle, inner_close_cb);
-}
-
-static void inner_read_alloc_cb(
-    uv_handle_t* handle,
-    size_t suggested_size,
-    uv_buf_t* buf)
-{
-    struct asterism_socks5_udp_inner_s* datagram = __CONTAINER_PTR(struct asterism_socks5_udp_inner_s, socket, handle);
-    buf->base = datagram->buffer;
-    buf->len = ASTERISM_UDP_BLOCK_SIZE;
-}
-
 static void outer_write_cb(
 	uv_write_t* req,
 	int status)
@@ -46,10 +30,10 @@ static void outer_write_cb(
 	AS_FREE(write_req->write_buffer.base);
     AS_FREE(write_req);
 
-    uv_udp_recv_start(&datagram->socket, inner_read_alloc_cb, inner_read);
+    asterism_datagram_read((struct asterism_datagram_s*)datagram);
 }
 
-static void inner_read(uv_udp_t* handle,
+static void inner_read_cb(uv_udp_t* handle,
     ssize_t nread,
     const uv_buf_t* buf,
     const struct sockaddr* addr,
@@ -58,18 +42,19 @@ static void inner_read(uv_udp_t* handle,
     struct asterism_socks5_udp_inner_s* datagram = __CONTAINER_PTR(struct asterism_socks5_udp_inner_s, socket, handle);
     struct asterism_stream_s* stream = datagram->session->outer;
     struct asterism_write_req_s* req = 0;
-    if (nread <= 0)
-	{
-		asterism_log(ASTERISM_LOG_DEBUG, "%s", uv_strerror((int)nread));
-		return;
-	}
     if (addr->sa_family != AF_INET || nread < 10)
 	{
         asterism_log(ASTERISM_LOG_DEBUG, "udp recv invalid data");
 		return;
 	}
+
     unsigned int datagram_size = sizeof(struct asterism_trans_proto_s) +
         4 + 2 + (int)nread;
+    if (datagram_size > ASTERISM_UDP_BLOCK_SIZE)
+    {
+        asterism_log(ASTERISM_LOG_DEBUG, "udp exceed max size");
+        return;
+    }
 
     // asterism_log(ASTERISM_LOG_DEBUG, "udp recv %.*s", nread, buf->base);
 
@@ -86,9 +71,14 @@ static void inner_read(uv_udp_t* handle,
     source port 2bytes
     socks5 udp packet
     */
-    connect_data->len = htons(4 + 2 + (u_short)nread);
-    memcpy(connect_data + 1, addr, 4);
-    memcpy((char*)(connect_data + 1) + 4, addr + 4, 2);
+    connect_data->len = htons((unsigned int)datagram_size);
+
+    const struct sockaddr_in* addr_in = (const struct sockaddr_in*)addr;
+    uint32_t address = addr_in->sin_addr.s_addr;
+    uint16_t port = addr_in->sin_port;
+
+    memcpy(connect_data + 1, &address, sizeof(address));
+    memcpy((char*)(connect_data + 1) + 4, &port, sizeof(port));
     memcpy((char*)(connect_data + 1) + 6, buf->base, nread);
 
     req = AS_ZMALLOC(struct asterism_write_req_s);
@@ -117,12 +107,9 @@ int asterism_inner_socks5_udp_init(
     int name_len = 0;
 
     struct asterism_socks5_udp_inner_s* inner = AS_ZMALLOC(struct asterism_socks5_udp_inner_s);
-    ASTERISM_HANDLE_INIT(inner, socket, inner_close);
+    asterism_datagram_init(as, 0, 0, inner_read_cb, inner_close_cb, (struct asterism_datagram_s*)inner);
 
-    inner->as = as;
-    inner->active_tick_count = as->current_tick_count;
     inner->session = session;
-    inner->_close_cb = inner_close_cb;
 
     ret = uv_udp_init(as->loop, &inner->socket);
     if (ret != 0)
@@ -157,7 +144,7 @@ int asterism_inner_socks5_udp_init(
 
     *port = ntohs(((struct sockaddr_in*)addr)->sin_port);
 
-    ret = uv_udp_recv_start(&inner->socket, inner_read_alloc_cb, inner_read);
+    ret = asterism_datagram_read((struct asterism_datagram_s*)inner);
     if (ret != 0)
     {
         asterism_log(ASTERISM_LOG_DEBUG, "%s", uv_strerror(ret));
@@ -173,7 +160,7 @@ cleanup:
     }
     if (ret)
     {
-        inner_close((uv_handle_t*)&inner->socket);
+        asterism_datagram_close((uv_handle_t*)&inner->socket);
     }
     return ret;
 }

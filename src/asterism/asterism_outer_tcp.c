@@ -28,7 +28,7 @@ static void incoming_close_cb(
         RB_REMOVE(asterism_session_tree_s, &incoming->as->sessions, incoming->session);
 
         //close socks5 comming udp handle
-        asterism_datagram_close(incoming->session->inner_datagram);
+        asterism_datagram_close((uv_handle_t*)&incoming->session->inner_datagram->socket);
 
         if (incoming->session->username)
         {

@@ -301,6 +301,7 @@ static int incoming_parse_connect(
                         if (sockname.ss_family == AF_INET) {
                             struct sockaddr_in* addr_in = (struct sockaddr_in*)&sockname;
                             uv_ip4_name(addr_in, ip, sizeof(ip));
+                            port = ntohs(addr_in->sin_port);
                         }
                         else {
                             return -1;

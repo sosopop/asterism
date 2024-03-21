@@ -72,6 +72,114 @@ static void connector_close_cb(
     asterism_log(ASTERISM_LOG_DEBUG, "connector is closed");
 }
 
+static int connector_parse_datagram_request(
+    struct asterism_tcp_connector_s* conn,
+    struct asterism_trans_proto_s* proto)
+{
+    int ret = -1;
+    int offset = sizeof(struct asterism_trans_proto_s);
+    int proto_len = ntohs(proto->len);
+
+    unsigned char atyp;
+    struct sockaddr_storage remote_addr_storage;
+    struct sockaddr_in* remote_addr;
+    char remote_addr_str[INET_ADDRSTRLEN];
+    char remote_host_str[MAX_HOST_LEN];
+    unsigned short remote_port;
+    unsigned char remote_host_len;
+
+    struct sockaddr_in source_addr;
+    memset(&source_addr, 0, sizeof(source_addr));
+    source_addr.sin_family = AF_INET;
+
+    if (offset + 4  > proto_len)
+		goto cleanup;
+    // Extract the source IPv4 address
+    memcpy(&source_addr.sin_addr.s_addr, ((char*)proto) + offset, 4);
+    offset += 4;
+    
+    if (offset + 2 > proto_len)
+        goto cleanup;
+    // Extract the source port
+    memcpy(&source_addr.sin_port, ((char*)proto) + offset, 2);
+    offset += 2;
+
+    // Convert the IP to a string
+    char ip_str[INET_ADDRSTRLEN];
+    uv_inet_ntop(AF_INET, &source_addr.sin_addr, ip_str, INET_ADDRSTRLEN);
+
+    // Convert the port to host byte order and print both IP and port
+    unsigned short port_host_order = ntohs(source_addr.sin_port);
+    asterism_log(ASTERISM_LOG_DEBUG, "parsed source address: ip=%s, port=%u", ip_str, port_host_order);
+
+    //+---- + ------ + ------ + ---------- + ---------- + ---------- +
+    //| RSV |  FRAG  |  ATYP  |  DST.ADDR  |  DST.PORT  |    DATA    |
+    //+---- + ------ + ------ + ---------- + ---------- + ---------- +
+    //|  2  |    1   |    1   |  Variable  |      2     |  Variable  |
+    //+---- + ------ + ------ + ---------- + ---------- + ---------- +
+
+    // Skip RSV and FRAG fields (3 bytes)
+    offset += 3;
+
+    if (offset + 1 > proto_len)
+        goto cleanup;
+
+    // Extract ATYP
+    memcpy(&atyp, ((char*)proto) + offset, 1);
+    offset += 1;
+
+    // Handle different ATYP cases
+    switch (atyp) {
+    case 0x01: // IPv4
+        remote_addr = (struct sockaddr_in*)&remote_addr_storage;
+        memset(remote_addr, 0, sizeof(struct sockaddr_in));
+        remote_addr->sin_family = AF_INET;
+
+        if (offset + 4 + 2 > proto_len)
+            goto cleanup;
+
+        memcpy(&remote_addr->sin_addr.s_addr, ((char*)proto) + offset, 4);
+        offset += 4;
+        memcpy(&remote_addr->sin_port, ((char*)proto) + offset, 2);
+        offset += 2;
+
+        uv_inet_ntop(AF_INET, &remote_addr->sin_addr, remote_addr_str, INET_ADDRSTRLEN);
+        remote_port = ntohs(remote_addr->sin_port);
+
+        // Log the destination address and port
+        asterism_log(ASTERISM_LOG_DEBUG, "parsed destination address: ip=%s, port=%u", remote_addr_str, remote_port);
+        break;
+
+    case 0x03: // Domain name
+		// Extract the domain name length
+		memcpy(&remote_host_len, ((char*)proto) + offset, 1);
+		offset += 1;
+
+		if (offset + remote_host_len + 2 > proto_len)
+			goto cleanup;
+
+		// Extract the domain name
+		memcpy(remote_host_str, ((char*)proto) + offset, remote_host_len);
+        remote_host_str[remote_host_len] = '\0';
+		offset += remote_host_len;
+
+		// Extract the port
+		memcpy(&remote_port, ((char*)proto) + offset, 2);
+		offset += 2;
+
+		// Log the destination address and port
+		asterism_log(ASTERISM_LOG_DEBUG, "parsed destination address: domain=%s, port=%u", remote_host_str, ntohs(remote_port));
+        break;
+    default:
+        asterism_log(ASTERISM_LOG_DEBUG, "unknown atyp value: %u", atyp);
+        break;
+    }
+
+    ret = 0;
+cleanup:
+    return ret;
+}
+
 static int connector_parse_connect_data(
     struct asterism_tcp_connector_s *conn,
     struct asterism_trans_proto_s *proto)
@@ -171,6 +279,12 @@ static int connector_parse_cmd_data(
     else if (proto->cmd == ASTERISM_TRANS_PROTO_PONG)
     {
         //asterism_log(ASTERISM_LOG_DEBUG, "connection pong recv");
+    }
+    else if (proto->cmd == ASTERISM_TRANS_PROTO_DATAGRAM_REQUEST)
+    {
+		// asterism_log(ASTERISM_LOG_DEBUG, "connection datagram request recv");
+		if (connector_parse_datagram_request(conn, proto) != 0)
+			return -1;
     }
     else
     {

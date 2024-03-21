@@ -7,17 +7,20 @@
 #include "queue.h"
 #include "asterism_utils.h"
 
-#define ASTERISM_VERSION "0.4.0.1"
+#define ASTERISM_VERSION "0.5.0.1"
 #define ASTERISM_NET_BACKLOG 1024
 
 #define ASTREISM_USERNAME_MAX_LEN 128
 #define ASTREISM_PASSWORD_MAX_LEN 128
 
+#define ASTERISM_UDP_BLOCK_SIZE 32 * 1024
+#define ASTERISM_TCP_BLOCK_SIZE ASTERISM_UDP_BLOCK_SIZE
+
 #define ASTERISM_MAX_HTTP_HEADER_SIZE ASTERISM_TCP_BLOCK_SIZE
 
 #define ASTERISM_MAX_PROTO_SIZE ASTERISM_TCP_BLOCK_SIZE
 
-#define ASTERISM_TRANS_PROTO_VERSION 0x10
+#define ASTERISM_TRANS_PROTO_VERSION 0x20
 
 #define MAX_HOST_LEN 256
 
@@ -96,6 +99,12 @@ typedef struct asterism_s asterism_t;
 struct asterism_write_req_s
 {
     uv_write_t write_req;
+    uv_buf_t write_buffer;
+};
+
+struct asterism_send_req_s
+{
+    uv_udp_send_t write_req;
     uv_buf_t write_buffer;
 };
 
