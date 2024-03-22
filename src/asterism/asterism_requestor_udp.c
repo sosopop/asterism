@@ -159,6 +159,10 @@ static int requestor_init(
                 goto cleanup;
         }
     }
+    else
+    {
+        goto cleanup;
+    }
 
     ret = 0;
 cleanup:
@@ -168,7 +172,13 @@ cleanup:
 		{
             asterism_datagram_close((uv_handle_t*)&requestor->socket);
 		}
-	}
+    }
+    else {
+        struct asterism_udp_session_s* session = AS_ZMALLOC(struct asterism_udp_session_s);;
+        session->datagram = (struct asterism_datagram_s*)requestor;
+        session->source_addr = source_addr;
+		RB_INSERT(asterism_udp_session_tree_s, &connector->udp_sessions, session);
+    }
     return ret;
 }
 
@@ -192,6 +202,12 @@ int asterism_requestor_udp_trans(
     }
 	else
 	{
+        //mark 如果正在解析域名，则抛掉数据包
+        struct asterism_udp_requestor_s* requestor = (struct asterism_udp_requestor_s*)session->datagram;
+        if (requestor->addr_req)
+		{
+			goto cleanup;
+		}
         //mark 查找域名缓冲区
 
         //ret = requestor_write((struct asterism_udp_requestor_s*)session->datagram, remote_addr, uv_buf_init((char*)data, data_len));
@@ -199,7 +215,6 @@ int asterism_requestor_udp_trans(
         //{
         //    goto cleanup;
         //}
-        //mark 如果正在解析域名，则抛掉数据包
 	}
 cleanup:
     return ret;
