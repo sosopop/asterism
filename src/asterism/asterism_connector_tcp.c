@@ -4,6 +4,7 @@
 #include "asterism_utils.h"
 #include "asterism_log.h"
 #include "asterism_responser_tcp.h"
+#include "asterism_requestor_udp.h"
 
 static void connector_delete(
     struct asterism_tcp_connector_s *obj)
@@ -83,14 +84,17 @@ static int connector_parse_datagram_request(
     unsigned char atyp;
     struct sockaddr_storage remote_addr_storage;
     struct sockaddr_in* remote_addr;
-    char remote_addr_str[INET_ADDRSTRLEN];
     char remote_host_str[MAX_HOST_LEN];
     unsigned short remote_port;
     unsigned char remote_host_len;
+    unsigned char* data;
+    int data_len = 0;
 
     struct sockaddr_in source_addr;
     memset(&source_addr, 0, sizeof(source_addr));
     source_addr.sin_family = AF_INET;
+
+    remote_host_str[0] = '\0';
 
     if (offset + 4  > proto_len)
 		goto cleanup;
@@ -143,11 +147,11 @@ static int connector_parse_datagram_request(
         memcpy(&remote_addr->sin_port, ((char*)proto) + offset, 2);
         offset += 2;
 
-        uv_inet_ntop(AF_INET, &remote_addr->sin_addr, remote_addr_str, INET_ADDRSTRLEN);
+        uv_inet_ntop(AF_INET, &remote_addr->sin_addr, remote_host_str, INET_ADDRSTRLEN);
         remote_port = ntohs(remote_addr->sin_port);
 
         // Log the destination address and port
-        asterism_log(ASTERISM_LOG_DEBUG, "parsed destination address: ip=%s, port=%u", remote_addr_str, remote_port);
+        asterism_log(ASTERISM_LOG_DEBUG, "parsed destination address: ip=%s, port=%u", remote_host_str, remote_port);
         break;
 
     case 0x03: // Domain name
@@ -175,6 +179,18 @@ static int connector_parse_datagram_request(
         break;
     }
 
+    data = (unsigned char*)((char*)proto + offset);
+    data_len = proto_len - offset;
+
+    offset += data_len;
+
+    if (offset != proto_len)
+		goto cleanup;
+
+    if (remote_host_str[0] != '\0' && remote_port != 0) {
+        ret = asterism_requestor_udp_trans(conn, atyp, remote_host_str, remote_port, source_addr, data, data_len);
+    }
+
     ret = 0;
 cleanup:
     return ret;
@@ -189,6 +205,7 @@ static int connector_parse_connect_data(
     unsigned short host_len = 0;
     char *host = 0;
     char *__host = 0;
+    char* target = 0;
 
     if (offset + 4 > proto->len)
         goto cleanup;
@@ -211,7 +228,7 @@ static int connector_parse_connect_data(
 
     asterism_log(ASTERISM_LOG_INFO, "connect to: %.*s", (int)host_len, host);
 
-    char *target = as_strdup2(host, host_len);
+    target = as_strdup2(host, host_len);
     if (conn->as->connect_redirect_hook_cb)
     {
         char *new_target = conn->as->connect_redirect_hook_cb(
@@ -324,7 +341,9 @@ static void heartbeat_close_cb(
     uv_handle_t *handle)
 {
     struct connector_timer_s *timer = __CONTAINER_PTR(struct connector_timer_s, timer, handle);
-    timer->connector->heartbeat_timer = 0;
+    if (timer->connector) {
+        timer->connector->heartbeat_timer = 0;
+    }
     AS_FREE(timer);
 }
 

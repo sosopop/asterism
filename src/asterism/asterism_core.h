@@ -142,6 +142,15 @@ struct asterism_session_s
 };
 RB_HEAD(asterism_session_tree_s, asterism_session_s);
 
+struct asterism_udp_session_s
+{
+    struct sockaddr_in source_addr;
+    struct asterism_datagram_s* datagram;
+    RB_ENTRY(asterism_udp_session_s)
+        tree_entry;
+};
+RB_HEAD(asterism_udp_session_tree_s, asterism_udp_session_s);
+
 struct asterism_s;
 
 struct check_timer_s
@@ -190,6 +199,11 @@ RB_PROTOTYPE(asterism_session_tree_s, asterism_session_s, tree_entry, asterism_s
 int asterism_handshake_compare(struct asterism_handshake_s *a, struct asterism_handshake_s *b);
 
 RB_PROTOTYPE(asterism_handshake_tree_s, asterism_handshake_s, tree_entry, asterism_handshake_compare);
+
+
+int asterism_udp_session_compare(struct asterism_udp_session_s* a, struct asterism_udp_session_s* b);
+
+RB_PROTOTYPE(asterism_udp_session_tree_s, asterism_udp_session_s, tree_entry, asterism_udp_session_compare);
 
 unsigned int asterism_tunnel_new_handshake_id();
 

@@ -38,6 +38,17 @@ int asterism_session_compare(struct asterism_session_s *a, struct asterism_sessi
 
 RB_GENERATE(asterism_session_tree_s, asterism_session_s, tree_entry, asterism_session_compare);
 
+int asterism_udp_session_compare(struct asterism_udp_session_s* a, struct asterism_udp_session_s* b)
+{
+    int ip = (int)a->source_addr.sin_addr.s_addr - (int)b->source_addr.sin_addr.s_addr;
+    if (ip) {
+		return ip;
+	}
+    return (int)a->source_addr.sin_port - (int)b->source_addr.sin_port;
+}
+
+RB_GENERATE(asterism_udp_session_tree_s, asterism_udp_session_s, tree_entry, asterism_udp_session_compare);
+
 static void check_timer_close_cb(
     uv_handle_t *handle)
 {

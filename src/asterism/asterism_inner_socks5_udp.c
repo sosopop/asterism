@@ -2,18 +2,15 @@
 #include "asterism_log.h"
 #include "asterism_stream.h"
 
-static void inner_read(uv_udp_t* handle,
-    ssize_t nread,
-    const uv_buf_t* buf,
-    const struct sockaddr* addr,
-    unsigned flags);
-
 static void inner_close_cb(
     uv_handle_t* handle)
 {
     struct asterism_socks5_udp_inner_s* obj = __CONTAINER_PTR(struct asterism_socks5_udp_inner_s, socket, handle);
-    obj->session->inner_datagram = 0;
-    obj->session = 0;
+    if (obj->session) 
+    {
+        obj->session->inner_datagram = 0;
+        obj->session = 0;
+    }
     AS_FREE(obj);
 }
 
@@ -107,17 +104,10 @@ int asterism_inner_socks5_udp_init(
     int name_len = 0;
 
     struct asterism_socks5_udp_inner_s* inner = AS_ZMALLOC(struct asterism_socks5_udp_inner_s);
-    asterism_datagram_init(as, 0, 0, inner_read_cb, inner_close_cb, (struct asterism_datagram_s*)inner);
+    ret = asterism_datagram_init(as, 0, 0, inner_read_cb, inner_close_cb, (struct asterism_datagram_s*)inner);
 
     inner->session = session;
 
-    ret = uv_udp_init(as->loop, &inner->socket);
-    if (ret != 0)
-    {
-        asterism_log(ASTERISM_LOG_DEBUG, "%s", uv_strerror(ret));
-        ret = ASTERISM_E_SOCKET_LISTEN_ERROR;
-        goto cleanup;
-    }
     addr = AS_ZMALLOC(struct sockaddr_in);
     name_len = sizeof(struct sockaddr_in);
     ret = uv_ip4_addr(ip, (int)*port, (struct sockaddr_in*)addr);

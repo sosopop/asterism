@@ -19,7 +19,15 @@ int asterism_datagram_init(
     datagram->_alloc_cb = alloc_cb;
     datagram->_recv_cb = read_cb;
 
-    return 0;
+    ret = uv_udp_init(as->loop, &datagram->socket);
+    if (ret != 0)
+    {
+        asterism_log(ASTERISM_LOG_DEBUG, "%s", uv_strerror(ret));
+        ret = ASTERISM_E_SOCKET_LISTEN_ERROR;
+        goto cleanup;
+    }
+cleanup:
+    return ret;
 }
 
 static void datagram_read_alloc_cb(

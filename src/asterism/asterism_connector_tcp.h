@@ -17,6 +17,7 @@ struct asterism_tcp_connector_s
     char *host;
     unsigned int port;
     struct connector_timer_s *heartbeat_timer;
+    struct asterism_udp_session_tree_s udp_sessions;
 };
 
 struct connector_timer_s
