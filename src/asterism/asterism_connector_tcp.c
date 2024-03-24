@@ -13,6 +13,24 @@ static void connector_delete(
     {
         AS_FREE(obj->host);
     }
+
+    struct asterism_udp_session_s* h = 0;
+    struct asterism_udp_session_s* _h = 0;
+
+    RB_FOREACH_SAFE(h, asterism_udp_session_tree_s, &obj->udp_sessions, _h)
+    {
+        if (h->datagram) 
+        {
+            struct asterism_udp_requestor_s* requestor = (struct asterism_udp_requestor_s*)h->datagram;
+            requestor->connector = 0;
+            asterism_datagram_close((uv_handle_t*)&requestor->socket);
+            h->datagram = 0;
+        }
+        RB_REMOVE(asterism_udp_session_tree_s, &obj->udp_sessions, h);
+        AS_FREE(h);
+    }
+    RB_INIT(&obj->udp_sessions);
+
     AS_FREE(obj);
 }
 
@@ -161,6 +179,8 @@ static int connector_parse_datagram_request(
 
 		if (offset + remote_host_len + 2 > proto_len)
 			goto cleanup;
+        if (remote_host_len > MAX_HOST_LEN - 1)
+            goto cleanup;
 
 		// Extract the domain name
 		memcpy(remote_host_str, ((char*)proto) + offset, remote_host_len);
@@ -169,10 +189,11 @@ static int connector_parse_datagram_request(
 
 		// Extract the port
 		memcpy(&remote_port, ((char*)proto) + offset, 2);
+        remote_port = ntohs(remote_port);
 		offset += 2;
 
 		// Log the destination address and port
-		asterism_log(ASTERISM_LOG_DEBUG, "parsed destination address: domain=%s, port=%u", remote_host_str, ntohs(remote_port));
+		asterism_log(ASTERISM_LOG_DEBUG, "parsed destination address: domain=%s, port=%u", remote_host_str, remote_port);
         break;
     default:
         asterism_log(ASTERISM_LOG_DEBUG, "unknown atyp value: %u", atyp);
