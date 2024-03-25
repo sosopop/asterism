@@ -278,7 +278,6 @@ static int requestor_send(
     {
         struct asterism_udp_addr_cache_s filter;
         strcpy(filter.domain, remote_host);
-        //mark 查找域名缓存，如果没有则解析域名
         struct asterism_udp_addr_cache_s* cache = RB_FIND(asterism_udp_addr_cache_tree_s, &requestor->udp_addr_cache, &filter);
         if (cache)
         {
@@ -392,7 +391,6 @@ int asterism_requestor_udp_trans(
     }
 	else
 	{
-        //mark 如果正在解析域名，则抛掉数据包
         struct asterism_udp_requestor_s* requestor = (struct asterism_udp_requestor_s*)session->datagram;
         if (requestor->addr_req)
 		{
