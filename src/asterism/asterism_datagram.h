@@ -38,6 +38,9 @@ int asterism_datagram_init(
 int asterism_datagram_read(
     struct asterism_datagram_s* datagram);
 
+int asterism_datagram_stop_read(
+	struct asterism_datagram_s* datagram);
+
 void asterism_datagram_close(
     uv_handle_t* handle);
 

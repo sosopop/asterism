@@ -71,6 +71,12 @@ int asterism_datagram_read(
     return uv_udp_recv_start(&datagram->socket, datagram_read_alloc_cb, inner_read);
 }
 
+int asterism_datagram_stop_read(
+    struct asterism_datagram_s* datagram)
+{
+    return uv_udp_recv_stop(&datagram->socket);
+}
+
 static void inner_close_cb(
     uv_handle_t* handle)
 {

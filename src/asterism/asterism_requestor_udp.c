@@ -36,15 +36,117 @@ static void requestor_close_cb(
     }
 }
 
+static void udp_response_cb(
+    uv_write_t* req,
+    int status)
+{
+    struct asterism_write_req_s* write_req = (struct asterism_write_req_s*)req;
+    struct asterism_udp_requestor_s* requestor = (struct asterism_udp_requestor_s*)req->data;
+    int ret = -1;
+    if (status != 0)
+	{
+		asterism_log(ASTERISM_LOG_DEBUG, "%s", uv_strerror(status));
+		goto cleanup;
+	}
+    ret = asterism_datagram_read((struct asterism_datagram_s*)requestor);
+    if (ret != 0)
+        goto cleanup;
+
+cleanup:
+    free(write_req->write_buffer.base);
+    free(write_req);
+    if (ret != 0)
+	{
+		asterism_datagram_close((uv_handle_t*)&requestor->socket);
+	}
+}
+
 static void requestor_read_cb(uv_udp_t* handle,
     ssize_t nread,
     const uv_buf_t* buf,
     const struct sockaddr* addr,
     unsigned flags)
 {
-    struct asterism_udp_requestor_s* datagram = __CONTAINER_PTR(struct asterism_udp_requestor_s, socket, handle);
-    struct asterism_tcp_connector_s* connector = datagram->connector;
+    int ret = -1;
+    struct asterism_udp_requestor_s* requestor = __CONTAINER_PTR(struct asterism_udp_requestor_s, socket, handle);
+    struct asterism_tcp_connector_s* connector = requestor->connector;
+    const struct sockaddr_in* addr_in = (const struct sockaddr_in*)addr;
+    struct asterism_trans_proto_s* trans_buffer = 0;
+    struct asterism_write_req_s* write_req = 0;
+    // asterism_trans_proto_s size, source ip(4), source port(2), socks5 udp associate remote head(10), recv data
+    ssize_t packet_len = sizeof(struct asterism_trans_proto_s) + 4 + 2 + 10 + nread;
+    if (packet_len > ASTERISM_UDP_BLOCK_SIZE)
+	{
+		goto cleanup;
+	}
 
+    if (nread <= 0)
+        goto cleanup;
+    if (addr_in->sin_family != AF_INET)
+        goto cleanup;
+
+    trans_buffer = (struct asterism_trans_proto_s*)AS_MALLOC(packet_len);
+    trans_buffer->version = ASTERISM_TRANS_PROTO_VERSION;
+    trans_buffer->cmd = ASTERISM_TRANS_PROTO_DATAGRAM_RESPONSE;
+    trans_buffer->len = ntohs((uint16_t)packet_len);
+
+    //source ip, source port
+    uint32_t source_ip = requestor->source_addr.sin_addr.s_addr;
+    uint16_t source_port = requestor->source_addr.sin_port;
+    memcpy(trans_buffer + 1, &source_ip, sizeof(source_ip));
+    memcpy((char*)(trans_buffer + 1) + 4, &source_port, sizeof(source_port));
+
+    uint32_t remote_ip = addr_in->sin_addr.s_addr;
+    uint16_t remote_port = addr_in->sin_port;
+
+    //Ð´Èësocks5 udp associate remote head
+    //+---- + ------ + ------ + ---------- + ---------- + ---------- +
+    //| RSV |  FRAG  |  ATYP  |  DST.ADDR  |  DST.PORT  |    DATA    |
+    //+---- + ------ + ------ + ---------- + ---------- + ---------- +
+    //|  2  |    1   |    1   |  Variable  |      2     |  Variable  |
+    //+---- + ------ + ------ + ---------- + ---------- + ---------- +
+
+    char* socks5_udp_head = (char*)(trans_buffer + 1) + 4 + 2;
+
+    //RSV
+    socks5_udp_head[0] = 0;
+    socks5_udp_head[1] = 0;
+
+    //FRAG
+    socks5_udp_head[2] = 0;
+
+    //ATYP
+    socks5_udp_head[3] = 0x01; // IPv4
+
+    //DST.ADDR
+    memcpy(socks5_udp_head + 4, &remote_ip, sizeof(remote_ip));
+
+    //DST.PORT  
+    memcpy(socks5_udp_head + 8, &remote_port, sizeof(remote_port));
+
+    //DATA
+    memcpy(socks5_udp_head + 10, buf->base, nread);
+
+    //trans to connector
+    write_req = AS_ZMALLOC(struct asterism_write_req_s);
+    write_req->write_buffer.base = (char*)trans_buffer;
+    write_req->write_buffer.len = (uint16_t)packet_len;
+    write_req->write_req.data = requestor;
+    ret = asterism_stream_write(&write_req->write_req, (struct asterism_stream_s*)connector, &write_req->write_buffer, udp_response_cb);
+    if (ret != 0)
+    {
+        AS_FREE(write_req->write_buffer.base);
+        AS_FREE(write_req);
+        goto cleanup;
+    }
+
+    ret = asterism_datagram_stop_read((struct asterism_datagram_s*)requestor);
+    if (ret != 0)
+		goto cleanup;
+
+    ret = 0;
+cleanup:
+    ;
 }
 
 static int requestor_write_cb(
@@ -64,7 +166,7 @@ static int requestor_write_cb(
 
 static int requestor_write(
     struct asterism_udp_requestor_s* requestor,
-    struct sockaddr_in remtoe_addr,
+    struct sockaddr_in remote_addr,
     uv_buf_t buf)
 {
 	int ret = 0;
@@ -72,10 +174,11 @@ static int requestor_write(
 	req->write_req.data = requestor;
     req->write_buffer = buf;
     req->write_buffer.base = __DUP_MEM(buf.base, buf.len);
-	ret = uv_udp_send((uv_udp_send_t*)req, &requestor->socket, &buf, 1, (const struct sockaddr*)&remtoe_addr, requestor_write_cb);
+	ret = uv_udp_send((uv_udp_send_t*)req, &requestor->socket, &buf, 1, (const struct sockaddr*)&remote_addr, requestor_write_cb);
 	if (ret != 0)
 	{
-		AS_FREE(req);
+        AS_SFREE(req->write_buffer.base);
+        AS_FREE(req);
 	}
 	return ret;
 }
@@ -230,6 +333,10 @@ static int requestor_init(
     ret = requestor_send(requestor, atyp, remote_host, remote_port, source_addr, data, data_len);
     if (ret != 0)
         goto cleanup;
+
+    ret = asterism_datagram_read((struct asterism_datagram_s*)requestor);
+    if (ret != 0)
+		goto cleanup;
 
     ret = 0;
 cleanup:

@@ -91,7 +91,7 @@ static void inner_read_cb(uv_udp_t* handle,
         AS_FREE(req);
         return;
     }
-    uv_udp_recv_stop(handle);
+    asterism_datagram_stop_read((struct asterism_datagram_s*)datagram);
 }
 
 int asterism_inner_socks5_udp_init(
