@@ -47,23 +47,24 @@ static int parse_cmd_join(
     char *username = 0;
     unsigned short password_len = 0;
     char *password = 0;
+    uint16_t proto_len = ntohs(proto->len);
 
-    if (offset + 2 > proto->len)
+    if (offset + 2 > proto_len)
         return -1;
     username_len = ntohs(*(unsigned short *)((char *)proto + offset));
     offset += 2;
 
-    if (offset + username_len > proto->len)
+    if (offset + username_len > proto_len)
         return -1;
     username = (char *)((char *)proto + offset);
     offset += username_len;
 
-    if (offset + 2 > proto->len)
+    if (offset + 2 > proto_len)
         return -1;
     password_len = ntohs(*(unsigned short *)((char *)proto + offset));
     offset += 2;
 
-    if (offset + password_len > proto->len)
+    if (offset + password_len > proto_len)
         return -1;
     password = (char *)((char *)proto + offset);
     offset += password_len;
@@ -92,9 +93,10 @@ static int parse_cmd_connect_ack(
     struct asterism_tcp_incoming_s *incoming,
     struct asterism_trans_proto_s *proto)
 {
+    uint16_t proto_len = ntohs(proto->len);
     int offset = sizeof(struct asterism_trans_proto_s);
     //id
-    if (offset + 4 > proto->len)
+    if (offset + 4 > proto_len)
         return -1;
     unsigned int id = ntohl(*(unsigned int *)((char *)proto + offset));
     offset += 4;
