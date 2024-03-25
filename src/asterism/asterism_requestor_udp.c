@@ -145,7 +145,7 @@ static void requestor_read_cb(uv_udp_t* handle,
     ret = asterism_stream_write(&write_req->write_req, (struct asterism_stream_s*)connector, &write_req->write_buffer, udp_response_cb);
     if (ret != 0)
     {
-        AS_FREE(write_req->write_buffer.base);
+        AS_SFREE(write_req->write_buffer.base);
         AS_FREE(write_req);
         goto cleanup;
     }
@@ -163,13 +163,13 @@ static void requestor_write_cb(
 	uv_udp_send_t* req,
 	int status)
 {
-    struct asterism_write_req_s* write_req = (struct asterism_write_req_s*)req;
+    struct asterism_send_req_s* write_req = (struct asterism_send_req_s*)req;
 	struct asterism_udp_requestor_s* requestor = (struct asterism_udp_requestor_s*)req->data;
 	if (status != 0)
 	{
 		asterism_log(ASTERISM_LOG_DEBUG, "%s", uv_strerror(status));
 	}
-    AS_FREE(write_req->write_buffer.base);
+    AS_SFREE(write_req->write_buffer.base);
 	AS_FREE(write_req);
 }
 
@@ -179,7 +179,7 @@ static int requestor_write(
     uv_buf_t buf)
 {
 	int ret = 0;
-    struct asterism_write_req_s* req = AS_ZMALLOC(struct asterism_write_req_s);
+    struct asterism_send_req_s* req = AS_ZMALLOC(struct asterism_send_req_s);
 	req->write_req.data = requestor;
     req->write_buffer = buf;
     req->write_buffer.base = __DUP_MEM(buf.base, buf.len);
