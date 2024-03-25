@@ -81,13 +81,14 @@ static int connector_parse_connect_data(
     unsigned short host_len = 0;
     char *host = 0;
     char *__host = 0;
+    uint16_t proto_len = ntohs(proto->len);
 
-    if (offset + 4 > proto->len)
+    if (offset + 4 > proto_len)
         goto cleanup;
     unsigned int handshake_id = ntohl(*(unsigned int *)((char *)proto + offset));
     offset += 4;
 
-    if (offset + 2 > proto->len)
+    if (offset + 2 > proto_len)
         goto cleanup;
     host_len = ntohs(*(unsigned short *)((char *)proto + offset));
     offset += 2;
@@ -95,7 +96,7 @@ static int connector_parse_connect_data(
     if (host_len > MAX_HOST_LEN)
         goto cleanup;
 
-    if (offset + host_len > proto->len)
+    if (offset + host_len > proto_len)
         goto cleanup;
 
     host = (char *)((char *)proto + offset);
