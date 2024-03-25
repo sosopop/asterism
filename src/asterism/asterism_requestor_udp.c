@@ -14,6 +14,16 @@ static void requestor_close_cb(
 {
     struct asterism_udp_requestor_s* obj = __CONTAINER_PTR(struct asterism_udp_requestor_s, socket, handle);
     if (obj) {
+        if (obj->connector) {
+            struct asterism_udp_session_s sefilter;
+            sefilter.source_addr = obj->source_addr;
+            struct asterism_udp_session_s* session = RB_FIND(asterism_udp_session_tree_s, &obj->connector->udp_sessions, &sefilter);
+            if (session)
+            {
+                session->datagram = 0;
+            }
+        }
+
         struct requestor_getaddrinfo_s* addr_req = (struct requestor_getaddrinfo_s*)obj->addr_req;
         if (addr_req)
         {
@@ -149,7 +159,7 @@ cleanup:
     ;
 }
 
-static int requestor_write_cb(
+static void requestor_write_cb(
 	uv_udp_send_t* req,
 	int status)
 {
@@ -161,7 +171,6 @@ static int requestor_write_cb(
 	}
     AS_FREE(write_req->write_buffer.base);
 	AS_FREE(write_req);
-	return 0;
 }
 
 static int requestor_write(

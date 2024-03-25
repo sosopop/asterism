@@ -155,8 +155,8 @@ static int parse_cmd_ping(
     return 0;
 }
 
-static int responser_write_cb(
-    uv_udp_send_t* req,
+static void responser_write_cb(
+    uv_udp_send_t* req, 
     int status)
 {
     struct asterism_write_req_s* write_req = (struct asterism_write_req_s*)req;
@@ -166,7 +166,6 @@ static int responser_write_cb(
     }
     AS_FREE(write_req->write_buffer.base);
     AS_FREE(write_req);
-    return 0;
 }
 
 static int udp_response_write(
@@ -223,7 +222,7 @@ static int parse_cmd_datagram_response(
 
     // Convert the port to host byte order and print both IP and port
     unsigned short port_host_order = ntohs(source_addr.sin_port);
-    asterism_log(ASTERISM_LOG_DEBUG, "parsed source address: ip=%s, port=%u", ip_str, port_host_order);
+    //asterism_log(ASTERISM_LOG_DEBUG, "parsed source address: ip=%s, port=%u", ip_str, port_host_order);
 
     // Send the response to the source address
     ret = udp_response_write(incoming, source_addr, uv_buf_init(((char*)proto) + offset, proto_len - offset));

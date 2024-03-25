@@ -132,7 +132,7 @@ static int connector_parse_datagram_request(
 
     // Convert the port to host byte order and print both IP and port
     unsigned short port_host_order = ntohs(source_addr.sin_port);
-    asterism_log(ASTERISM_LOG_DEBUG, "parsed source address: ip=%s, port=%u", ip_str, port_host_order);
+    //asterism_log(ASTERISM_LOG_DEBUG, "parsed source address: ip=%s, port=%u", ip_str, port_host_order);
 
     //+---- + ------ + ------ + ---------- + ---------- + ---------- +
     //| RSV |  FRAG  |  ATYP  |  DST.ADDR  |  DST.PORT  |    DATA    |
@@ -169,7 +169,7 @@ static int connector_parse_datagram_request(
         remote_port = ntohs(remote_addr->sin_port);
 
         // Log the destination address and port
-        asterism_log(ASTERISM_LOG_DEBUG, "parsed destination address: ip=%s, port=%u", remote_host_str, remote_port);
+        //asterism_log(ASTERISM_LOG_DEBUG, "parsed destination address: ip=%s, port=%u", remote_host_str, remote_port);
         break;
 
     case 0x03: // Domain name
@@ -193,7 +193,7 @@ static int connector_parse_datagram_request(
 		offset += 2;
 
 		// Log the destination address and port
-		asterism_log(ASTERISM_LOG_DEBUG, "parsed destination address: domain=%s, port=%u", remote_host_str, remote_port);
+		//asterism_log(ASTERISM_LOG_DEBUG, "parsed destination address: domain=%s, port=%u", remote_host_str, remote_port);
         break;
     default:
         asterism_log(ASTERISM_LOG_DEBUG, "unknown atyp value: %u", atyp);
