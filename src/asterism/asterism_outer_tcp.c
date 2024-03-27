@@ -35,13 +35,13 @@ static void incoming_close_cb(
 
         if (incoming->session->username)
         {
-            AS_FREE(incoming->session->username);
+            AS_SFREE(incoming->session->username);
         }
         if (incoming->session->password)
         {
-            AS_FREE(incoming->session->password);
+            AS_SFREE(incoming->session->password);
         }
-        AS_FREE(incoming->session);
+        AS_SFREE(incoming->session);
     }
     AS_FREE(incoming);
 }
@@ -82,7 +82,7 @@ static int parse_cmd_join(
     struct asterism_session_s *fs = RB_FIND(asterism_session_tree_s, &incoming->as->sessions, session);
     if (fs)
     {
-        AS_FREE(session->username);
+        AS_SFREE(session->username);
         AS_FREE(session);
         return -1;
     }
@@ -133,7 +133,7 @@ static void write_cmd_pong_cb(
     struct asterism_write_req_s *write_req = (struct asterism_write_req_s *)req;
     struct asterism_tcp_incoming_s *incoming = (struct asterism_tcp_incoming_s *)req->data;
 
-    AS_FREE(write_req->write_buffer.base);
+    AS_SFREE(write_req->write_buffer.base);
     AS_FREE(write_req);
 }
 
@@ -159,12 +159,12 @@ static void responser_write_cb(
     uv_udp_send_t* req, 
     int status)
 {
-    struct asterism_write_req_s* write_req = (struct asterism_write_req_s*)req;
+    struct asterism_send_req_s* write_req = (struct asterism_send_req_s*)req;
     if (status != 0)
     {
         asterism_log(ASTERISM_LOG_DEBUG, "%s", uv_strerror(status));
     }
-    AS_FREE(write_req->write_buffer.base);
+    AS_SFREE(write_req->write_buffer.base);
     AS_FREE(write_req);
 }
 
@@ -174,7 +174,7 @@ static int udp_response_write(
     uv_buf_t buf)
 {
     int ret = 0;
-    struct asterism_write_req_s* req = AS_ZMALLOC(struct asterism_write_req_s);
+    struct asterism_send_req_s* req = AS_ZMALLOC(struct asterism_send_req_s);
     struct asterism_session_s* session = incoming->session;
     if (session == 0)
         return ret;
