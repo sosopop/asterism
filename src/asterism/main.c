@@ -31,6 +31,7 @@ static void help()
     printf("    -r or --remote-addr string: Client connect to address, example: -i tcp://1.1.1.1:1234\n");
     printf("    -u or --user string: Client username for Server authorization.\n");
     printf("    -p or --pass string: Client password for Server authorization.\n");
+    printf("    -d or --udp: Enable SOCKS5 UDP support.\n");  // Added line for UDP support
 }
 
 static void show_version()
@@ -62,7 +63,7 @@ int main(int argc, char *argv[])
     char verbose = 0;
 
     int next_option;
-    const char *const short_options = "hvVi:o:r:u:p:";
+    const char *const short_options = "hvVi:o:r:u:p:d";
     const struct parg_option long_options[] =
         {
             {"help", 0, NULL, 'h'},
@@ -73,6 +74,7 @@ int main(int argc, char *argv[])
             {"remote-addr", 1, NULL, 'r'},
             {"user", 1, NULL, 'u'},
             {"pass", 1, NULL, 'p'},
+            {"udp", 0, NULL, 'd'},
             {NULL, 0, NULL, 0}};
 
     as = asterism_create();
@@ -123,6 +125,11 @@ int main(int argc, char *argv[])
             break;
         case 'p':
             ret = asterism_set_option(as, ASTERISM_OPT_PASSWORD, ps.optarg);
+            if (ret)
+                goto cleanup;
+            break;
+        case 'd':
+            ret = asterism_set_option(as, ASTERISM_OPT_SOCKS5_UDP, 1);
             if (ret)
                 goto cleanup;
             break;

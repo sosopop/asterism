@@ -288,7 +288,8 @@ static int incoming_parse_connect(
                 RB_INSERT(asterism_handshake_tree_s, &incoming->as->handshake_set, handshake);
                 incoming->status = SOCKS5_STATUS_TRANS;
             }
-            else if (incoming->parser.cmd == s5_cmd_udp_assoc)
+            else if (incoming->parser.cmd == s5_cmd_udp_assoc && 
+                incoming->as->socks5_udp)
             {
                 char ip[INET6_ADDRSTRLEN] = { 0 };
                 int port = 0;
