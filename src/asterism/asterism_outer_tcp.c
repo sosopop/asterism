@@ -3,6 +3,7 @@
 #include "asterism_utils.h"
 #include "asterism_log.h"
 #include "asterism_datagram.h"
+#include "asterism_inner_socks5_udp.h"
 
 static void outer_close_cb(
     uv_handle_t *handle)
@@ -28,8 +29,10 @@ static void incoming_close_cb(
         RB_REMOVE(asterism_session_tree_s, &incoming->as->sessions, incoming->session);
 
         //close socks5 comming udp handle
-        if (incoming->session->inner_datagram) {
-            asterism_datagram_close((uv_handle_t*)&incoming->session->inner_datagram->socket);
+        struct asterism_socks5_udp_inner_s* inner_datagram = (struct asterism_socks5_udp_inner_s*)incoming->session->inner_datagram;
+        if (inner_datagram) {
+            inner_datagram->session = 0;
+            asterism_datagram_close((uv_handle_t*)&inner_datagram->socket);
             incoming->session->inner_datagram = 0;
         }
 
