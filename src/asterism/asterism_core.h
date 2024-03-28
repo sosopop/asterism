@@ -172,9 +172,11 @@ struct asterism_s
     struct check_timer_s *check_timer;
     unsigned int current_tick_count;
     unsigned int idle_timeout;
+    unsigned int udp_idle_timeout;
     unsigned int heartbeart_interval;
     unsigned int reconnect_delay;
     QUEUE conns_queue;
+    QUEUE udp_conns_queue;
     asterism_connnect_redirect_hook connect_redirect_hook_cb;
     void *connect_redirect_hook_data;
     uv_loop_t *loop;

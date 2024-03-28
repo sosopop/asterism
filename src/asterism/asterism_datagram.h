@@ -12,10 +12,11 @@
     struct asterism_s *as;                \
     char buffer[ASTERISM_UDP_BLOCK_SIZE]; \
     unsigned int buffer_len;              \
-    uv_udp_send_t send_req;                 \
+    uv_udp_send_t send_req;               \
     uv_close_cb _close_cb;                \
-    uv_udp_recv_cb _recv_cb;                  \
+    uv_udp_recv_cb _recv_cb;              \
     uv_alloc_cb _alloc_cb;                \
+    QUEUE queue;                          \
     unsigned int active_tick_count;
 
 

@@ -18,6 +18,7 @@ int asterism_datagram_init(
     datagram->_close_cb = close_cb;
     datagram->_alloc_cb = alloc_cb;
     datagram->_recv_cb = read_cb;
+    QUEUE_INSERT_TAIL(&as->udp_conns_queue, &datagram->queue);
 
     ret = uv_udp_init(as->loop, &datagram->socket);
     if (ret != 0)
@@ -54,12 +55,17 @@ static void inner_read(uv_udp_t* handle,
     unsigned flags)
 {
     struct asterism_datagram_s* datagram = __CONTAINER_PTR(struct asterism_datagram_s, socket, handle);
+    struct asterism_s* as = datagram->as;
     if (nread <= 0)
     {
         asterism_log(ASTERISM_LOG_DEBUG, "%s", uv_strerror((int)nread));
         return;
     }
+
+    QUEUE_REMOVE(&datagram->queue);
+    QUEUE_INSERT_TAIL(&as->udp_conns_queue, &datagram->queue);
     datagram->active_tick_count = datagram->as->current_tick_count;
+
     if (datagram->_recv_cb) {
         datagram->_recv_cb(handle, nread, buf, addr, flags);
     }
@@ -81,10 +87,14 @@ static void inner_close_cb(
     uv_handle_t* handle)
 {
     struct asterism_datagram_s* obj = __CONTAINER_PTR(struct asterism_datagram_s, socket, handle);
+    QUEUE_REMOVE(&obj->queue);
+
     if (obj->_close_cb)
     {
         obj->_close_cb(handle);
     }
+
+    asterism_log(ASTERISM_LOG_DEBUG, "udp connection is closing %p", handle);
 }
 
 void asterism_datagram_close(

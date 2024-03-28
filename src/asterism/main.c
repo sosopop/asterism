@@ -16,22 +16,28 @@
 
 static void help()
 {
-    printf("asterism - A solution that exposes the client's service interface to the server\n\n");
-    printf("Usage example:\n");
-    printf("    asterism [(-h|--help)] [(-v|--verbose)] [(-V|--version)] [(-i|--in-addr) string] [(-o|--out-addr) string] [(-r|--remote-addr) string] [(-u|--user) string] [(-p|--pass) string]\n");
-    printf("    asterism.exe -i http://0.0.0.0:8081 -o tcp://0.0.0.0:1234 -v\n");
-    printf("    asterism.exe -r tcp://127.0.0.1:1234 -usosopop -p12345678 -v\n");
-    printf("\n");
+    printf("asterism - A tool that exposes the client's service interface to the server.\n\n");
+    printf("Usage:\n");
+    printf("    asterism [options]\n\n");
     printf("Options:\n");
-    printf("    -h or --help: Displays this information.\n");
-    printf("    -v or --verbose: Verbose mode on.\n");
-    printf("    -V or --version: Displays the current version number.\n");
-    printf("    -i or --in-addr string: Server local proxy listen address, example: -i http://0.0.0.0:8080\n");
-    printf("    -o or --out-addr string: Server remote listen address, example: -i tcp://0.0.0.0:1234\n");
-    printf("    -r or --remote-addr string: Client connect to address, example: -i tcp://1.1.1.1:1234\n");
-    printf("    -u or --user string: Client username for Server authorization.\n");
-    printf("    -p or --pass string: Client password for Server authorization.\n");
-    printf("    -d or --udp: Enable SOCKS5 UDP support.\n");  // Added line for UDP support
+    printf("    -h, --help               Show this help message and exit.\n");
+    printf("    -v, --verbose            Enable verbose output.\n");
+    printf("    -V, --version            Display the version number of asterism.\n");
+    printf("    -i, --in-addr <address>  Set the server's local proxy listen address.\n");
+    printf("                             Example: -i http://0.0.0.0:8080\n");
+    printf("                             Example: -i socks5://0.0.0.0:8082\n");
+    printf("    -o, --out-addr <address> Set the server's remote listen address.\n");
+    printf("                             Example: -o tcp://0.0.0.0:1234\n");
+    printf("    -r, --remote-addr <address> Set the client's connection address to the server.\n");
+    printf("                             Example: -r tcp://1.1.1.1:1234\n");
+    printf("    -u, --user <username>    Define the username for server authorization.\n");
+    printf("    -p, --pass <password>    Define the password for server authorization.\n");
+    printf("    -d, --udp                Enable SOCKS5 UDP support. Disabled by default.\n");
+    printf("    -t, --udp-timeout <seconds> Set the UDP idle timeout in seconds. A value of 0 disables the timeout.\n");
+    printf("                             Example: -t 60 sets a 60-second timeout.\n\n");
+    printf("Examples:\n");
+    printf("    asterism -i http://0.0.0.0:8081 -o tcp://0.0.0.0:1234 -v\n");
+    printf("    asterism -r tcp://127.0.0.1:1234 -u test -p 12345678 -v\n");
 }
 
 static void show_version()
@@ -63,7 +69,7 @@ int main(int argc, char *argv[])
     char verbose = 0;
 
     int next_option;
-    const char *const short_options = "hvVi:o:r:u:p:d";
+    const char *const short_options = "hvVi:o:r:u:p:dt:";
     const struct parg_option long_options[] =
         {
             {"help", 0, NULL, 'h'},
@@ -75,6 +81,7 @@ int main(int argc, char *argv[])
             {"user", 1, NULL, 'u'},
             {"pass", 1, NULL, 'p'},
             {"udp", 0, NULL, 'd'},
+            {"udp-timeout", 1, NULL, 't'},
             {NULL, 0, NULL, 0}};
 
     as = asterism_create();
@@ -130,6 +137,11 @@ int main(int argc, char *argv[])
             break;
         case 'd':
             ret = asterism_set_option(as, ASTERISM_OPT_SOCKS5_UDP, 1);
+            if (ret)
+                goto cleanup;
+            break;
+        case 't':
+            ret = asterism_set_option(as, ASTERISM_OPT_UDP_IDLE_TIMEOUT, atoi(ps.optarg));
             if (ret)
                 goto cleanup;
             break;
