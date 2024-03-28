@@ -392,6 +392,10 @@ int asterism_requestor_udp_trans(
 	else
 	{
         struct asterism_udp_requestor_s* requestor = (struct asterism_udp_requestor_s*)session->datagram;
+        if (!requestor)
+        {
+            goto cleanup;
+        }
         if (requestor->addr_req)
 		{
 			goto cleanup;
