@@ -1,0 +1,20 @@
+[Unit]
+Description=Asterism Reverse Proxy Service
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=asterism
+Group=asterism
+WorkingDirectory=/opt/asterism
+ExecStart=/opt/asterism/bin/asterism -i http://0.0.0.0:8011 -i socks5://0.0.0.0:8012 -o tcp://0.0.0.0:8010
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=asterism
+Environment=ASTERISM_LOG_DIR=/opt/asterism/logs
+
+[Install]
+WantedBy=multi-user.target
