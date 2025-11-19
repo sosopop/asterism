@@ -7,7 +7,7 @@
 #include "queue.h"
 #include "asterism_utils.h"
 
-#define ASTERISM_VERSION "0.5.0.1"
+#define ASTERISM_VERSION "0.6.0.1"
 #define ASTERISM_NET_BACKLOG 1024
 
 #define ASTREISM_USERNAME_MAX_LEN 128
