@@ -1,0 +1,13 @@
+[
+    {
+      "name": "测试",
+      "proxyHost": "111.111.111.111",
+      "proxyPort": 8011,
+      "proxyUsername": "hello",
+      "proxyPassword": "world",
+      "targetHost": "127.0.0.1",
+      "targetPort": 6100,
+      "localHost": "0.0.0.0",
+      "localPort": 6102
+    }
+  ]
