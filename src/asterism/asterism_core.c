@@ -5,6 +5,7 @@
 #include "asterism_connector_tcp.h"
 #include "asterism_utils.h"
 #include "asterism_log.h"
+#include "asterism_datagram.h"
 #include "queue.h"
 
 struct asterism_trans_proto_s _global_proto_ping = {
@@ -38,6 +39,17 @@ int asterism_session_compare(struct asterism_session_s *a, struct asterism_sessi
 
 RB_GENERATE(asterism_session_tree_s, asterism_session_s, tree_entry, asterism_session_compare);
 
+int asterism_udp_session_compare(struct asterism_udp_session_s* a, struct asterism_udp_session_s* b)
+{
+    int ip = (int)a->source_addr.sin_addr.s_addr - (int)b->source_addr.sin_addr.s_addr;
+    if (ip) {
+		return ip;
+	}
+    return (int)a->source_addr.sin_port - (int)b->source_addr.sin_port;
+}
+
+RB_GENERATE(asterism_udp_session_tree_s, asterism_udp_session_s, tree_entry, asterism_udp_session_compare);
+
 static void check_timer_close_cb(
     uv_handle_t *handle)
 {
@@ -61,6 +73,7 @@ static void check_timer_cb(
     as->current_tick_count++;
     unsigned int current_tick_count = as->current_tick_count;
     unsigned int idle_timeout = as->idle_timeout;
+    unsigned int udp_idle_timeout = as->udp_idle_timeout;
 
     QUEUE_FOREACH(q, &as->conns_queue)
     {
@@ -74,6 +87,23 @@ static void check_timer_cb(
         {
             //asterism_log(ASTERISM_LOG_DEBUG, "%d", stream->active_tick_count);
             break;
+        }
+    }
+
+    if (udp_idle_timeout) {
+        QUEUE_FOREACH(q, &as->udp_conns_queue)
+        {
+            struct asterism_datagram_s* datagram = QUEUE_DATA(q, struct asterism_datagram_s, queue);
+            if (current_tick_count - datagram->active_tick_count > udp_idle_timeout)
+            {
+                asterism_log(ASTERISM_LOG_DEBUG, "udp connection timeout!!!");
+                asterism_datagram_close((uv_handle_t*)&datagram->socket);
+            }
+            else
+            {
+                //asterism_log(ASTERISM_LOG_DEBUG, "%d", datagram->active_tick_count);
+                break;
+            }
         }
     }
 }
@@ -95,6 +125,7 @@ int asterism_core_prepare(struct asterism_s *as)
     _global_proto_pong.len = htons(sizeof(_global_proto_pong));
 
     QUEUE_INIT(&as->conns_queue);
+    QUEUE_INIT(&as->udp_conns_queue);
 
     struct asterism_slist *next;
     struct asterism_slist *item;

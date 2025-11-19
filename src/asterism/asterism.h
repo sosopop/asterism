@@ -102,7 +102,11 @@ extern "C"
         /* Heartbeat interval (for client)*/
         ASTERISM_OPT_HEARTBEAT_INTERVAL,
         /* Reconnection interval (for client)*/
-        ASTERISM_OPT_RECONNECT_DELAY
+        ASTERISM_OPT_RECONNECT_DELAY,
+        /* Enable SOCKS5 UDP support. (for server)*/
+        ASTERISM_OPT_SOCKS5_UDP,
+        /* Idle timeout for UDP sessions (for server)*/
+        ASTERISM_OPT_UDP_IDLE_TIMEOUT,
     } asterism_option;
 
     /**

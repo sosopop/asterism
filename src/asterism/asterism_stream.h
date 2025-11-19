@@ -6,7 +6,6 @@
 #include <time.h>
 #include "queue.h"
 
-#define ASTERISM_TCP_BLOCK_SIZE 4 * 1024
 
 #define ASTERISM_STREAM_FIELDS            \
     uv_tcp_t socket;                      \

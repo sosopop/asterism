@@ -2,6 +2,8 @@
 #include "asterism_core.h"
 #include "asterism_utils.h"
 #include "asterism_log.h"
+#include "asterism_datagram.h"
+#include "asterism_inner_socks5_udp.h"
 
 static void outer_close_cb(
     uv_handle_t *handle)
@@ -25,15 +27,24 @@ static void incoming_close_cb(
     {
         asterism_log(ASTERISM_LOG_INFO, "user: %s leave", incoming->session->username);
         RB_REMOVE(asterism_session_tree_s, &incoming->as->sessions, incoming->session);
+
+        //close socks5 comming udp handle
+        struct asterism_socks5_udp_inner_s* inner_datagram = (struct asterism_socks5_udp_inner_s*)incoming->session->inner_datagram;
+        if (inner_datagram) {
+            inner_datagram->session = 0;
+            asterism_datagram_close((uv_handle_t*)&inner_datagram->socket);
+            incoming->session->inner_datagram = 0;
+        }
+
         if (incoming->session->username)
         {
-            AS_FREE(incoming->session->username);
+            AS_SFREE(incoming->session->username);
         }
         if (incoming->session->password)
         {
-            AS_FREE(incoming->session->password);
+            AS_SFREE(incoming->session->password);
         }
-        AS_FREE(incoming->session);
+        AS_SFREE(incoming->session);
     }
     AS_FREE(incoming);
 }
@@ -74,7 +85,7 @@ static int parse_cmd_join(
     struct asterism_session_s *fs = RB_FIND(asterism_session_tree_s, &incoming->as->sessions, session);
     if (fs)
     {
-        AS_FREE(session->username);
+        AS_SFREE(session->username);
         AS_FREE(session);
         return -1;
     }
@@ -125,26 +136,104 @@ static void write_cmd_pong_cb(
     struct asterism_write_req_s *write_req = (struct asterism_write_req_s *)req;
     struct asterism_tcp_incoming_s *incoming = (struct asterism_tcp_incoming_s *)req->data;
 
-    AS_FREE(write_req->write_buffer.base);
+    AS_SFREE(write_req->write_buffer.base);
     AS_FREE(write_req);
 }
 
 static int parse_cmd_ping(
-    struct asterism_tcp_incoming_s *incoming,
-    struct asterism_trans_proto_s *proto)
+    struct asterism_tcp_incoming_s* incoming,
+    struct asterism_trans_proto_s* proto)
 {
-    char* pong_buf = __DUP_MEM((char *)&_global_proto_pong, sizeof(_global_proto_pong));
-    struct asterism_write_req_s *write_req = AS_ZMALLOC(struct asterism_write_req_s);
+    char* pong_buf = __DUP_MEM((char*)&_global_proto_pong, sizeof(_global_proto_pong));
+    struct asterism_write_req_s* write_req = AS_ZMALLOC(struct asterism_write_req_s);
     write_req->write_buffer = uv_buf_init(pong_buf, sizeof(_global_proto_pong));
     write_req->write_req.data = incoming;
 
-    int ret = asterism_stream_write((uv_write_t*)write_req, (struct asterism_stream_s *)incoming, &write_req->write_buffer, write_cmd_pong_cb);
+    int ret = asterism_stream_write((uv_write_t*)write_req, (struct asterism_stream_s*)incoming, &write_req->write_buffer, write_cmd_pong_cb);
     if (ret)
     {
         AS_FREE(write_req);
         return ret;
     }
     return 0;
+}
+
+static void responser_write_cb(
+    uv_udp_send_t* req, 
+    int status)
+{
+    struct asterism_send_req_s* write_req = (struct asterism_send_req_s*)req;
+    if (status != 0)
+    {
+        asterism_log(ASTERISM_LOG_DEBUG, "%s", uv_strerror(status));
+    }
+    AS_SFREE(write_req->write_buffer.base);
+    AS_FREE(write_req);
+}
+
+static int udp_response_write(
+    struct asterism_tcp_incoming_s* incoming,
+    struct sockaddr_in source_addr,
+    uv_buf_t buf)
+{
+    int ret = 0;
+    struct asterism_send_req_s* req = AS_ZMALLOC(struct asterism_send_req_s);
+    struct asterism_session_s* session = incoming->session;
+    if (session == 0)
+        return ret;
+    struct asterism_datagram_s* responser = session->inner_datagram;
+
+    req->write_req.data = responser;
+    req->write_buffer = buf;
+    req->write_buffer.base = __DUP_MEM(buf.base, buf.len);
+    ret = uv_udp_send((uv_udp_send_t*)req, &responser->socket, &buf, 1, (const struct sockaddr*)&source_addr, responser_write_cb);
+    if (ret != 0)
+    {
+        AS_SFREE(req->write_buffer.base);
+        AS_FREE(req);
+    }
+    return ret;
+}
+
+static int parse_cmd_datagram_response(
+    struct asterism_tcp_incoming_s* incoming,
+    struct asterism_trans_proto_s* proto)
+{
+    int ret = -1;
+    int offset = sizeof(struct asterism_trans_proto_s);
+    int proto_len = ntohs(proto->len);
+
+    struct sockaddr_in source_addr;
+    memset(&source_addr, 0, sizeof(source_addr));
+    source_addr.sin_family = AF_INET;
+
+    if (offset + 4 > proto_len)
+        goto cleanup;
+    // Extract the source IPv4 address
+    memcpy(&source_addr.sin_addr.s_addr, ((char*)proto) + offset, 4);
+    offset += 4;
+
+    if (offset + 2 > proto_len)
+        goto cleanup;
+    // Extract the source port
+    memcpy(&source_addr.sin_port, ((char*)proto) + offset, 2);
+    offset += 2;
+
+    // Convert the IP to a string
+    char ip_str[INET_ADDRSTRLEN];
+    uv_inet_ntop(AF_INET, &source_addr.sin_addr, ip_str, INET_ADDRSTRLEN);
+
+    // Convert the port to host byte order and print both IP and port
+    unsigned short port_host_order = ntohs(source_addr.sin_port);
+    //asterism_log(ASTERISM_LOG_DEBUG, "parsed source address: ip=%s, port=%u", ip_str, port_host_order);
+
+    // Send the response to the source address
+    ret = udp_response_write(incoming, source_addr, uv_buf_init(((char*)proto) + offset, proto_len - offset));
+    if (ret != 0)
+        goto cleanup;
+    ret = 0;
+cleanup:
+    return ret;
 }
 
 static int incoming_parse_cmd_data(
@@ -181,6 +270,11 @@ static int incoming_parse_cmd_data(
         //asterism_log(ASTERISM_LOG_DEBUG, "connection ping recv");
         if (parse_cmd_ping(incoming, proto) != 0)
             return -1;
+    }
+    else if (proto->cmd == ASTERISM_TRANS_PROTO_DATAGRAM_RESPONSE)
+    {
+        if (parse_cmd_datagram_response(incoming, proto) != 0)
+			return -1;
     }
     else
     {
