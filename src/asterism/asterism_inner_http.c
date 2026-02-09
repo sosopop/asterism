@@ -495,18 +495,18 @@ static int incoming_parse_connect(
                         memcpy(buf + pos, session->username, len);
                         pos += len;
 
-                        if (pos + 1 >= sizeof(buf)) {
-                            break;
-                        }
-                        buf[pos] = ':';
-                        pos += 1;
+                        // if (pos + 1 >= sizeof(buf)) {
+                        //     break;
+                        // }
+                        // buf[pos] = ':';
+                        // pos += 1;
 
-                        len = (int)strlen(session->password);
-                        if (pos + len >= sizeof(buf)) {
-                            break;
-                        }
-                        memcpy(buf + pos, session->password, len);
-                        pos += len;
+                        // len = (int)strlen(session->password);
+                        // if (pos + len >= sizeof(buf)) {
+                        //     break;
+                        // }
+                        // memcpy(buf + pos, session->password, len);
+                        // pos += len;
 
                         if (pos + 3 >= sizeof(buf)) {
                             break;

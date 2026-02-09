@@ -1,54 +1,222 @@
-# asterism
-内网穿透的反向代理,可以用于访问没有公网ip客户端的各种基于tcp,http的服务程序,比如家里的nas,公司电脑的远程桌面等等,也可以用于服务器对客户端的消息推送,客户端建立webapi服务,给服务器调用<br>
-<br>
-特点:<br>
-跨平台,高性能,轻量,支持socks5和http代理.<br>
-<br>
-支持平台:<br>
-windows linux osx android ios<br>
-<br>
-email:12178761@qq.com<br>
-qq:12178761<br>
-wx:mengchao1102<br>
-如果您感觉对您有所帮助，press star please
+# ✦ Asterism
 
-![](https://github.com/sosopop/asterism/blob/master/doc/assets.png)
+[English](README_EN.md) | 中文
 
-<br>
-编译:<br>
-<br>
-mkdir build<br>
-cd build<br>
-cmake ..<br>
-make<br>
-./src/asterism/asterism --help<br>
-<br>
-运行方式:<br>
-转发者(有公网ip):<br>
-asterism -i http://0.0.0.0:8081 -i socks5://0.0.0.0:8082 -o tcp://0.0.0.0:1234 -v<br>
-<br>
-服务提供者(没有公网ip):<br>
-asterism -r tcp://(server ip):1234 -usosopop -p12345678 -v<br>	asterism -r
-<br>	
-访问者(用户名密码为服务提供者配置的):<br>	
-curl "http://vv.video.qq.com/checktime" --proxy "http://(server ip):8081" --proxy-user "sosopop:12345678"<br>	
-or<br>	
-curl "http://vv.video.qq.com/checktime" --proxy "socks5://(server ip):8082" --proxy-user "sosopop:12345678"<br>	
-<br>	
-说明:<br>	
-用户名密码为服务提供者配置的,服务提供者可以有多个,使用不同的用户名进行区别,访问者使用不同的用户名密码,去连接不同的服务提供者,从而可以访问服务提供者的所有本机和内网资源.<br>	
-<br>	
-Usage example:<br>	
-    asterism [(-h|--help)] [(-v|--verbose)] [(-V|--version)] [(-i|--in-addr) string] [(-o|--out-addr) string] [(-r|--remote-addr) string] [(-u|--user) string] [(-p|--pass) string]<br>	
-    asterism.exe -i http://0.0.0.0:8081 -i socks5://0.0.0.0:8082 -o tcp://0.0.0.0:1234 -v<br>	
-    asterism.exe -r tcp://127.0.0.1:1234 -usosopop -p12345678 -v<br>	
-<br>	
-Options:<br>	
-    -h or --help: Displays this information.<br>	
-    -v or --verbose: Verbose mode on.<br>	
-    -V or --version: Displays the current version number.<br>	
-    -i or --in-addr string: Server local proxy listen address, example: -i http://0.0.0.0:8080<br>	
-    -o or --out-addr string: Server remote listen address, example: -i tcp://0.0.0.0:1234<br>	
-    -r or --remote-addr string: Client connect to address, example: -i tcp://1.1.1.1:1234<br>	
-    -u or --user string: Client username for Server authorization.<br>	
-    -p or --pass string: Client password for Server authorization.<br>
+Asterism 是一个轻量级的内网穿透反向代理工具。它通过一台具有公网 IP 的中继服务器，将内网客户端的服务安全地暴露到公网，使外部用户能够访问 NAT/防火墙后面的 TCP 和 HTTP 服务。
+
+典型应用场景：
+
+- 远程访问家中的 NAS、路由器管理界面
+- 连接公司内网的远程桌面（RDP）、SSH 等服务
+- 服务器向内网客户端推送消息（客户端建立 Web API 供服务器调用）
+
+## 特性
+
+- **跨平台** — 支持 Windows、Linux、macOS、Android、iOS
+- **高性能** — 基于 libuv 异步 I/O，事件驱动架构
+- **协议支持** — HTTP 代理、SOCKS5 代理（含可选 UDP 支持）
+- **轻量级** — 纯 C 实现，无外部运行时依赖，单一可执行文件
+- **多用户** — 支持多个客户端同时接入，通过用户名区分路由
+
+## 架构概览
+
+```mermaid
+graph LR
+    subgraph Public_Network [公网]
+        Visitor["访问者<br>(浏览器 / curl)"]
+    end
+
+    subgraph Asterism_Server ["Asterism Server (中继)"]
+        direction TB
+        Proxy["HTTP Proxy :8081<br>SOCKS5 Proxy :8082"]
+        Outer["Outer TCP :1234"]
+        Proxy -.-> Outer
+    end
+
+    subgraph Private_Network [内网]
+        Client["Asterism Client<br>(Connector)"]
+        Services["内网服务<br>(NAS, RDP, SSH, Web...)"]
+    end
+
+    Visitor --> Proxy
+    Outer <-->|长连接| Client
+    Client --> Services
+
+    style Public_Network fill:#f9f,stroke:#333,stroke-width:2px
+    style Asterism_Server fill:#bbf,stroke:#333,stroke-width:2px
+    style Private_Network fill:#bfb,stroke:#333,stroke-width:2px
+```
+
+**工作流程：**
+
+1. **客户端**启动后主动连接服务器的 Outer 端口，完成用户名/密码认证，建立持久隧道
+2. **服务器**在 Inner 端口监听代理请求（HTTP/SOCKS5），等待访问者连接
+3. **访问者**通过代理协议连接服务器，指定目标客户端的用户名/密码
+4. **服务器**将请求通过隧道转发给对应客户端，客户端访问本地/内网服务后将响应原路返回
+
+## 编译
+
+### 依赖
+
+- CMake >= 2.8
+- C 编译器（GCC / Clang / MSVC）
+- 第三方库已包含在 `3rdparty/` 目录中（libuv、http-parser），无需额外安装
+
+### 构建步骤
+
+```bash
+mkdir build
+cd build
+cmake ..
+make
+```
+
+构建产物为单一可执行文件：`build/src/asterism/asterism`
+
+### 构建单元测试
+
+```bash
+mkdir build
+cd build
+cmake -DUNIT_TEST=ON ..
+make
+```
+
+## 使用方法
+
+### 命令行参数
+
+```
+asterism [options]
+
+选项:
+  -h, --help                 显示帮助信息
+  -v, --verbose              开启调试日志输出
+  -V, --version              显示版本号
+  -i, --in-addr <address>    服务器代理监听地址（可多次指定）
+                             示例: -i http://0.0.0.0:8081
+                             示例: -i socks5://0.0.0.0:8082
+  -o, --out-addr <address>   服务器外部监听地址（供客户端连接）
+                             示例: -o tcp://0.0.0.0:1234
+  -r, --remote-addr <address> 客户端连接的服务器地址
+                             示例: -r tcp://1.2.3.4:1234
+  -u, --user <username>      客户端认证用户名
+  -p, --pass <password>      客户端认证密码
+  -d, --udp                  启用 SOCKS5 UDP 支持（默认关闭）
+  -t, --udp-timeout <seconds> UDP 会话空闲超时（0 表示不超时）
+```
+
+### 快速开始
+
+**第一步：启动服务器**（在有公网 IP 的机器上）
+
+```bash
+asterism \
+  -i http://0.0.0.0:8081 \
+  -i socks5://0.0.0.0:8082 \
+  -o tcp://0.0.0.0:1234 \
+  -v
+```
+
+- `-i` 指定代理监听地址，支持同时开启 HTTP 和 SOCKS5 代理
+- `-o` 指定客户端接入端口
+
+**第二步：启动客户端**（在内网机器上）
+
+```bash
+asterism \
+  -r tcp://<服务器IP>:1234 \
+  -u myuser \
+  -p mypassword \
+  -v
+```
+
+客户端会自动连接服务器并保持隧道，断线后每 10 秒自动重连。
+
+**第三步：通过代理访问内网服务**
+
+```bash
+# 通过 HTTP 代理
+curl "http://192.168.1.100:8080/api" \
+  --proxy "http://<服务器IP>:8081" \
+  --proxy-user "myuser:mypassword"
+
+# 通过 SOCKS5 代理
+curl "http://192.168.1.100:8080/api" \
+  --proxy "socks5://<服务器IP>:8082" \
+  --proxy-user "myuser:mypassword"
+```
+
+### 多客户端场景
+
+多个内网客户端可以同时接入同一台服务器，使用不同的用户名进行区分。访问者通过指定不同的用户名/密码来路由到不同的客户端，从而访问各自内网中的资源。
+
+```bash
+# 客户端 A（家庭网络）
+asterism -r tcp://server:1234 -u home -p pass_a -v
+
+# 客户端 B（公司网络）
+asterism -r tcp://server:1234 -u office -p pass_b -v
+
+# 访问家庭网络中的 NAS
+curl http://192.168.1.10:5000 --proxy socks5://server:8082 --proxy-user "home:pass_a"
+
+# 访问公司网络中的远程桌面
+curl http://10.0.0.50:3389 --proxy socks5://server:8082 --proxy-user "office:pass_b"
+```
+
+## 系统服务部署（Linux）
+
+项目提供了 systemd 服务脚本，可将 Asterism 部署为后台守护进程：
+
+```bash
+# 安装服务（需要 root 权限）
+sudo ./install/install_service.sh
+
+# 卸载服务
+sudo ./install/uninstall_service.sh
+```
+
+安装后的常用管理命令：
+
+```bash
+sudo systemctl status asterism     # 查看状态
+sudo systemctl start asterism      # 启动服务
+sudo systemctl stop asterism       # 停止服务
+sudo systemctl restart asterism    # 重启服务
+sudo journalctl -u asterism -f     # 实时查看日志
+```
+
+服务默认安装到 `/opt/asterism/`，运行参数在 `/etc/systemd/system/asterism.service` 中配置。
+
+## 项目结构
+
+```
+asterism/
+├── 3rdparty/               # 第三方依赖
+│   ├── libuv/              # 跨平台异步 I/O 库
+│   └── http-parser/        # HTTP 协议解析器
+├── src/asterism/           # 核心源码
+│   ├── main.c              # 程序入口与命令行解析
+│   ├── asterism.h/.c       # 公共 API 接口
+│   ├── asterism_core.h/.c  # 核心：事件循环、会话管理、协议定义
+│   ├── asterism_stream.*   # TCP 流抽象
+│   ├── asterism_inner_*    # 代理协议实现（HTTP / SOCKS5）
+│   ├── asterism_outer_*    # 外部连接监听（客户端接入）
+│   ├── asterism_connector_*# 客户端连接器
+│   ├── asterism_requestor_*# 请求转发
+│   ├── asterism_responser_*# 响应转发
+│   └── test/               # 单元测试
+├── install/                # systemd 服务安装脚本
+├── doc/                    # 文档资源
+├── CMakeLists.txt          # 构建配置
+└── README.md
+```
+
+## 联系方式
+
+- Email: 12178761@qq.com
+- QQ: 12178761
+- 微信: mengchao1102
+
+如果本项目对您有帮助，欢迎 Star 支持！
