@@ -64,3 +64,8 @@ add_subdirectory(3rdparty/libuv)
 
 add_subdirectory(3rdparty/http-parser)
 add_subdirectory(src/asterism)
+
+option(UNIT_TEST "Build unit tests" ON)
+if(UNIT_TEST)
+    add_subdirectory(test)
+endif()
