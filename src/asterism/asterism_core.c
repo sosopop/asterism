@@ -8,6 +8,8 @@
 #include "asterism_datagram.h"
 #include "queue.h"
 
+void handles_close_cb(uv_handle_t *handle, void *arg);
+
 struct asterism_trans_proto_s _global_proto_ping = {
     ASTERISM_TRANS_PROTO_VERSION,
     ASTERISM_TRANS_PROTO_PING,
@@ -302,7 +304,8 @@ int asterism_core_run(struct asterism_s *as)
     ret = asterism_core_prepare(as);
     if (ret)
     {
-        asterism_core_stop(as);
+        uv_walk(as->loop, handles_close_cb, as);
+        uv_run(as->loop, UV_RUN_DEFAULT);
         return ret;
     }
 

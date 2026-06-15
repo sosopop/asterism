@@ -45,6 +45,46 @@ if [[ ! -f "${SCRIPT_DIR}/${SERVICE_NAME}.service" ]]; then
     exit 1
 fi
 
+# ==================== 配置交互 ====================
+echo "=== 配置 Asterism 监听端口 ==="
+read -p "请输入外部监听端口 (供客户端连接，默认: 8010): " OUTER_PORT
+OUTER_PORT=${OUTER_PORT:-8010}
+
+read -p "请输入 HTTP 代理监听端口 (默认: 8011): " HTTP_PORT
+HTTP_PORT=${HTTP_PORT:-8011}
+
+read -p "请输入 SOCKS5 代理监听端口 (默认: 8012): " SOCKS5_PORT
+SOCKS5_PORT=${SOCKS5_PORT:-8012}
+
+echo
+echo "=== 配置 HTTP Sessions 接口验证 ==="
+read -p "是否开启 HTTP Sessions 接口的用户名密码验证？(y/N): " ENABLE_AUTH
+ENABLE_AUTH=${ENABLE_AUTH:-n}
+
+EXEC_ARGS="-i http://0.0.0.0:${HTTP_PORT} -i socks5://0.0.0.0:${SOCKS5_PORT} -o tcp://0.0.0.0:${OUTER_PORT}"
+
+if [[ "${ENABLE_AUTH}" =~ ^[Yy]$ ]]; then
+    while true; do
+        read -p "请输入 HTTP Sessions 认证用户名: " AUTH_USER
+        if [[ -n "${AUTH_USER}" ]]; then
+            break
+        fi
+        echo "错误: 用户名不能为空，请重新输入。"
+    done
+
+    while true; do
+        read -p "请输入 HTTP Sessions 认证密码: " AUTH_PASS
+        if [[ -n "${AUTH_PASS}" ]]; then
+            break
+        fi
+        echo "错误: 密码不能为空，请重新输入。"
+    done
+
+    EXEC_ARGS="${EXEC_ARGS} -A -U ${AUTH_USER} -P ${AUTH_PASS}"
+fi
+echo
+# ==================================================
+
 echo "[1/6] 创建用户与用户组..."
 if ! getent group "${GROUP_NAME}" > /dev/null; then
     groupadd --system "${GROUP_NAME}"
@@ -72,7 +112,28 @@ chown -R "${USER_NAME}:${GROUP_NAME}" "${INSTALL_DIR}"
 echo "可执行文件已安装"
 
 echo "[4/6] 部署 systemd 服务文件..."
-cp "${SCRIPT_DIR}/${SERVICE_NAME}.service" "${SERVICE_FILE}"
+cat <<EOF > "${SERVICE_FILE}"
+[Unit]
+Description=Asterism Reverse Proxy Service
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=${USER_NAME}
+Group=${GROUP_NAME}
+WorkingDirectory=${INSTALL_DIR}
+ExecStart=${BIN_DIR}/${SERVICE_NAME} ${EXEC_ARGS}
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=${SERVICE_NAME}
+Environment=ASTERISM_LOG_DIR=${LOG_DIR}
+
+[Install]
+WantedBy=multi-user.target
+EOF
 chmod 644 "${SERVICE_FILE}"
 echo "服务文件已部署"
 

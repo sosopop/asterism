@@ -104,6 +104,9 @@ asterism [options]
   -p, --pass <password>      客户端认证密码
   -d, --udp                  启用 SOCKS5 UDP 支持（默认关闭）
   -t, --udp-timeout <seconds> UDP 会话空闲超时（0 表示不超时）
+  -A, --auth-sessions        启用会话列表接口（/sessions）的 HTTP Basic 认证
+  -U, --session-user <user>  会话列表认证用户名
+  -P, --session-pass <pass>  会话列表认证密码
 ```
 
 ### 快速开始
@@ -163,6 +166,25 @@ curl http://192.168.1.10:5000 --proxy socks5://server:8082 --proxy-user "home:pa
 
 # 访问公司网络中的远程桌面
 curl http://10.0.0.50:3389 --proxy socks5://server:8082 --proxy-user "office:pass_b"
+```
+
+### 查询当前在线会话 (Sessions)
+
+您可以通过向服务端的 HTTP 代理地址发送 HTTP GET 请求访问 `/sessions`，来查询当前已连接的内网客户端会话列表：
+
+```bash
+# 查询在线客户端列表
+curl http://<server_ip>:<http_port>/sessions
+```
+
+默认情况下该接口是公开的。您可以通过 `-A` / `--auth-sessions` 选项开启 HTTP Basic 认证，并结合 `-U` / `--session-user` 和 `-P` / `--session-pass` 设置查询接口的用户名与密码：
+
+```bash
+# 启动服务端并开启会话列表验证
+asterism -i http://0.0.0.0:8081 -o tcp://0.0.0.0:1234 -A -U admin -P admin123
+
+# 携带账密查询
+curl -u admin:admin123 http://<server_ip>:8081/sessions
 ```
 
 ## 系统服务部署（Linux）

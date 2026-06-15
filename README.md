@@ -104,6 +104,9 @@ Options:
   -p, --pass <password>      Client authentication password
   -d, --udp                  Enable SOCKS5 UDP support (disabled by default)
   -t, --udp-timeout <seconds> UDP session idle timeout (0 = no timeout)
+  -A, --auth-sessions        Enable HTTP basic authentication for the session list (/sessions)
+  -U, --session-user <user>  Username for the session list authentication
+  -P, --session-pass <pass>  Password for the session list authentication
 ```
 
 ### Quick Start
@@ -163,6 +166,25 @@ curl http://192.168.1.10:5000 --proxy socks5://server:8082 --proxy-user "home:pa
 
 # Access remote desktop on office network
 curl http://10.0.0.50:3389 --proxy socks5://server:8082 --proxy-user "office:pass_b"
+```
+
+### Querying Active Sessions
+
+You can query the list of currently connected client sessions by sending an HTTP GET request to `/sessions` on the server's HTTP proxy address.
+
+```bash
+# Query active sessions
+curl http://<server_ip>:<http_port>/sessions
+```
+
+By default, this endpoint is public. You can enable HTTP Basic Authentication for `/sessions` using the `-A` / `--auth-sessions` flag, combined with `-U` / `--session-user` and `-P` / `--session-pass`:
+
+```bash
+# Start server with sessions list authentication
+asterism -i http://0.0.0.0:8081 -o tcp://0.0.0.0:1234 -A -U admin -P admin123
+
+# Query with credentials
+curl -u admin:admin123 http://<server_ip>:8081/sessions
 ```
 
 ## System Service Deployment (Linux)
