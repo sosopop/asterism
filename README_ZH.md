@@ -33,9 +33,9 @@ graph LR
     Agent["Asterism 代理 (Agent) (内网环境)"] -->|反向隧道| Relay
     Agent -->|本地访问| Target["目标服务 (SSH / Web / NAS)"]
 
-    style Client fill:#f9f,stroke:#333,stroke-width:2px
-    style Relay fill:#bbf,stroke:#333,stroke-width:2px
-    style Agent fill:#bfb,stroke:#333,stroke-width:2px
+    style Client fill:#f9f,stroke:#333,stroke-width:2px,color:#000
+    style Relay fill:#bbf,stroke:#333,stroke-width:2px,color:#000
+    style Agent fill:#bfb,stroke:#333,stroke-width:2px,color:#000
 ```
 
 ### 2. Portal 模式 (本地端口转发)
@@ -48,9 +48,9 @@ graph LR
     Agent["Asterism 代理 (Agent) (内网环境)"] -->|反向隧道| Relay
     Agent -->|本地访问| Target["目标服务"]
 
-    style Portal fill:#fcf,stroke:#333,stroke-width:2px
-    style Relay fill:#bbf,stroke:#333,stroke-width:2px
-    style Agent fill:#bfb,stroke:#333,stroke-width:2px
+    style Portal fill:#fcf,stroke:#333,stroke-width:2px,color:#000
+    style Relay fill:#bbf,stroke:#333,stroke-width:2px,color:#000
+    style Agent fill:#bfb,stroke:#333,stroke-width:2px,color:#000
 ```
 
 **工作流程 (标准代理模式):**

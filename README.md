@@ -33,9 +33,9 @@ graph LR
     Agent["Asterism Agent (Intranet)"] -->|Reverse Tunnel| Relay
     Agent -->|Local Access| Target["Target Service (SSH / Web / NAS)"]
 
-    style Client fill:#f9f,stroke:#333,stroke-width:2px
-    style Relay fill:#bbf,stroke:#333,stroke-width:2px
-    style Agent fill:#bfb,stroke:#333,stroke-width:2px
+    style Client fill:#f9f,stroke:#333,stroke-width:2px,color:#000
+    style Relay fill:#bbf,stroke:#333,stroke-width:2px,color:#000
+    style Agent fill:#bfb,stroke:#333,stroke-width:2px,color:#000
 ```
 
 ### 2. Portal Mode (Local Port Forwarding)
@@ -48,9 +48,9 @@ graph LR
     Agent["Asterism Agent (Intranet)"] -->|Reverse Tunnel| Relay
     Agent -->|Local Access| Target["Target Service"]
 
-    style Portal fill:#fcf,stroke:#333,stroke-width:2px
-    style Relay fill:#bbf,stroke:#333,stroke-width:2px
-    style Agent fill:#bfb,stroke:#333,stroke-width:2px
+    style Portal fill:#fcf,stroke:#333,stroke-width:2px,color:#000
+    style Relay fill:#bbf,stroke:#333,stroke-width:2px,color:#000
+    style Agent fill:#bfb,stroke:#333,stroke-width:2px,color:#000
 ```
 
 **How it works (Standard Mode):**
