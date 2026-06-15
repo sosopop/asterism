@@ -182,6 +182,9 @@ struct asterism_s
     uv_loop_t *loop;
     unsigned char stoped : 1;
     unsigned char socks5_udp : 1;
+    unsigned char session_auth : 1;
+    char *session_auth_user;
+    char *session_auth_pass;
 };
 
 extern struct asterism_trans_proto_s _global_proto_ping;

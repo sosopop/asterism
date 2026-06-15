@@ -36,9 +36,13 @@ static void help()
     printf("    -p, --pass <password>    Define the password for server authorization.\n");
     printf("    -d, --udp                Enable SOCKS5 UDP support. Disabled by default.\n");
     printf("    -t, --udp-timeout <seconds> Set the UDP idle timeout in seconds. A value of 0 disables the timeout.\n");
-    printf("                             Example: -t 60 sets a 60-second timeout.\n\n");
+    printf("                             Example: -t 60 sets a 60-second timeout.\n");
+    printf("    -A, --auth-sessions      Enable HTTP basic authentication for the session list (/sessions).\n");
+    printf("    -U, --session-user <user> Set the username for the session list authentication.\n");
+    printf("    -P, --session-pass <pass> Set the password for the session list authentication.\n\n");
     printf("Examples:\n");
     printf("    asterism -i http://0.0.0.0:8081 -o tcp://0.0.0.0:1234 -v\n");
+    printf("    asterism -i http://0.0.0.0:8081 -o tcp://0.0.0.0:1234 -A -U admin -P admin123 -v\n");
     printf("    asterism -r tcp://127.0.0.1:1234 -u test -p 12345678 -v\n");
 }
 
@@ -71,7 +75,7 @@ int main(int argc, char *argv[])
     char verbose = 0;
 
     int next_option;
-    const char *const short_options = "hvVi:o:r:u:p:dt:";
+    const char *const short_options = "hvVi:o:r:u:p:dt:AU:P:";
     const struct parg_option long_options[] =
         {
             {"help", 0, NULL, 'h'},
@@ -84,6 +88,9 @@ int main(int argc, char *argv[])
             {"pass", 1, NULL, 'p'},
             {"udp", 0, NULL, 'd'},
             {"udp-timeout", 1, NULL, 't'},
+            {"auth-sessions", 0, NULL, 'A'},
+            {"session-user", 1, NULL, 'U'},
+            {"session-pass", 1, NULL, 'P'},
             {NULL, 0, NULL, 0}};
 
     as = asterism_create();
@@ -147,6 +154,21 @@ int main(int argc, char *argv[])
             if (ret)
                 goto cleanup;
             break;
+        case 'A':
+            ret = asterism_set_option(as, ASTERISM_OPT_SESSION_AUTH, 1);
+            if (ret)
+                goto cleanup;
+            break;
+        case 'U':
+            ret = asterism_set_option(as, ASTERISM_OPT_SESSION_AUTH_USER, ps.optarg);
+            if (ret)
+                goto cleanup;
+            break;
+        case 'P':
+            ret = asterism_set_option(as, ASTERISM_OPT_SESSION_AUTH_PASS, ps.optarg);
+            if (ret)
+                goto cleanup;
+            break;
         case '?':
             help();
             goto cleanup;
@@ -158,7 +180,10 @@ int main(int argc, char *argv[])
     }
     ret = asterism_run(as);
     if (ret)
+    {
+        fprintf(stderr, "Error: %s\n", asterism_errno_description(ret));
         goto cleanup;
+    }
 cleanup:
     if (as)
     {

@@ -110,6 +110,37 @@ int asterism_set_option(asterism as, asterism_option opt, ...)
     case ASTERISM_OPT_UDP_IDLE_TIMEOUT:
         __as->udp_idle_timeout = va_arg(ap, unsigned int);
         break;
+    case ASTERISM_OPT_SESSION_AUTH:
+        __as->session_auth = va_arg(ap, unsigned int);
+        break;
+    case ASTERISM_OPT_SESSION_AUTH_USER:
+    {
+        const char *username = va_arg(ap, const char *);
+        size_t username_len = strlen(username);
+        if (username_len > ASTREISM_USERNAME_MAX_LEN || username_len == 0)
+        {
+            ret = ASTERISM_E_INVALID_ARGS;
+            break;
+        }
+        if (__as->session_auth_user)
+            free(__as->session_auth_user);
+        __as->session_auth_user = as_strdup(username);
+    }
+    break;
+    case ASTERISM_OPT_SESSION_AUTH_PASS:
+    {
+        const char *password = va_arg(ap, const char *);
+        size_t password_len = strlen(password);
+        if (password_len > ASTREISM_PASSWORD_MAX_LEN || password_len == 0)
+        {
+            ret = ASTERISM_E_INVALID_ARGS;
+            break;
+        }
+        if (__as->session_auth_pass)
+            free(__as->session_auth_pass);
+        __as->session_auth_pass = as_strdup(password);
+    }
+    break;
     default:
         ret = ASTERISM_E_INVALID_ARGS;
         break;

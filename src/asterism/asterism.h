@@ -107,6 +107,12 @@ extern "C"
         ASTERISM_OPT_SOCKS5_UDP,
         /* Idle timeout for UDP sessions (for server)*/
         ASTERISM_OPT_UDP_IDLE_TIMEOUT,
+        /* Enable authentication for session list HTTP GET /sessions (for server)*/
+        ASTERISM_OPT_SESSION_AUTH,
+        /* Username for session list authentication (for server)*/
+        ASTERISM_OPT_SESSION_AUTH_USER,
+        /* Password for session list authentication (for server)*/
+        ASTERISM_OPT_SESSION_AUTH_PASS,
     } asterism_option;
 
     /**

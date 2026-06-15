@@ -112,6 +112,15 @@ int asterism_core_prepare(struct asterism_s *as)
 {
     int ret = ASTERISM_E_OK;
     as->loop = uv_loop_new();
+    if (as->session_auth)
+    {
+        if (!as->session_auth_user || !as->session_auth_pass ||
+            strlen(as->session_auth_user) == 0 || strlen(as->session_auth_pass) == 0)
+        {
+            ret = ASTERISM_E_USERPASS_EMPTY;
+            goto cleanup;
+        }
+    }
     if (as->idle_timeout == 0) {
         as->idle_timeout = ASTERISM_CONNECTION_MAX_IDLE_COUNT;
     }
@@ -263,6 +272,10 @@ int asterism_core_destory(struct asterism_s *as)
         AS_FREE(as->username);
     if (as->password)
         AS_FREE(as->password);
+    if (as->session_auth_user)
+        AS_FREE(as->session_auth_user);
+    if (as->session_auth_pass)
+        AS_FREE(as->session_auth_pass);
     if (as->connect_addr)
         AS_FREE(as->connect_addr);
     if (as->inner_bind_addrs)
@@ -290,6 +303,7 @@ int asterism_core_run(struct asterism_s *as)
     if (ret)
     {
         asterism_core_stop(as);
+        return ret;
     }
 
     ret = uv_run(as->loop, UV_RUN_DEFAULT);

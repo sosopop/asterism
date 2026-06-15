@@ -342,7 +342,8 @@ static void parse_value(struct asterism_http_incoming_s *obj)
 
 static void parse_key(struct asterism_http_incoming_s *obj)
 {
-    if (asterism_vcasecmp(&obj->http_header_field_temp, HTTP_PROXY_AUTH_HEAD) == 0)
+    if (asterism_vcasecmp(&obj->http_header_field_temp, HTTP_PROXY_AUTH_HEAD) == 0 ||
+        asterism_vcasecmp(&obj->http_header_field_temp, HTTP_AUTH_HEAD) == 0)
     {
         obj->header_parsed_type = HEADER_PARSED_TYPE_AUTH;
         obj->auth_key_info = obj->http_header_field_temp;
@@ -481,6 +482,52 @@ static int incoming_parse_connect(
             if (incoming->parser.method == HTTP_GET) {
                 struct asterism_str temp = asterism_mk_str_n("/sessions", sizeof("/sessions") - 1);
                 if (asterism_strstr(incoming->connect_url, temp)) {
+                    if (incoming->as->session_auth) {
+                        int auth_ok = 0;
+                        if (incoming->auth_val_info.len) {
+                            struct asterism_str base_prefix = asterism_mk_str("Basic ");
+                            if (asterism_strncmp(incoming->auth_val_info, base_prefix, base_prefix.len) == 0) {
+                                char decode_buffer[128] = {0};
+                                int decode_size = sizeof(decode_buffer);
+                                if (incoming->auth_val_info.len > base_prefix.len &&
+                                    incoming->auth_val_info.len - base_prefix.len < 128) {
+                                    int parsed = asterism_base64_decode(
+                                        (const unsigned char *)incoming->auth_val_info.p + base_prefix.len,
+                                        (int)(incoming->auth_val_info.len - base_prefix.len),
+                                        decode_buffer,
+                                        &decode_size);
+                                    if (parsed == incoming->auth_val_info.len - base_prefix.len) {
+                                        char *split_pos = strchr(decode_buffer, ':');
+                                        if (split_pos) {
+                                            *split_pos = 0;
+                                            char *username = decode_buffer;
+                                            char *password = split_pos + 1;
+                                            if (strcmp(username, incoming->as->session_auth_user) == 0 &&
+                                                strcmp(password, incoming->as->session_auth_pass) == 0) {
+                                                auth_ok = 1;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        if (!auth_ok) {
+                            char* send_buffer = 0;
+                            int len = asterism_snprintf(&send_buffer, 0, "%s", HTTP_RESP_401);
+                            struct asterism_write_req_s *req = AS_ZMALLOC(struct asterism_write_req_s);
+                            req->write_buffer.base = (char *)send_buffer;
+                            req->write_buffer.len = len;
+                            req->write_req.data = incoming;
+                            int write_ret = asterism_stream_write((uv_write_t *)req, (struct asterism_stream_s *)incoming, &req->write_buffer, session_list_write_cb);
+                            if (write_ret != 0)
+                            {
+                                free(req->write_buffer.base);
+                                free(req);
+                            }
+                            return 0;
+                        }
+                    }
+
                     char* send_buffer = 0;
                     char buf[3900] = {0};
                     int pos = 0;

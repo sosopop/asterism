@@ -12,10 +12,17 @@
     "Proxy-Authenticate: Basic realm=\"Asterism Authorization\"\r\n" \
     "Content-Length: 0\r\n\r\n"
 
+#define HTTP_RESP_401                                                \
+    "HTTP/1.1 401 Unauthorized\r\n"                                  \
+    "WWW-Authenticate: Basic realm=\"Asterism Session List\"\r\n"    \
+    "Content-Length: 0\r\n\r\n"
+
 #define HTTP_RESP_200 \
     "HTTP/1.1 200 Connection Established\r\n\r\n"
 
 #define HTTP_PROXY_AUTH_HEAD "Proxy-Authorization"
+
+#define HTTP_AUTH_HEAD "Authorization"
 
 #define HTTP_PROXY_CONN_HEAD "Proxy-Connection"
 
