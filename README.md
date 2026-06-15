@@ -164,30 +164,26 @@ curl "http://192.168.1.100:8080/api" \
 
 ### Portal Mode (Port Forwarding)
 
-You can run the Javascript helper in `local/app.js` to create portals. It maps a local port to a remote destination via the relay's HTTP CONNECT tunnel:
+You can configure local port forwarding using the `-L` / `--portal` command-line option. This maps a local port to a remote destination via the relay's HTTP CONNECT tunnel:
 
-**config.json:**
-```json
-[
-  {
-    "name": "test_portal",
-    "relayHost": "127.0.0.1",
-    "relayPort": 8011,
-    "username": "myuser",
-    "password": "mypassword",
-    "targetHost": "192.168.1.100",
-    "targetPort": 3389,
-    "localHost": "0.0.0.0",
-    "localPort": 6102
-  }
-]
-```
-
-**Run the Portal:**
 ```bash
-node local/app.js local/config.json
+asterism -L "local_addr:local_port#relay_addr#remote_addr:remote_port" -v
 ```
-This listens on local port `6102` and forwards all incoming connections to `192.168.1.100:3389` on the agent's network.
+
+- **Format**: `local_address:local_port#relay_address#remote_address:remote_port`
+- **Example**:
+  ```bash
+  asterism -L "127.0.0.1:6102#http://myuser:mypassword@127.0.0.1:8011#192.168.1.100:3389" -v
+  ```
+  This listens on local port `6102`. All incoming connections are forwarded to `192.168.1.100:3389` on the agent's network via the relay's HTTP CONNECT proxy at `127.0.0.1:8011` with credentials `myuser:mypassword`.
+
+- **Multiple Portals**: You can specify `-L` multiple times to run multiple port forwarding rules concurrently:
+  ```bash
+  asterism \
+    -L "127.0.0.1:3306#http://test:test@127.0.0.1:8011#192.168.1.100:3306" \
+    -L "127.0.0.1:80#http://test:test@127.0.0.1:8011#192.168.1.100:80" \
+    -v
+  ```
 
 ---
 
@@ -287,9 +283,6 @@ asterism/
 │   ├── asterism_responser_*# Response forwarding
 │   └── test/               # Unit tests
 ├── install/                # Service installation scripts
-├── local/                  # Portal configuration & helper
-│   ├── app.js              # Portal script
-│   └── config.json         # Portal config
 ├── CMakeLists.txt          # Build configuration
 ├── README.md               # English documentation
 └── README_ZH.md            # Chinese documentation

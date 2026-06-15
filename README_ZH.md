@@ -164,30 +164,26 @@ curl "http://192.168.1.100:8080/api" \
 
 ### Portal 模式 (端口转发)
 
-你可以使用 `local/app.js` 脚本来启用 Portals（传送门）模式。它能把本地的一个端口通过 Relay 的 HTTP CONNECT 隧道转发到指定目标：
+你可以使用 `-L` / `--portal` 命令行选项来配置本地端口转发。这能把本地的一个端口通过 Relay 的 HTTP CONNECT 隧道转发到指定目标：
 
-**config.json 配置：**
-```json
-[
-  {
-    "name": "test_portal",
-    "relayHost": "127.0.0.1",
-    "relayPort": 8011,
-    "username": "myuser",
-    "password": "mypassword",
-    "targetHost": "192.168.1.100",
-    "targetPort": 3389,
-    "localHost": "0.0.0.0",
-    "localPort": 6102
-  }
-]
-```
-
-**运行 Portal：**
 ```bash
-node local/app.js local/config.json
+asterism -L "local_addr:local_port#relay_addr#remote_addr:remote_port" -v
 ```
-这将在本地监听 `6102` 端口，并将所有连接请求通过隧道映射到 Agent 所在内网中的 `192.168.1.100:3389`。
+
+- **格式**：`本地地址:本地端口#中继地址#远端地址:远端端口`
+- **示例**：
+  ```bash
+  asterism -L "127.0.0.1:6102#http://myuser:mypassword@127.0.0.1:8011#192.168.1.100:3389" -v
+  ```
+  这将在本地监听 `6102` 端口，并将所有连接请求通过隧道映射到 Agent 所在内网中的 `192.168.1.100:3389`。中继服务器地址为 `127.0.0.1:8011`，认证信息为 `myuser:mypassword`。
+
+- **多端口转发**：你可以指定多次 `-L` 参数以同时运行多条端口转发规则：
+  ```bash
+  asterism \
+    -L "127.0.0.1:3306#http://test:test@127.0.0.1:8011#192.168.1.100:3306" \
+    -L "127.0.0.1:80#http://test:test@127.0.0.1:8011#192.168.1.100:80" \
+    -v
+  ```
 
 ---
 
@@ -287,9 +283,6 @@ asterism/
 │   ├── asterism_responser_*# 响应转发
 │   └── test/               # 单元测试
 ├── install/                # 服务安装与卸载脚本
-├── local/                  # Portal 模式配置与脚本
-│   ├── app.js              # Portal 脚本
-│   └── config.json         # Portal 配置文件
 ├── CMakeLists.txt          # 构建配置
 ├── README.md               # 英文文档
 └── README_ZH.md            # 中文文档
