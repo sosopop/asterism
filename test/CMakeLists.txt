@@ -11,6 +11,7 @@ set(TEST_SOURCE
     suite_proxy.c
     suite_hooks.c
     suite_timeouts.c
+    suite_portal.c
     main.c
 )
 

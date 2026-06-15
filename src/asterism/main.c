@@ -39,13 +39,18 @@ static void help()
     printf("                             Example: -t 60 sets a 60-second timeout.\n");
     printf("    -A, --auth-sessions      Enable HTTP basic authentication for the session list (/sessions).\n");
     printf("    -U, --session-user <user> Set the username for the session list authentication.\n");
-    printf("    -P, --session-pass <pass> Set the password for the session list authentication.\n\n");
+    printf("    -P, --session-pass <pass> Set the password for the session list authentication.\n");
+    printf("    -L, --portal <rule>      Enable Portal mode (local port forwarding).\n");
+    printf("                             Format: local_addr:local_port#relay_addr#remote_addr:remote_port\n");
+    printf("                             Example: -L 127.0.0.1:3306#http://admin:admin123@1.2.3.4:8011#192.168.1.100:3306\n\n");
     printf("Examples:\n");
     printf("    Relay mode:\n");
     printf("      asterism -i http://0.0.0.0:8081 -o tcp://0.0.0.0:1234 -v\n");
     printf("      asterism -i http://0.0.0.0:8081 -o tcp://0.0.0.0:1234 -A -U admin -P admin123 -v\n");
     printf("    Agent mode:\n");
     printf("      asterism -r tcp://127.0.0.1:1234 -u test -p 12345678 -v\n");
+    printf("    Portal mode:\n");
+    printf("      asterism -L 127.0.0.1:3306#http://admin:admin123@1.2.3.4:8011#192.168.1.100:3306 -v\n");
 }
 
 static void show_version()
@@ -77,7 +82,7 @@ int main(int argc, char *argv[])
     char verbose = 0;
 
     int next_option;
-    const char *const short_options = "hvVi:o:r:u:p:dt:AU:P:";
+    const char *const short_options = "hvVi:o:r:u:p:dt:AU:P:L:";
     const struct parg_option long_options[] =
         {
             {"help", 0, NULL, 'h'},
@@ -93,6 +98,7 @@ int main(int argc, char *argv[])
             {"auth-sessions", 0, NULL, 'A'},
             {"session-user", 1, NULL, 'U'},
             {"session-pass", 1, NULL, 'P'},
+            {"portal", 1, NULL, 'L'},
             {NULL, 0, NULL, 0}};
 
     as = asterism_create();
@@ -168,6 +174,11 @@ int main(int argc, char *argv[])
             break;
         case 'P':
             ret = asterism_set_option(as, ASTERISM_OPT_SESSION_AUTH_PASS, ps.optarg);
+            if (ret)
+                goto cleanup;
+            break;
+        case 'L':
+            ret = asterism_set_option(as, ASTERISM_OPT_PORTAL, ps.optarg);
             if (ret)
                 goto cleanup;
             break;

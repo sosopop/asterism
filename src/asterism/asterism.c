@@ -1,6 +1,7 @@
 #include "asterism.h"
 #include "asterism_core.h"
 #include "asterism_log.h"
+#include "asterism_portal.h"
 #include <string.h>
 #include "asterism_core.h"
 #include "asterism_utils.h"
@@ -139,6 +140,23 @@ int asterism_set_option(asterism as, asterism_option opt, ...)
         if (__as->session_auth_pass)
             free(__as->session_auth_pass);
         __as->session_auth_pass = as_strdup(password);
+    }
+    break;
+    case ASTERISM_OPT_PORTAL:
+    {
+        const char *rule_str = va_arg(ap, const char *);
+        struct asterism_portal_config_list_s *node = AS_ZMALLOC(struct asterism_portal_config_list_s);
+        if (!node) {
+            ret = ASTERISM_E_FAILED;
+            break;
+        }
+        if (asterism_portal_parse_rule(rule_str, &node->config) != 0) {
+            AS_FREE(node);
+            ret = ASTERISM_E_INVALID_ARGS;
+            break;
+        }
+        node->next = __as->portal_configs;
+        __as->portal_configs = node;
     }
     break;
     default:

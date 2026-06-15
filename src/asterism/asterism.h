@@ -113,6 +113,8 @@ extern "C"
         ASTERISM_OPT_SESSION_AUTH_USER,
         /* Password for session list authentication (for relay) */
         ASTERISM_OPT_SESSION_AUTH_PASS,
+        /* Portal rule (format: local_addr:local_port#relay_addr#remote_addr:remote_port) */
+        ASTERISM_OPT_PORTAL,
     } asterism_option;
 
     /**

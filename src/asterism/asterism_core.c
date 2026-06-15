@@ -1,4 +1,5 @@
 #include "asterism_core.h"
+#include "asterism_portal.h"
 #include "asterism_inner_http.h"
 #include "asterism_inner_socks5.h"
 #include "asterism_outer_tcp.h"
@@ -243,6 +244,15 @@ int asterism_core_prepare(struct asterism_s *as)
         if (ret)
             goto cleanup;
     }
+    
+    struct asterism_portal_config_list_s *pc_node = as->portal_configs;
+    while (pc_node) {
+        ret = asterism_portal_init(as, &pc_node->config);
+        if (ret != 0) {
+            goto cleanup;
+        }
+        pc_node = pc_node->next;
+    }
 
     as->check_timer = AS_ZMALLOC(struct check_timer_s);
     ASTERISM_HANDLE_INIT(as->check_timer, timer, check_timer_close);
@@ -284,6 +294,23 @@ int asterism_core_destory(struct asterism_s *as)
         asterism_slist_free_all(as->inner_bind_addrs);
     if (as->outer_bind_addr)
         AS_FREE(as->outer_bind_addr);
+
+    struct asterism_portal_config_list_s *pc = as->portal_configs;
+    while (pc) {
+        struct asterism_portal_config_list_s *next = pc->next;
+        asterism_portal_free_config(&pc->config);
+        AS_FREE(pc);
+        pc = next;
+    }
+    as->portal_configs = NULL;
+
+    struct asterism_portal_list_s *p = as->portals;
+    while (p) {
+        struct asterism_portal_list_s *next = p->next;
+        AS_FREE(p);
+        p = next;
+    }
+    as->portals = NULL;
 
     struct asterism_handshake_s *h = 0;
     struct asterism_handshake_s *_h = 0;

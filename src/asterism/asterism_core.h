@@ -7,6 +7,9 @@
 #include "queue.h"
 #include "asterism_utils.h"
 
+struct asterism_portal_list_s;
+struct asterism_portal_config_list_s;
+
 #define ASTERISM_VERSION "0.6.0.1"
 #define ASTERISM_NET_BACKLOG 1024
 
@@ -185,6 +188,8 @@ struct asterism_s
     unsigned char session_auth : 1;
     char *session_auth_user;
     char *session_auth_pass;
+    struct asterism_portal_list_s *portals;
+    struct asterism_portal_config_list_s *portal_configs;
 };
 
 extern struct asterism_trans_proto_s _global_proto_ping;
