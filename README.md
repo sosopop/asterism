@@ -29,9 +29,9 @@ Clients route proxy requests through the public Relay, which forwards traffic vi
 
 ```mermaid
 graph LR
-    Client["Client<br>(Browser / Curl)"] ==>|HTTP / SOCKS5 Proxy| Relay["Asterism Relay<br>(Public IP)"]
-    Relay <==|Reverse Tunnel| Agent["Asterism Agent<br>(Intranet)"]
-    Agent ==>|Local Access| Target["Target Service<br>(SSH / Web / NAS)"]
+    Client["Client (Browser / Curl)"] -->|HTTP / SOCKS5 Proxy| Relay["Asterism Relay (Public IP)"]
+    Agent["Asterism Agent (Intranet)"] -->|Reverse Tunnel| Relay
+    Agent -->|Local Access| Target["Target Service (SSH / Web / NAS)"]
 
     style Client fill:#f9f,stroke:#333,stroke-width:2px
     style Relay fill:#bbf,stroke:#333,stroke-width:2px
@@ -43,10 +43,10 @@ Local applications connect to a local port listener (Portal), which automaticall
 
 ```mermaid
 graph LR
-    App["Local Application"] ==>|TCP Connection| Portal["Asterism Portal<br>(Local Listener)"]
-    Portal ==>|HTTP CONNECT Tunnel| Relay["Asterism Relay<br>(Public IP)"]
-    Relay <==|Reverse Tunnel| Agent["Asterism Agent<br>(Intranet)"]
-    Agent ==>|Local Access| Target["Target Service"]
+    App["Local Application"] -->|TCP Connection| Portal["Asterism Portal (Local Listener)"]
+    Portal -->|HTTP CONNECT Tunnel| Relay["Asterism Relay (Public IP)"]
+    Agent["Asterism Agent (Intranet)"] -->|Reverse Tunnel| Relay
+    Agent -->|Local Access| Target["Target Service"]
 
     style Portal fill:#fcf,stroke:#333,stroke-width:2px
     style Relay fill:#bbf,stroke:#333,stroke-width:2px
