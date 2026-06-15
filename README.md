@@ -11,13 +11,53 @@ Typical use cases:
 - Relay-to-agent message pushing (agent hosts a Web API for the relay/clients to call)
 - **Portal mode** (port forwarding): Map a local port to a remote service via the relay-agent tunnel
 
-## Terminology
+## Terminology & Component Roles
 
-To avoid confusion, Asterism uses the following terms:
-- **Relay**: The central server with a public IP that listens for incoming agent connections and client proxy requests.
-- **Agent**: The daemon running inside the private network. It connects to the Relay and forwards traffic to local services.
-- **Client**: The end-user or program (e.g., browser, curl) accessing services through the proxy.
-- **Portal**: A dedicated port forwarding configuration that bridges a local port to a remote port through the relay-agent tunnel.
+Asterism consists of four core concepts to keep the design clean:
+
+- **Relay**: The central bridge with a public IP. It relays traffic between the Client and the Agent.
+- **Agent**: The daemon running inside the private network. It connects to the Relay to establish the reverse tunnel.
+- **Client**: The end-user or program (e.g. browser, curl) accessing target private resources via the Relay.
+- **Portal**: A local port forwarding mode (SSH `-L` style). It listens on a local port and forwards traffic to the remote target via the Relay CONNECT tunnel.
+
+---
+
+## Architecture Overview
+
+### 1. Standard Mode (Reverse HTTP/SOCKS5 Proxy)
+Clients route proxy requests through the public Relay, which forwards traffic via the reverse tunnel to the intranet Agent.
+
+```mermaid
+graph LR
+    Client["Client<br>(Browser / Curl)"] ==>|HTTP / SOCKS5 Proxy| Relay["Asterism Relay<br>(Public IP)"]
+    Relay <==|Reverse Tunnel| Agent["Asterism Agent<br>(Intranet)"]
+    Agent ==>|Local Access| Target["Target Service<br>(SSH / Web / NAS)"]
+
+    style Client fill:#f9f,stroke:#333,stroke-width:2px
+    style Relay fill:#bbf,stroke:#333,stroke-width:2px
+    style Agent fill:#bfb,stroke:#333,stroke-width:2px
+```
+
+### 2. Portal Mode (Local Port Forwarding)
+Local applications connect to a local port listener (Portal), which automatically tunnels traffic to the remote target via the Relay.
+
+```mermaid
+graph LR
+    App["Local Application"] ==>|TCP Connection| Portal["Asterism Portal<br>(Local Listener)"]
+    Portal ==>|HTTP CONNECT Tunnel| Relay["Asterism Relay<br>(Public IP)"]
+    Relay <==|Reverse Tunnel| Agent["Asterism Agent<br>(Intranet)"]
+    Agent ==>|Local Access| Target["Target Service"]
+
+    style Portal fill:#fcf,stroke:#333,stroke-width:2px
+    style Relay fill:#bbf,stroke:#333,stroke-width:2px
+    style Agent fill:#bfb,stroke:#333,stroke-width:2px
+```
+
+**How it works (Standard Mode):**
+1. **Agent** connects to the **Relay**'s agent connection port (`-o`) and establishes a persistent tunnel.
+2. **Relay** listens for HTTP/SOCKS5 proxy requests on proxy ports (`-i`).
+3. **Client** configures their proxy pointing to the **Relay** and authenticates using the **Agent**'s credentials.
+4. **Relay** routes the request through the tunnel to the **Agent**, which forwards it to local resources and returns the response.
 
 ## Features
 
@@ -27,42 +67,6 @@ To avoid confusion, Asterism uses the following terms:
 - **Lightweight** — Pure C, no external runtime dependencies, single binary
 - **Multi-user** — Multiple agents connect simultaneously, routed by username
 - **Portal Support** — Easy port forwarding over the proxy tunnel
-
-## Architecture Overview
-
-```mermaid
-graph LR
-    subgraph Public_Network [Public Network]
-        Visitor["Client<br>(Browser / curl)"]
-    end
-
-    subgraph Asterism_Relay ["Asterism Relay"]
-        direction TB
-        Proxy["HTTP Proxy :8081<br>SOCKS5 Proxy :8082"]
-        Outer["Agent Connection :1234"]
-        Proxy -.-> Outer
-    end
-
-    subgraph Private_Network [Private Network]
-        Agent["Asterism Agent"]
-        Services["LAN Services<br>(NAS, RDP, SSH, Web...)"]
-    end
-
-    Visitor --> Proxy
-    Outer <-->|Persistent Connection| Agent
-    Agent --> Services
-
-    style Public_Network fill:#f9f,stroke:#333,stroke-width:2px
-    style Asterism_Relay fill:#bbf,stroke:#333,stroke-width:2px
-    style Private_Network fill:#bfb,stroke:#333,stroke-width:2px
-```
-
-**How it works:**
-
-1. The **Agent** connects to the Relay's agent connection port (`-o`), authenticates with username/password, and establishes a persistent tunnel.
-2. The **Relay** listens for proxy requests (HTTP/SOCKS5) on proxy ports (`-i`), waiting for clients.
-3. A **Client** connects to the Relay via a proxy protocol, specifying the target agent's credentials.
-4. The **Relay** forwards the request through the tunnel to the corresponding agent, which accesses local/LAN services and returns the response.
 
 ## Building
 
