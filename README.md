@@ -1,5 +1,7 @@
 # ✦ Asterism
 
+![Title Banner](assets/title_banner.png)
+
 English | [中文](README_ZH.md)
 
 Asterism is a lightweight reverse proxy for NAT traversal (intranet penetration). It exposes services behind NAT/firewalls to the public network through a relay with a public IP, enabling external clients to access TCP and HTTP services on private networks.
@@ -11,7 +13,7 @@ Typical use cases:
 - Relay-to-agent message pushing (agent hosts a Web API for the relay/clients to call)
 - **Portal mode** (port forwarding): Map a local port to a remote service via the relay-agent tunnel
 
-## Terminology & Component Roles
+## 🧩 Terminology & Component Roles
 
 Asterism consists of four core concepts to keep the design clean:
 
@@ -20,9 +22,42 @@ Asterism consists of four core concepts to keep the design clean:
 - **Client**: The end-user or program (e.g. browser, curl) accessing target private resources via the Relay.
 - **Portal**: A local port forwarding mode (SSH `-L` style). It listens on a local port and forwards traffic to the remote target via the Relay CONNECT tunnel.
 
+## ❓ Why Asterism?
+
+Asterism is designed for users who need a lightweight, self-hosted and easy-to-understand NAT traversal reverse proxy. It is not trying to become a full-featured networking platform. Instead, it focuses on a simple and practical goal: accessing private-network services through a public relay.
+
+### Compared with ngrok
+
+- **Fully self-hosted** — Asterism does not depend on a vendor-hosted cloud tunneling service. You run the relay on your own public server.
+- **No cloud account dependency** — No third-party account, hosted tunnel address or external control plane is required.
+- **Stable public entrypoint** — You control the public IP, listening ports, authentication and traffic path.
+- **Better for private infrastructure** — Suitable for home labs, NAS access, office networks, customer-site maintenance and private service exposure.
+
+### Compared with frp
+
+- **Smaller scope, simpler mental model** — Asterism focuses on Relay, Agent, Client and Portal, making it easier to understand and operate.
+- **Lightweight C/libuv implementation** — Built with C and libuv async I/O, designed to be small, fast and easy to embed.
+- **Single-binary deployment** — No external runtime is required. Build once and run the generated binary.
+- **Proxy-first design** — Supports HTTP Proxy and SOCKS5 Proxy as first-class access methods.
+- **Portal mode for port forwarding** — Provides local port forwarding similar to `ssh -L`, useful for RDP, SSH, databases, web services and other TCP services.
+- **Multi-agent routing by username** — Multiple agents can share the same relay, and clients can select the target private network by using different credentials.
+
+### When to use Asterism
+
+Asterism is a good fit when you want to:
+
+- Access a home NAS, router admin panel or private web service remotely.
+- Connect to office RDP, SSH, database or internal TCP services from outside the network.
+- Use your own VPS or public server as a private NAT traversal relay.
+- Avoid depending on a commercial tunneling provider.
+- Use a lightweight alternative to large-featured tunneling systems when simple reverse proxy and port forwarding are enough.
+- Study or customize a clear C/libuv implementation of NAT traversal, reverse proxy, SOCKS5 proxy and HTTP CONNECT tunneling.
+
+In short, Asterism provides the self-hosted control of frp, the simple access style of ngrok, and a smaller C/libuv single-binary footprint.
+
 ---
 
-## Architecture Overview
+## 🏗️ Architecture Overview
 
 ### 1. Standard Mode (Reverse HTTP/SOCKS5 Proxy)
 Clients route proxy requests through the public Relay, which forwards traffic via the reverse tunnel to the intranet Agent.
@@ -59,7 +94,7 @@ graph LR
 3. **Client** configures their proxy pointing to the **Relay** and authenticates using the **Agent**'s credentials.
 4. **Relay** routes the request through the tunnel to the **Agent**, which forwards it to local resources and returns the response.
 
-## Features
+## ✨ Features
 
 - **Cross-platform** — Windows, Linux, macOS, Android, iOS
 - **High performance** — Event-driven architecture built on libuv async I/O
@@ -68,7 +103,7 @@ graph LR
 - **Multi-user** — Multiple agents connect simultaneously, routed by username
 - **Portal Support** — Easy port forwarding over the proxy tunnel
 
-## Building
+## 🛠️ Building
 
 ### Prerequisites
 
@@ -102,7 +137,7 @@ cmake -DUNIT_TEST=ON ..
 cmake --build . --config Debug
 ```
 
-## Usage
+## 🚀 Usage
 
 ### Command-Line Options
 
@@ -234,28 +269,23 @@ asterism -i http://0.0.0.0:8081 -o tcp://0.0.0.0:1234 -A -U admin -P admin123
 curl -u admin:admin123 http://<relay_ip>:8081/sessions
 ```
 
-## System Service Deployment
+## ⚙️ System Service Deployment
 
-Asterism provides interactive installation scripts to register agent or relay modes as background daemons/tasks across multiple operating systems. This allows running both agent and relay instances on the same host under distinct names.
+Asterism provides interactive management scripts to register agent, relay, or portal modes as background services/tasks across multiple operating systems. This allows running multiple instances on the same host under custom service names.
 
-### Linux (systemd)
-- **Install Service**: `sudo ./install/install_service.sh` (prompts for Mode and configuration).
-- **Uninstall Service**: `sudo ./install/uninstall_service.sh` (prompts for which service to uninstall).
-- **Service Names**: `asterism-relay.service` or `asterism-agent.service`
-- **Installation Directory**: `/opt/asterism/` (shared binary directory)
-- **Management Commands**:
+### Linux (systemd) & macOS (launchd)
+A single unified script `service.sh` automatically detects your OS and configures systemd or launchd services.
+
+* **Manage Service**: Run `sudo ./install/service.sh [install|uninstall]` or run without arguments for interactive prompts.
+* **Linux Service Names**: Default is `asterism-relay` or `asterism-agent`. Shared binary is installed in `/opt/asterism/bin/`.
+* **macOS Service Labels**: Default is `com.asterism.relay` or `com.asterism.agent`. Shared binary is installed in `/usr/local/bin/`.
+* **Management Commands (Linux)**:
   ```bash
   sudo systemctl status asterism-relay      # Check status
   sudo systemctl restart asterism-relay     # Restart service
   sudo journalctl -u asterism-relay -f      # View real-time logs
   ```
-
-### macOS (launchd)
-- **Install Service**: `sudo ./install/install_service_macos.sh` (prompts for Mode and configuration).
-- **Uninstall Service**: `sudo ./install/uninstall_service_macos.sh` (prompts for which service to uninstall).
-- **Service Labels**: `com.asterism.relay` or `com.asterism.agent`
-- **Installation Location**: `/usr/local/bin/asterism` (shared binary)
-- **Management Commands**:
+* **Management Commands (macOS)**:
   ```bash
   sudo launchctl list com.asterism.relay                     # Check status
   sudo launchctl unload /Library/LaunchDaemons/com.asterism.relay.plist  # Stop service
@@ -263,18 +293,77 @@ Asterism provides interactive installation scripts to register agent or relay mo
   ```
 
 ### Windows (Task Scheduler)
-- **Install Task**: Run `PowerShell` as Administrator, then: `.\install\install_task_windows.ps1` (prompts for Mode and configuration, sets task to run at boot under the `SYSTEM` account).
-- **Uninstall Task**: `.\install\uninstall_task_windows.ps1`
-- **Task Names**: `AsterismRelay` or `AsterismAgent`
-- **Installation Directory**: `C:\Program Files\Asterism\` (shared binary directory)
-- **Management Commands**:
+A single unified script `service.ps1` registers background tasks to run as `SYSTEM` at boot.
+
+* **Manage Task**: Run `PowerShell` as Administrator, then run: `.\install\service.ps1 -Action [Install|Uninstall]`, or run without parameters for interactive prompts.
+* **Task Names**: Default is `AsterismRelay` or `AsterismAgent`. Shared binary is installed in `C:\Program Files\Asterism\`.
+* **Management Commands**:
   ```powershell
   schtasks /Query /TN AsterismRelay          # Check status
   schtasks /End /TN AsterismRelay            # Stop task
   schtasks /Run /TN AsterismRelay            # Start/Run task
   ```
 
-## Project Structure
+## 📦 Embedding Asterism as a Library (SDK)
+
+Asterism is built as a clean, modular library (`asterism_lib`) that you can easily integrate into your own C/C++ projects. All configurations are set via key-value options, and the engine runs asynchronously on top of libuv.
+
+### SDK Header
+To use the SDK, include `asterism.h` in your project:
+```c
+#include "asterism.h"
+```
+
+### SDK Code Example
+Here is a complete, minimal example showing how to programmatically initialize and run an Asterism **Agent**:
+
+```c
+#include <stdio.h>
+#include "asterism.h"
+
+int main() {
+    // 1. Create an Asterism instance
+    asterism as = asterism_create();
+    if (!as) {
+        fprintf(stderr, "Failed to create Asterism instance\n");
+        return 1;
+    }
+
+    // 2. Set options (e.g., configure as an Agent)
+    asterism_set_option(as, ASTERISM_OPT_CONNECT_ADDR, "tcp://1.2.3.4:1234");
+    asterism_set_option(as, ASTERISM_OPT_USERNAME, "my_agent");
+    asterism_set_option(as, ASTERISM_OPT_PASSWORD, "my_password");
+
+    // Optional: Enable verbose debugging output
+    asterism_set_log_level(ASTERISM_LOG_DEBUG);
+
+    printf("Starting Asterism Agent...\n");
+
+    // 3. Run the event loop (this call blocks until the tunnel is stopped)
+    int ret = asterism_run(as);
+    if (ret != 0) {
+        fprintf(stderr, "Asterism run error: %s\n", asterism_errno_description(ret));
+    }
+
+    // 4. Destroy the instance and clean up resources
+    asterism_destroy(as);
+    return ret;
+}
+```
+
+To stop the running loop programmatically from another thread or signal handler, call:
+```c
+asterism_stop(as);
+```
+
+### CMake Integration
+Link `asterism_lib` to your target in your `CMakeLists.txt`:
+```cmake
+add_executable(my_app main.c)
+target_link_libraries(my_app PRIVATE asterism_lib)
+```
+
+## 📂 Project Structure
 
 ```
 asterism/

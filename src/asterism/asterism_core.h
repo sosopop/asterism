@@ -10,7 +10,7 @@
 struct asterism_portal_list_s;
 struct asterism_portal_config_list_s;
 
-#define ASTERISM_VERSION "0.6.0.1"
+#define ASTERISM_VERSION "0.7.0.1"
 #define ASTERISM_NET_BACKLOG 1024
 
 #define ASTREISM_USERNAME_MAX_LEN 128
