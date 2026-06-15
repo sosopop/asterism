@@ -187,29 +187,45 @@ asterism -i http://0.0.0.0:8081 -o tcp://0.0.0.0:1234 -A -U admin -P admin123
 curl -u admin:admin123 http://<server_ip>:8081/sessions
 ```
 
-## 系统服务部署（Linux）
+## 系统服务部署
 
-项目提供了 systemd 服务脚本，可将 Asterism 部署为后台守护进程：
+Asterism 提供了交互式安装脚本，用于在多个操作系统上将客户端或服务端模式注册为后台守护进程/计划任务。这允许在同一台机器上以不同的名称同时运行客户端和服务端实例。
 
-```bash
-# 安装服务（需要 root 权限）
-sudo ./install/install_service.sh
+### Linux (systemd)
+- **安装服务**：`sudo ./install/install_service.sh`（提示选择模式与输入配置）。
+- **卸载服务**：`sudo ./install/uninstall_service.sh`（提示选择要卸载的服务）。
+- **服务名称**：`asterism-server.service` 或 `asterism-client.service`
+- **安装目录**：`/opt/asterism/`（共享可执行文件目录）
+- **常用管理命令**：
+  ```bash
+  sudo systemctl status asterism-server      # 查看状态
+  sudo systemctl restart asterism-server     # 重启服务
+  sudo journalctl -u asterism-server -f      # 实时查看日志
+  ```
 
-# 卸载服务
-sudo ./install/uninstall_service.sh
-```
+### macOS (launchd)
+- **安装服务**：`sudo ./install/install_service_macos.sh`（提示选择模式与输入配置）。
+- **卸载服务**：`sudo ./install/uninstall_service_macos.sh`（提示选择要卸载的服务）。
+- **服务标签**：`com.asterism.server` 或 `com.asterism.client`
+- **安装位置**：`/usr/local/bin/asterism`（共享可执行文件）
+- **常用管理命令**：
+  ```bash
+  sudo launchctl list com.asterism.server                     # 查看状态
+  sudo launchctl unload /Library/LaunchDaemons/com.asterism.server.plist  # 停止服务
+  tail -f /usr/local/var/log/com.asterism.server/asterism.log     # 查看日志
+  ```
 
-安装后的常用管理命令：
-
-```bash
-sudo systemctl status asterism     # 查看状态
-sudo systemctl start asterism      # 启动服务
-sudo systemctl stop asterism       # 停止服务
-sudo systemctl restart asterism    # 重启服务
-sudo journalctl -u asterism -f     # 实时查看日志
-```
-
-服务默认安装到 `/opt/asterism/`，运行参数在 `/etc/systemd/system/asterism.service` 中配置。
+### Windows (任务计划程序)
+- **安装任务**：以管理员权限运行 `PowerShell`，然后执行：`.\install\install_task_windows.ps1`（提示选择模式与输入配置，注册为系统启动时自动运行的 `SYSTEM` 任务）。
+- **卸载任务**：`.\install\uninstall_task_windows.ps1`
+- **任务名称**：`AsterismServer` 或 `AsterismClient`
+- **安装目录**：`C:\Program Files\Asterism\`（共享可执行文件目录）
+- **常用管理命令**：
+  ```powershell
+  schtasks /Query /TN AsterismServer          # 查看状态
+  schtasks /End /TN AsterismServer            # 停止任务
+  schtasks /Run /TN AsterismServer            # 启动/运行任务
+  ```
 
 ## 项目结构
 

@@ -11,14 +11,6 @@ if [[ "${EUID}" -ne 0 ]]; then
     exit 1
 fi
 
-SERVICE_NAME="asterism"
-USER_NAME="asterism"
-GROUP_NAME="asterism"
-INSTALL_DIR="/opt/${SERVICE_NAME}"
-BIN_DIR="${INSTALL_DIR}/bin"
-LOG_DIR="${INSTALL_DIR}/logs"
-SERVICE_FILE="/etc/systemd/system/${SERVICE_NAME}.service"
-
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(dirname "${SCRIPT_DIR}")"
 DEFAULT_BIN_SOURCE="${REPO_ROOT}/build/src/asterism/asterism"
@@ -26,7 +18,6 @@ BIN_SOURCE="${1:-${DEFAULT_BIN_SOURCE}}"
 
 echo "=== Asterism 服务安装程序 ==="
 echo "二进制来源: ${BIN_SOURCE}"
-echo "安装目录: ${INSTALL_DIR}"
 echo
 
 if [[ ! -f "${BIN_SOURCE}" ]]; then
@@ -40,48 +31,107 @@ EOF
     exit 1
 fi
 
-if [[ ! -f "${SCRIPT_DIR}/${SERVICE_NAME}.service" ]]; then
-    echo "错误: 找不到服务配置文件 ${SCRIPT_DIR}/${SERVICE_NAME}.service"
-    exit 1
-fi
-
 # ==================== 配置交互 ====================
-echo "=== 配置 Asterism 监听端口 ==="
-read -p "请输入外部监听端口 (供客户端连接，默认: 8010): " OUTER_PORT
-OUTER_PORT=${OUTER_PORT:-8010}
+echo "请选择安装模式:"
+echo "1) 服务端模式 (Server Mode)"
+echo "2) 客户端模式 (Client Mode)"
+read -p "选择模式 (1 或 2, 默认: 1): " MODE
+MODE=${MODE:-1}
 
-read -p "请输入 HTTP 代理监听端口 (默认: 8011): " HTTP_PORT
-HTTP_PORT=${HTTP_PORT:-8011}
+if [[ "${MODE}" == "1" ]]; then
+    SERVICE_NAME="asterism-server"
+    USER_NAME="asterism"
+    GROUP_NAME="asterism"
+    INSTALL_DIR="/opt/asterism"
+    BIN_DIR="${INSTALL_DIR}/bin"
+    LOG_DIR="${INSTALL_DIR}/logs"
+    SERVICE_FILE="/etc/systemd/system/${SERVICE_NAME}.service"
 
-read -p "请输入 SOCKS5 代理监听端口 (默认: 8012): " SOCKS5_PORT
-SOCKS5_PORT=${SOCKS5_PORT:-8012}
+    echo
+    echo "=== 服务端模式配置 ==="
+    read -p "请输入外部监听端口 (供客户端连接，默认: 8010): " OUTER_PORT
+    OUTER_PORT=${OUTER_PORT:-8010}
 
-echo
-echo "=== 配置 HTTP Sessions 接口验证 ==="
-read -p "是否开启 HTTP Sessions 接口的用户名密码验证？(y/N): " ENABLE_AUTH
-ENABLE_AUTH=${ENABLE_AUTH:-n}
+    read -p "请输入 HTTP 代理监听端口 (默认: 8011): " HTTP_PORT
+    HTTP_PORT=${HTTP_PORT:-8011}
 
-EXEC_ARGS="-i http://0.0.0.0:${HTTP_PORT} -i socks5://0.0.0.0:${SOCKS5_PORT} -o tcp://0.0.0.0:${OUTER_PORT}"
+    read -p "请输入 SOCKS5 代理监听端口 (默认: 8012): " SOCKS5_PORT
+    SOCKS5_PORT=${SOCKS5_PORT:-8012}
 
-if [[ "${ENABLE_AUTH}" =~ ^[Yy]$ ]]; then
+    echo
+    echo "=== 配置 HTTP Sessions 接口验证 ==="
+    read -p "是否开启 HTTP Sessions 接口 of the username password validation? (y/N): " ENABLE_AUTH
+    ENABLE_AUTH=${ENABLE_AUTH:-n}
+
+    EXEC_ARGS="-i http://0.0.0.0:${HTTP_PORT} -i socks5://0.0.0.0:${SOCKS5_PORT} -o tcp://0.0.0.0:${OUTER_PORT}"
+
+    if [[ "${ENABLE_AUTH}" =~ ^[Yy]$ ]]; then
+        while true; do
+            read -p "请输入 HTTP Sessions 认证用户名: " AUTH_USER
+            if [[ -n "${AUTH_USER}" ]]; then
+                break
+            fi
+            echo "错误: 用户名不能为空，请重新输入。"
+        done
+
+        while true; do
+            read -p "请输入 HTTP Sessions 认证密码: " AUTH_PASS
+            if [[ -n "${AUTH_PASS}" ]]; then
+                break
+            fi
+            echo "错误: 密码不能为空，请重新输入。"
+        done
+
+        EXEC_ARGS="${EXEC_ARGS} -A -U ${AUTH_USER} -P ${AUTH_PASS}"
+    fi
+
+elif [[ "${MODE}" == "2" ]]; then
+    SERVICE_NAME="asterism-client"
+    USER_NAME="asterism"
+    GROUP_NAME="asterism"
+    INSTALL_DIR="/opt/asterism"
+    BIN_DIR="${INSTALL_DIR}/bin"
+    LOG_DIR="${INSTALL_DIR}/logs"
+    SERVICE_FILE="/etc/systemd/system/${SERVICE_NAME}.service"
+
+    echo
+    echo "=== 客户端模式配置 ==="
     while true; do
-        read -p "请输入 HTTP Sessions 认证用户名: " AUTH_USER
-        if [[ -n "${AUTH_USER}" ]]; then
+        read -p "请输入远程服务端连接地址 (例如: tcp://1.2.3.4:8010): " REMOTE_ADDR
+        if [[ -n "${REMOTE_ADDR}" ]]; then
+            break
+        fi
+        echo "错误: 远程连接地址不能为空，请重新输入。"
+    done
+
+    while true; do
+        read -p "请输入客户端认证用户名: " CLIENT_USER
+        if [[ -n "${CLIENT_USER}" ]]; then
             break
         fi
         echo "错误: 用户名不能为空，请重新输入。"
     done
 
     while true; do
-        read -p "请输入 HTTP Sessions 认证密码: " AUTH_PASS
-        if [[ -n "${AUTH_PASS}" ]]; then
+        read -p "请输入客户端认证密码: " CLIENT_PASS
+        if [[ -n "${CLIENT_PASS}" ]]; then
             break
         fi
         echo "错误: 密码不能为空，请重新输入。"
     done
 
-    EXEC_ARGS="${EXEC_ARGS} -A -U ${AUTH_USER} -P ${AUTH_PASS}"
+    EXEC_ARGS="-r ${REMOTE_ADDR} -u ${CLIENT_USER} -p ${CLIENT_PASS}"
+
+else
+    echo "无效的选择，退出。"
+    exit 1
 fi
+
+EXEC_ARGS="${EXEC_ARGS} -v"
+
+echo
+echo "安装目录: ${INSTALL_DIR}"
+echo "服务名称: ${SERVICE_NAME}"
 echo
 # ==================================================
 
@@ -107,7 +157,7 @@ chmod 750 "${LOG_DIR}"
 echo "目录创建完成"
 
 echo "[3/6] 安装可执行文件..."
-install -m 755 "${BIN_SOURCE}" "${BIN_DIR}/${SERVICE_NAME}"
+install -m 755 "${BIN_SOURCE}" "${BIN_DIR}/asterism"
 chown -R "${USER_NAME}:${GROUP_NAME}" "${INSTALL_DIR}"
 echo "可执行文件已安装"
 
@@ -123,7 +173,7 @@ Type=simple
 User=${USER_NAME}
 Group=${GROUP_NAME}
 WorkingDirectory=${INSTALL_DIR}
-ExecStart=${BIN_DIR}/${SERVICE_NAME} ${EXEC_ARGS}
+ExecStart=${BIN_DIR}/asterism ${EXEC_ARGS}
 Restart=always
 RestartSec=5
 StandardOutput=journal
@@ -146,13 +196,13 @@ echo "[6/6] 启动服务..."
 systemctl restart "${SERVICE_NAME}.service"
 systemctl status "${SERVICE_NAME}.service" --no-pager -l || true
 
-cat <<'EOF'
+cat <<EOF
 
 === 安装完成 ===
 常用命令:
-  查看状态: sudo systemctl status asterism
-  启动服务: sudo systemctl start asterism
-  停止服务: sudo systemctl stop asterism
-  重启服务: sudo systemctl restart asterism
-日志输出默认写入 journal，可使用 sudo journalctl -u asterism -f 实时查看。
+  查看状态: sudo systemctl status ${SERVICE_NAME}
+  启动服务: sudo systemctl start ${SERVICE_NAME}
+  停止服务: sudo systemctl stop ${SERVICE_NAME}
+  重启服务: sudo systemctl restart ${SERVICE_NAME}
+日志输出默认写入 journal，可使用 sudo journalctl -u ${SERVICE_NAME} -f 实时查看。
 EOF

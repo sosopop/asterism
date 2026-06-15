@@ -187,29 +187,45 @@ asterism -i http://0.0.0.0:8081 -o tcp://0.0.0.0:1234 -A -U admin -P admin123
 curl -u admin:admin123 http://<server_ip>:8081/sessions
 ```
 
-## System Service Deployment (Linux)
+## System Service Deployment
 
-The project includes systemd service scripts to run Asterism as a background daemon:
+Asterism provides interactive installation scripts to register client or server modes as background daemons/tasks across multiple operating systems. This allows running both client and server instances on the same host under distinct names.
 
-```bash
-# Install service (requires root)
-sudo ./install/install_service.sh
+### Linux (systemd)
+- **Install Service**: `sudo ./install/install_service.sh` (prompts for Mode and configuration).
+- **Uninstall Service**: `sudo ./install/uninstall_service.sh` (prompts for which service to uninstall).
+- **Service Names**: `asterism-server.service` or `asterism-client.service`
+- **Installation Directory**: `/opt/asterism/` (shared binary directory)
+- **Management Commands**:
+  ```bash
+  sudo systemctl status asterism-server      # Check status
+  sudo systemctl restart asterism-server     # Restart service
+  sudo journalctl -u asterism-server -f      # View real-time logs
+  ```
 
-# Uninstall service
-sudo ./install/uninstall_service.sh
-```
+### macOS (launchd)
+- **Install Service**: `sudo ./install/install_service_macos.sh` (prompts for Mode and configuration).
+- **Uninstall Service**: `sudo ./install/uninstall_service_macos.sh` (prompts for which service to uninstall).
+- **Service Labels**: `com.asterism.server` or `com.asterism.client`
+- **Installation Location**: `/usr/local/bin/asterism` (shared binary)
+- **Management Commands**:
+  ```bash
+  sudo launchctl list com.asterism.server                     # Check status
+  sudo launchctl unload /Library/LaunchDaemons/com.asterism.server.plist  # Stop service
+  tail -f /usr/local/var/log/com.asterism.server/asterism.log     # View logs
+  ```
 
-Common management commands after installation:
-
-```bash
-sudo systemctl status asterism     # Check status
-sudo systemctl start asterism      # Start service
-sudo systemctl stop asterism       # Stop service
-sudo systemctl restart asterism    # Restart service
-sudo journalctl -u asterism -f     # View logs in real time
-```
-
-The service is installed to `/opt/asterism/` by default. Runtime parameters are configured in `/etc/systemd/system/asterism.service`.
+### Windows (Task Scheduler)
+- **Install Task**: Run `PowerShell` as Administrator, then: `.\install\install_task_windows.ps1` (prompts for Mode and configuration, sets task to run at boot under the `SYSTEM` account).
+- **Uninstall Task**: `.\install\uninstall_task_windows.ps1`
+- **Task Names**: `AsterismServer` or `AsterismClient`
+- **Installation Directory**: `C:\Program Files\Asterism\` (shared binary directory)
+- **Management Commands**:
+  ```powershell
+  schtasks /Query /TN AsterismServer          # Check status
+  schtasks /End /TN AsterismServer            # Stop task
+  schtasks /Run /TN AsterismServer            # Start/Run task
+  ```
 
 ## Project Structure
 
