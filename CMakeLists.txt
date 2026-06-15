@@ -60,9 +60,7 @@ if(UNIX)
     set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -O0")
 endif()
 
-add_subdirectory(3rdparty/libuv)
-
-add_subdirectory(3rdparty/http-parser)
+add_subdirectory(3rdparty)
 add_subdirectory(src/asterism)
 
 option(UNIT_TEST "Build unit tests" ON)

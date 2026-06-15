@@ -65,11 +65,14 @@ graph LR
 
 - CMake >= 2.8
 - C 编译器（GCC / Clang / MSVC）
-- 第三方库已包含在 `3rdparty/` 目录中（libuv、http-parser），无需额外安装
+- 第三方库作为 Git 子模块 (Submodule) 引用在 `3rdparty/` 目录中 (libuv、http-parser)
 
 ### 构建步骤
 
 ```bash
+# 克隆仓库后，需要初始化并更新子模块：
+git submodule update --init --recursive
+
 mkdir build
 cd build
 cmake ..
@@ -81,6 +84,9 @@ cmake --build . --config Release
 ### 构建单元测试
 
 ```bash
+# 确保子模块已初始化：
+git submodule update --init --recursive
+
 mkdir build
 cd build
 cmake -DUNIT_TEST=ON ..

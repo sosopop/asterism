@@ -74,11 +74,14 @@ graph LR
 
 - CMake >= 2.8
 - C compiler (GCC / Clang / MSVC)
-- Third-party libraries are bundled in `3rdparty/` (libuv, http-parser) — no extra installation needed
+- Third-party libraries are referenced as Git submodules in `3rdparty/` (libuv, http-parser)
 
 ### Build Steps
 
 ```bash
+# Clone the repository with submodules, or initialize them afterwards:
+git submodule update --init --recursive
+
 mkdir build
 cd build
 cmake ..
@@ -90,6 +93,9 @@ The output is a single binary: `build/src/asterism/asterism` (or `asterism.exe` 
 ### Build with Unit Tests
 
 ```bash
+# Ensure submodules are initialized:
+git submodule update --init --recursive
+
 mkdir build
 cd build
 cmake -DUNIT_TEST=ON ..
