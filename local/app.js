@@ -13,61 +13,61 @@ class Config {
     }
 }
 
-class ProxyServer {
+class Portal {
     constructor(config) {
         this.name = config.name;
-        this.proxyHost = config.proxyHost;
-        this.proxyPort = config.proxyPort;
-        this.proxyUsername = config.proxyUsername;
-        this.proxyPassword = config.proxyPassword;
+        this.relayHost = config.relayHost;
+        this.relayPort = config.relayPort;
+        this.username = config.username;
+        this.password = config.password;
         this.targetHost = config.targetHost;
         this.targetPort = config.targetPort;
         this.localHost = config.localHost;
         this.localPort = config.localPort;
 
         this.server = net.createServer((inSocket) => {
-            console.log(`client connected to proxy ${this.proxyHost}:${this.proxyPort}`);
+            console.log(`Portal: client connected, tunneling via relay ${this.relayHost}:${this.relayPort}`);
             inSocket.pause();
 
             const req = http.request({
-                host: this.proxyHost,
-                port: this.proxyPort,
+                host: this.relayHost,
+                port: this.relayPort,
                 method: "CONNECT",
                 path: `${this.targetHost}:${this.targetPort}`,
                 headers: {
-                    "Proxy-Authorization": `Basic ${Buffer.from(`${this.proxyUsername}:${this.proxyPassword}`).toString("base64")}`,
+                    "Proxy-Authorization": `Basic ${Buffer.from(`${this.username}:${this.password}`).toString("base64")}`,
                 },
             });
             req.end();
             req.on("connect", (res, sock, head) => {
-                console.log(`Connected to target ${this.targetHost}:${this.targetPort} via proxy ${this.proxyHost}:${this.proxyPort}`);
+                console.log(`Portal: tunnel established to ${this.targetHost}:${this.targetPort} via relay ${this.relayHost}:${this.relayPort}`);
                 sock.on("close", () => {
-                    console.log(`Connection to target ${this.targetHost}:${this.targetPort} closed on proxy ${this.proxyHost}:${this.proxyPort}`);
+                    console.log(`Portal: tunnel to ${this.targetHost}:${this.targetPort} closed`);
                     inSocket.destroy();
                 });
                 sock.on("error", () => {
-                    console.log(`Error occurred on target ${this.targetHost}:${this.targetPort} connection on proxy ${this.proxyHost}:${this.proxyPort}`);
+                    console.log(`Portal: tunnel error on ${this.targetHost}:${this.targetPort}`);
                 });
                 inSocket.resume();
                 inSocket.pipe(sock);
                 sock.pipe(inSocket);
             });
             req.on("error", (e) => {
-                console.log(`Error occurred on proxy ${this.proxyHost}:${this.proxyPort} connection`);
+                console.log(`Portal: relay connection error on ${this.relayHost}:${this.relayPort}`);
                 inSocket.destroy();
             });
             inSocket.on("close", () => {
-                console.log(`Client disconnected from proxy ${this.proxyHost}:${this.proxyPort}`);
+                console.log(`Portal: client disconnected`);
                 req.destroy();
             });
             inSocket.on("error", (e) => {
-                console.log(`Error occurred on client connection on proxy ${this.proxyHost}:${this.proxyPort}`);
+                console.log(`Portal: client connection error`);
                 req.destroy();
             });
         });
 
         this.server.on("error", (err) => {
-            console.log(`Error occurred on proxy ${this.proxyHost}:${this.proxyPort}: ${err}`);
+            console.log(`Portal error on ${this.relayHost}:${this.relayPort}: ${err}`);
         });
     }
 
@@ -78,7 +78,7 @@ class ProxyServer {
                 port: this.localPort,
             },
             () => {
-                console.log(`Server bound to ${this.name} ${this.localHost}:${this.localPort} on proxy ${this.proxyHost}:${this.proxyPort}`);
+                console.log(`Portal "${this.name}" listening on ${this.localHost}:${this.localPort} -> ${this.targetHost}:${this.targetPort} via relay ${this.relayHost}:${this.relayPort}`);
             }
         );
     }
@@ -99,14 +99,14 @@ class ProxyServer {
 // Usage example
 const configPath = process.argv[2]; // Will be undefined if not provided
 const config = new Config(configPath).getConfig();
-const proxies = config.map((conf) => {
-    const proxy = new ProxyServer(conf);
+const portals = config.map((conf) => {
+    const portal = new Portal(conf);
 
-    proxy.setConnectionCallback(() => {
-        console.log(`Proxy server (${conf.proxyHost}:${conf.proxyPort}) connected`);
+    portal.setConnectionCallback(() => {
+        console.log(`Portal "${conf.name}" connected via relay ${conf.relayHost}:${conf.relayPort}`);
     });
 
-    proxy.connect();
+    portal.connect();
 
-    return proxy;
+    return portal;
 });

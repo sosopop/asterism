@@ -7,9 +7,9 @@
 #include "asterism_utils.h"
 #include "asterism_stream.h"
 
-#define HTTP_RESP_407                                                \
-    "HTTP/1.1 407 Proxy Authentication Required\r\n"                 \
-    "Proxy-Authenticate: Basic realm=\"Asterism Authorization\"\r\n" \
+#define HTTP_RESP_407                                                      \
+    "HTTP/1.1 407 Proxy Authentication Required\r\n"                       \
+    "Proxy-Authenticate: Basic realm=\"Asterism Proxy Authorization\"\r\n" \
     "Content-Length: 0\r\n\r\n"
 
 #define HTTP_RESP_401                                                \

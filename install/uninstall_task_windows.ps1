@@ -14,20 +14,20 @@ if (-not $currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Adm
 
 Write-Host "=== Asterism Windows Task Uninstaller ==="
 Write-Host "Choose what to uninstall:"
-Write-Host "1) Server Mode (AsterismServer)"
-Write-Host "2) Client Mode (AsterismClient)"
+Write-Host "1) Relay Mode (AsterismRelay)"
+Write-Host "2) Agent Mode (AsterismAgent)"
 Write-Host "3) Both"
 $choice = Read-Host "Select option (1, 2 or 3, default: 3)"
 if ($null -eq $choice -or $choice -eq "") { $choice = "3" }
 
 $tasks_to_delete = @()
 if ($choice -eq "1") {
-    $tasks_to_delete += "AsterismServer"
+    $tasks_to_delete += "AsterismRelay"
 } elseif ($choice -eq "2") {
-    $tasks_to_delete += "AsterismClient"
+    $tasks_to_delete += "AsterismAgent"
 } elseif ($choice -eq "3") {
-    $tasks_to_delete += "AsterismServer"
-    $tasks_to_delete += "AsterismClient"
+    $tasks_to_delete += "AsterismRelay"
+    $tasks_to_delete += "AsterismAgent"
 } else {
     Write-Error "Invalid selection. Exiting."
     Exit
@@ -45,13 +45,13 @@ foreach ($name in $tasks_to_delete) {
 }
 
 # Only delete the binary and installation directory if neither task remains registered
-schtasks.exe /Query /TN "AsterismServer" >$null 2>&1
-$serverExists = ($LASTEXITCODE -eq 0)
+schtasks.exe /Query /TN "AsterismRelay" >$null 2>&1
+$relayExists = ($LASTEXITCODE -eq 0)
 
-schtasks.exe /Query /TN "AsterismClient" >$null 2>&1
-$clientExists = ($LASTEXITCODE -eq 0)
+schtasks.exe /Query /TN "AsterismAgent" >$null 2>&1
+$agentExists = ($LASTEXITCODE -eq 0)
 
-if (-not $serverExists -and -not $clientExists) {
+if (-not $relayExists -and -not $agentExists) {
     if (Test-Path $INSTALL_DIR) {
         Write-Host "`nRemoving installed files at $INSTALL_DIR..."
         Remove-Item $INSTALL_DIR -Recurse -Force

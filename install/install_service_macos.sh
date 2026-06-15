@@ -7,7 +7,7 @@
 set -euo pipefail
 
 if [[ "${EUID}" -ne 0 ]]; then
-    echo "请以 root 权限运行此脚本 (使用 sudo)"
+    echo "Please run this script as root (use sudo)"
     exit 1
 fi
 
@@ -16,102 +16,102 @@ REPO_ROOT="$(dirname "${SCRIPT_DIR}")"
 DEFAULT_BIN_SOURCE="${REPO_ROOT}/build/src/asterism/asterism"
 BIN_SOURCE="${1:-${DEFAULT_BIN_SOURCE}}"
 
-echo "=== Asterism macOS 服务安装程序 ==="
-echo "二进制来源: ${BIN_SOURCE}"
+echo "=== Asterism macOS Service Installer ==="
+echo "Binary source: ${BIN_SOURCE}"
 echo
 
 if [[ ! -f "${BIN_SOURCE}" ]]; then
     cat <<EOF
-错误: 未找到可执行文件 ${BIN_SOURCE}
-请先构建项目，例如:
+Error: Executable not found at ${BIN_SOURCE}
+Please build the project first, for example:
   cmake -S ${REPO_ROOT} -B ${REPO_ROOT}/build
   cmake --build ${REPO_ROOT}/build
-或将编译出的 asterism 二进制路径作为本脚本的第一个参数传入。
+Or pass the path to the compiled asterism binary as the first argument to this script.
 EOF
     exit 1
 fi
 
-# ==================== 配置交互 ====================
-echo "请选择安装模式:"
-echo "1) 服务端模式 (Server Mode)"
-echo "2) 客户端模式 (Client Mode)"
-read -p "选择模式 (1 或 2, 默认: 1): " MODE
+# ==================== Configuration ====================
+echo "Choose installation mode:"
+echo "1) Relay Mode"
+echo "2) Agent Mode"
+read -p "Select mode (1 or 2, default: 1): " MODE
 MODE=${MODE:-1}
 
 if [[ "${MODE}" == "1" ]]; then
-    SERVICE_LABEL="com.asterism.server"
+    SERVICE_LABEL="com.asterism.relay"
 
     echo
-    echo "=== 服务端模式配置 ==="
-    read -p "请输入外部监听端口 (供客户端连接，默认: 8010): " OUTER_PORT
+    echo "=== Relay Mode Configuration ==="
+    read -p "Enter outer TCP port for agent connections (default: 8010): " OUTER_PORT
     OUTER_PORT=${OUTER_PORT:-8010}
 
-    read -p "请输入 HTTP 代理监听端口 (默认: 8011): " HTTP_PORT
+    read -p "Enter HTTP proxy listen port (default: 8011): " HTTP_PORT
     HTTP_PORT=${HTTP_PORT:-8011}
 
-    read -p "请输入 SOCKS5 代理监听端口 (默认: 8012): " SOCKS5_PORT
+    read -p "Enter SOCKS5 proxy listen port (default: 8012): " SOCKS5_PORT
     SOCKS5_PORT=${SOCKS5_PORT:-8012}
 
     echo
-    echo "=== 配置 HTTP Sessions 接口验证 ==="
-    read -p "是否开启 HTTP Sessions 接口 of the username password validation? (y/N): " ENABLE_AUTH
+    echo "=== Configure HTTP Sessions Authentication ==="
+    read -p "Enable HTTP Sessions username/password authentication? (y/N): " ENABLE_AUTH
     ENABLE_AUTH=${ENABLE_AUTH:-n}
 
     EXEC_ARGS=("-i" "http://0.0.0.0:${HTTP_PORT}" "-i" "socks5://0.0.0.0:${SOCKS5_PORT}" "-o" "tcp://0.0.0.0:${OUTER_PORT}")
 
     if [[ "${ENABLE_AUTH}" =~ ^[Yy]$ ]]; then
         while true; do
-            read -p "请输入 HTTP Sessions 认证用户名: " AUTH_USER
+            read -p "Enter HTTP Sessions authentication username: " AUTH_USER
             if [[ -n "${AUTH_USER}" ]]; then
                 break
             fi
-            echo "错误: 用户名不能为空，请重新输入。"
+            echo "Error: Username cannot be empty. Please try again."
         done
 
         while true; do
-            read -p "请输入 HTTP Sessions 认证密码: " AUTH_PASS
+            read -p "Enter HTTP Sessions authentication password: " AUTH_PASS
             if [[ -n "${AUTH_PASS}" ]]; then
                 break
             fi
-            echo "错误: 密码不能为空，请重新输入。"
+            echo "Error: Password cannot be empty. Please try again."
         done
 
         EXEC_ARGS+=("-A" "-U" "${AUTH_USER}" "-P" "${AUTH_PASS}")
     fi
 
 elif [[ "${MODE}" == "2" ]]; then
-    SERVICE_LABEL="com.asterism.client"
+    SERVICE_LABEL="com.asterism.agent"
 
     echo
-    echo "=== 客户端模式配置 ==="
+    echo "=== Agent Mode Configuration ==="
     while true; do
-        read -p "请输入远程服务端连接地址 (例如: tcp://1.2.3.4:8010): " REMOTE_ADDR
+        read -p "Enter remote relay address (e.g. tcp://1.2.3.4:8010): " REMOTE_ADDR
         if [[ -n "${REMOTE_ADDR}" ]]; then
             break
         fi
-        echo "错误: 远程连接地址不能为空，请重新输入。"
+        echo "Error: Remote address cannot be empty. Please try again."
     done
 
     while true; do
-        read -p "请输入客户端认证用户名: " CLIENT_USER
+        read -p "Enter agent authentication username: " CLIENT_USER
         if [[ -n "${CLIENT_USER}" ]]; then
             break
         fi
-        echo "错误: 用户名不能为空，请重新输入。"
+        echo "Error: Username cannot be empty. Please try again."
     done
 
     while true; do
-        read -p "请输入客户端认证密码: " CLIENT_PASS
+        read -p "Enter agent authentication password: " CLIENT_PASS
         if [[ -n "${CLIENT_PASS}" ]]; then
             break
         fi
-        echo "错误: 密码不能为空，请重新输入。"
+        echo "Error: Password cannot be empty. Please try again."
     done
 
     EXEC_ARGS=("-r" "${REMOTE_ADDR}" "-u" "${CLIENT_USER}" "-p" "${CLIENT_PASS}")
 
 else
-    echo "无效的选择，退出。"
+    echo "Invalid selection. Exiting."
     exit 1
 fi
 
@@ -121,24 +121,24 @@ INSTALL_BIN="/usr/local/bin/asterism"
 LOG_DIR="/usr/local/var/log/${SERVICE_LABEL}"
 PLIST_DEST="/Library/LaunchDaemons/${SERVICE_LABEL}.plist"
 
-echo "安装位置:   ${INSTALL_BIN}"
-echo "日志目录:   ${LOG_DIR}"
-echo "服务标签:   ${SERVICE_LABEL}"
+echo "Install location: ${INSTALL_BIN}"
+echo "Log directory:    ${LOG_DIR}"
+echo "Service label:    ${SERVICE_LABEL}"
 echo
 # ==================================================
 
-echo "[1/4] 创建日志目录..."
+echo "[1/4] Creating log directory..."
 mkdir -p "${LOG_DIR}"
-echo "日志目录已就绪"
+echo "Log directory ready"
 
-echo "[2/4] 安装可执行文件..."
+echo "[2/4] Installing executable..."
 cp "${BIN_SOURCE}" "${INSTALL_BIN}"
 chmod 755 "${INSTALL_BIN}"
-echo "可执行文件已安装到 ${INSTALL_BIN}"
+echo "Executable installed to ${INSTALL_BIN}"
 
-echo "[3/4] 部署 launchd plist..."
+echo "[3/4] Deploying launchd plist..."
 if launchctl list "${SERVICE_LABEL}" &>/dev/null; then
-    echo "检测到已有服务，先卸载..."
+    echo "Existing service detected, unloading first..."
     launchctl unload "${PLIST_DEST}" 2>/dev/null || true
 fi
 
@@ -174,27 +174,27 @@ cat <<EOF >> "${PLIST_DEST}"
 EOF
 
 chmod 644 "${PLIST_DEST}"
-echo "plist 已部署到 ${PLIST_DEST}"
+echo "plist deployed to ${PLIST_DEST}"
 
-echo "[4/4] 加载并启动服务..."
+echo "[4/4] Loading and starting service..."
 launchctl load -w "${PLIST_DEST}"
-echo "服务已加载"
+echo "Service loaded"
 
-# 检查状态
+# Check status
 sleep 1
 if launchctl list "${SERVICE_LABEL}" &>/dev/null; then
-    echo "服务运行正常"
+    echo "Service is running normally"
 else
-    echo "警告: 服务可能未正常启动，请检查日志"
+    echo "Warning: Service may not have started correctly. Please check logs."
 fi
 
 cat <<EOF
 
-=== 安装完成 ===
-常用命令:
-  查看状态: sudo launchctl list ${SERVICE_LABEL}
-  停止服务: sudo launchctl unload ${PLIST_DEST}
-  启动服务: sudo launchctl load -w ${PLIST_DEST}
-  查看日志: tail -f ${LOG_DIR}/asterism.log
-  查看错误: tail -f ${LOG_DIR}/asterism.err
+=== Installation Complete ===
+Common commands:
+  Check status: sudo launchctl list ${SERVICE_LABEL}
+  Stop service: sudo launchctl unload ${PLIST_DEST}
+  Start service: sudo launchctl load -w ${PLIST_DEST}
+  View logs: tail -f ${LOG_DIR}/asterism.log
+  View errors: tail -f ${LOG_DIR}/asterism.err
 EOF

@@ -39,8 +39,8 @@ if (-not (Test-Path $BIN_SOURCE)) {
 
 # Ask for mode
 Write-Host "Choose installation mode:"
-Write-Host "1) Server Mode (Relay server)"
-Write-Host "2) Client Mode (Connector)"
+Write-Host "1) Relay Mode"
+Write-Host "2) Agent Mode"
 $mode = Read-Host "Select mode (1 or 2, default: 1)"
 if ($null -eq $mode -or $mode -eq "") { $mode = "1" }
 
@@ -48,12 +48,12 @@ $args_list = @()
 $BASE_INSTALL_DIR = "C:\Program Files"
 
 if ($mode -eq "1") {
-    $SERVICE_NAME = "AsterismServer"
+    $SERVICE_NAME = "AsterismRelay"
     $INSTALL_DIR = Join-Path $BASE_INSTALL_DIR "Asterism"
     $BIN_DEST = Join-Path $INSTALL_DIR "asterism.exe"
 
-    Write-Host "`n=== Server Mode Configuration ==="
-    $outer_port = Read-Host "Enter outer TCP port for client connections (default: 8010)"
+    Write-Host "`n=== Relay Mode Configuration ==="
+    $outer_port = Read-Host "Enter outer TCP port for agent connections (default: 8010)"
     if ($null -eq $outer_port -or $outer_port -eq "") { $outer_port = "8010" }
 
     $http_port = Read-Host "Enter HTTP proxy listen port (default: 8011)"
@@ -88,23 +88,23 @@ if ($mode -eq "1") {
         $args_list += $auth_pass
     }
 } elseif ($mode -eq "2") {
-    $SERVICE_NAME = "AsterismClient"
+    $SERVICE_NAME = "AsterismAgent"
     $INSTALL_DIR = Join-Path $BASE_INSTALL_DIR "Asterism"
     $BIN_DEST = Join-Path $INSTALL_DIR "asterism.exe"
 
-    Write-Host "`n=== Client Mode Configuration ==="
+    Write-Host "`n=== Agent Mode Configuration ==="
     while ($true) {
-        $remote_addr = Read-Host "Enter remote server address (e.g. tcp://1.2.3.4:1234)"
+        $remote_addr = Read-Host "Enter remote relay address (e.g. tcp://1.2.3.4:1234)"
         if (-not [string]::IsNullOrEmpty($remote_addr)) { break }
-        Write-Host "Error: Remote server address cannot be empty." -ForegroundColor Red
+        Write-Host "Error: Remote relay address cannot be empty." -ForegroundColor Red
     }
     while ($true) {
-        $username = Read-Host "Enter client username"
+        $username = Read-Host "Enter agent username"
         if (-not [string]::IsNullOrEmpty($username)) { break }
         Write-Host "Error: Username cannot be empty." -ForegroundColor Red
     }
     while ($true) {
-        $password = Read-Host "Enter client password"
+        $password = Read-Host "Enter agent password"
         if (-not [string]::IsNullOrEmpty($password)) { break }
         Write-Host "Error: Password cannot be empty." -ForegroundColor Red
     }

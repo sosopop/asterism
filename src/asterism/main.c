@@ -18,22 +18,22 @@
 
 static void help()
 {
-    printf("asterism - A tool that exposes the client's service interface to the server.\n\n");
+    printf("asterism - A reverse proxy tunnel. Run as relay or agent mode.\n\n");
     printf("Usage:\n");
     printf("    asterism [options]\n\n");
     printf("Options:\n");
     printf("    -h, --help               Show this help message and exit.\n");
     printf("    -v, --verbose            Enable verbose output.\n");
     printf("    -V, --version            Display the version number of asterism.\n");
-    printf("    -i, --in-addr <address>  Set the server's local proxy listen address.\n");
+    printf("    -i, --in-addr <address>  Set the relay's proxy listen address.\n");
     printf("                             Example: -i http://0.0.0.0:8080\n");
     printf("                             Example: -i socks5://0.0.0.0:8082\n");
-    printf("    -o, --out-addr <address> Set the server's remote listen address.\n");
+    printf("    -o, --out-addr <address> Set the relay's agent connection listen address.\n");
     printf("                             Example: -o tcp://0.0.0.0:1234\n");
-    printf("    -r, --remote-addr <address> Set the client's connection address to the server.\n");
+    printf("    -r, --remote-addr <address> Set the agent's relay connection address.\n");
     printf("                             Example: -r tcp://1.1.1.1:1234\n");
-    printf("    -u, --user <username>    Define the username for server authorization.\n");
-    printf("    -p, --pass <password>    Define the password for server authorization.\n");
+    printf("    -u, --user <username>    Set the agent authentication username.\n");
+    printf("    -p, --pass <password>    Set the agent authentication password.\n");
     printf("    -d, --udp                Enable SOCKS5 UDP support. Disabled by default.\n");
     printf("    -t, --udp-timeout <seconds> Set the UDP idle timeout in seconds. A value of 0 disables the timeout.\n");
     printf("                             Example: -t 60 sets a 60-second timeout.\n");
@@ -41,9 +41,11 @@ static void help()
     printf("    -U, --session-user <user> Set the username for the session list authentication.\n");
     printf("    -P, --session-pass <pass> Set the password for the session list authentication.\n\n");
     printf("Examples:\n");
-    printf("    asterism -i http://0.0.0.0:8081 -o tcp://0.0.0.0:1234 -v\n");
-    printf("    asterism -i http://0.0.0.0:8081 -o tcp://0.0.0.0:1234 -A -U admin -P admin123 -v\n");
-    printf("    asterism -r tcp://127.0.0.1:1234 -u test -p 12345678 -v\n");
+    printf("    Relay mode:\n");
+    printf("      asterism -i http://0.0.0.0:8081 -o tcp://0.0.0.0:1234 -v\n");
+    printf("      asterism -i http://0.0.0.0:8081 -o tcp://0.0.0.0:1234 -A -U admin -P admin123 -v\n");
+    printf("    Agent mode:\n");
+    printf("      asterism -r tcp://127.0.0.1:1234 -u test -p 12345678 -v\n");
 }
 
 static void show_version()

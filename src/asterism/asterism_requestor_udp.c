@@ -83,7 +83,7 @@ static void requestor_read_cb(uv_udp_t* handle,
     const struct sockaddr_in* addr_in = (const struct sockaddr_in*)addr;
     struct asterism_trans_proto_s* trans_buffer = 0;
     struct asterism_write_req_s* write_req = 0;
-    // asterism_trans_proto_s size, source ip(4), source port(2), socks5 udp associate remote head(10), recv data
+    // write socks5 udp associate remote head
     ssize_t packet_len = sizeof(struct asterism_trans_proto_s) + 4 + 2 + 10 + nread;
     if (packet_len > ASTERISM_UDP_BLOCK_SIZE)
 	{
@@ -109,7 +109,7 @@ static void requestor_read_cb(uv_udp_t* handle,
     uint32_t remote_ip = addr_in->sin_addr.s_addr;
     uint16_t remote_port = addr_in->sin_port;
 
-    //Ð´Èësocks5 udp associate remote head
+    //å†™å…¥socks5 udp associate remote head
     //+---- + ------ + ------ + ---------- + ---------- + ---------- +
     //| RSV |  FRAG  |  ATYP  |  DST.ADDR  |  DST.PORT  |    DATA    |
     //+---- + ------ + ------ + ---------- + ---------- + ---------- +

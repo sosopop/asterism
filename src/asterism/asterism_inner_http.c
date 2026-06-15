@@ -608,7 +608,7 @@ static void incoming_read_cb(
     int ret = incoming_parse_connect(incoming, nread, buf);
     if (ret == 0)
     {
-        //只有头部解析完成后才暂停读取，否则会无法继续完成读取头部
+        // Stop reading only after the header is parsed, otherwise header parsing cannot be completed
         if (incoming->header_parsed)
         {
             uv_read_stop(stream);

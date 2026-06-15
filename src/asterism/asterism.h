@@ -70,8 +70,8 @@ extern "C"
 #undef ASTERISM_ERROR_GEN
 
     /**
-     * @brief Used to redirect the connection request,
-     *        return value must alloced by asterism_alloc
+     * @brief Used to redirect the connection request (for agent),
+     *        return value must be allocated by asterism_alloc
      * @see ASTERISM_OPT_CONNECT_REDIRECT_HOOK
      * @see ASTERISM_OPT_CONNECT_REDIRECT_HOOK_DATA
      */
@@ -83,35 +83,35 @@ extern "C"
      */
     typedef enum
     {
-        /* Incoming proxy address binding (for server)*/
+        /* Proxy listen address for client connections (for relay) */
         ASTERISM_OPT_INNER_BIND_ADDR = 0,
-        /* Address binding for client incoming connections (for server)*/
+        /* Agent connection listen address (for relay) */
         ASTERISM_OPT_OUTER_BIND_ADDR,
-        /* Destination address for the client connection server (for client)*/
+        /* Relay address to connect to (for agent) */
         ASTERISM_OPT_CONNECT_ADDR,
-        /* Client authorized user name (for client)*/
+        /* Agent authentication username (for agent) */
         ASTERISM_OPT_USERNAME,
-        /* Client authorized password (for client)*/
+        /* Agent authentication password (for agent) */
         ASTERISM_OPT_PASSWORD,
-        /* Client request hook callback (for client)*/
+        /* Agent request redirect hook callback (for agent) */
         ASTERISM_OPT_CONNECT_REDIRECT_HOOK,
-        /* Client request hook callback context (for client)*/
+        /* Agent request redirect hook callback context (for agent) */
         ASTERISM_OPT_CONNECT_REDIRECT_HOOK_DATA,
-        /* If there is no data transfer, the connection will be disconnected after the idle time*/
+        /* Idle timeout in seconds; connections with no data transfer will be closed */
         ASTERISM_OPT_IDLE_TIMEOUT,
-        /* Heartbeat interval (for client)*/
+        /* Heartbeat interval in milliseconds (for agent) */
         ASTERISM_OPT_HEARTBEAT_INTERVAL,
-        /* Reconnection interval (for client)*/
+        /* Reconnection delay in milliseconds (for agent) */
         ASTERISM_OPT_RECONNECT_DELAY,
-        /* Enable SOCKS5 UDP support. (for server)*/
+        /* Enable SOCKS5 UDP support (for relay) */
         ASTERISM_OPT_SOCKS5_UDP,
-        /* Idle timeout for UDP sessions (for server)*/
+        /* Idle timeout for UDP sessions (for relay) */
         ASTERISM_OPT_UDP_IDLE_TIMEOUT,
-        /* Enable authentication for session list HTTP GET /sessions (for server)*/
+        /* Enable authentication for session list HTTP GET /sessions (for relay) */
         ASTERISM_OPT_SESSION_AUTH,
-        /* Username for session list authentication (for server)*/
+        /* Username for session list authentication (for relay) */
         ASTERISM_OPT_SESSION_AUTH_USER,
-        /* Password for session list authentication (for server)*/
+        /* Password for session list authentication (for relay) */
         ASTERISM_OPT_SESSION_AUTH_PASS,
     } asterism_option;
 
