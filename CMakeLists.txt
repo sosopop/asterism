@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.5)
-project(asterism C)
+project(asterism VERSION 0.7.0.1 LANGUAGES C)
 
 
 if(WIN32)

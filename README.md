@@ -59,6 +59,8 @@ In short, Asterism provides the self-hosted control of frp, the simple access st
 
 ## 🏗️ Architecture Overview
 
+![Network Topology](assets/topology.png)
+
 ### 1. Standard Mode (Reverse HTTP/SOCKS5 Proxy)
 Clients route proxy requests through the public Relay, which forwards traffic via the reverse tunnel to the intranet Agent.
 
