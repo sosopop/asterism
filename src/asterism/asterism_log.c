@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <stdarg.h>
 #include <time.h>
-#ifdef WIN32
+#ifdef _WIN32
 #include <sys/timeb.h>
 #else
 #include <sys/time.h>
@@ -34,7 +34,7 @@ void _asterism_log(
     struct tm *time_info;
     char time_str[30];
 
-#ifdef WIN32
+#ifdef _WIN32
     struct timeb tmb;
     ftime(&tmb);
     time_info = localtime(&tmb.time);
@@ -43,10 +43,18 @@ void _asterism_log(
     struct timeval tv;
     struct timezone tz;
     if (gettimeofday(&tv, &tz) < 0)
+    {
+        va_end(ap);
         return;
+    }
     time_info = localtime(&tv.tv_sec);
     unsigned int millitm = (unsigned int)(tv.tv_usec / 1000);
 #endif
+    if (!time_info)
+    {
+        va_end(ap);
+        return;
+    }
     strftime(time_str, sizeof(time_str), "%Y-%m-%d %T", time_info);
 
     char stack_buf[128] = {0};
@@ -59,7 +67,12 @@ void _asterism_log(
             fun_name = match + 1;
     }
 
-    int len = asterism_vsnprintf(&temp_buf, sizeof(stack_buf), fmt, ap) + 1;
+    int len = asterism_vsnprintf(&temp_buf, sizeof(stack_buf), fmt, ap);
+    if (len < 0 || !temp_buf)
+    {
+        va_end(ap);
+        return;
+    }
 
     const char *debug_level = "DEBUG";
     switch (level)

@@ -28,12 +28,14 @@ static int responser_connect_ack(
 
     struct asterism_trans_proto_s *connect_data =
         (struct asterism_trans_proto_s *)malloc(sizeof(struct asterism_trans_proto_s) + 4 + 1);
+    if (!connect_data)
+        return ASTERISM_E_FAILED;
 
     connect_data->version = ASTERISM_TRANS_PROTO_VERSION;
     connect_data->cmd = ASTERISM_TRANS_PROTO_CONNECT_ACK;
 
     char *off = (char *)connect_data + sizeof(struct asterism_trans_proto_s);
-    *(uint32_t *)off = htonl(responser->handshake_id);
+    asterism_write_be32(off, responser->handshake_id);
     off += 4;
     *(uint8_t *)off = (uint8_t)successed;
     off += 1;
@@ -41,6 +43,11 @@ static int responser_connect_ack(
     connect_data->len = htons((uint16_t)(packet_len));
 
     struct asterism_write_req_s *req = AS_ZMALLOC(struct asterism_write_req_s);
+    if (!req)
+    {
+        AS_FREE(connect_data);
+        return ASTERISM_E_FAILED;
+    }
     req->write_buffer.base = (char *)connect_data;
     req->write_buffer.len = packet_len;
 
@@ -100,6 +107,8 @@ int asterism_responser_tcp_init(
 {
     int ret = 0;
     struct asterism_tcp_responser_s *responser = AS_ZMALLOC(struct asterism_tcp_responser_s);
+    if (!responser)
+        return ASTERISM_E_FAILED;
     ret = asterism_stream_connect(as, host, port, 1, 1,
                                   responser_connect_cb, 0, 0, responser_close_cb, (struct asterism_stream_s *)responser);
     if (ret)

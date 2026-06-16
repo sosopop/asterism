@@ -1,6 +1,7 @@
 #ifndef ASTERISM_CORE_H_
 #define ASTERISM_CORE_H_
 #include <stdint.h>
+#include <string.h>
 #include <uv.h>
 #include "asterism.h"
 #include <tree.h>
@@ -97,6 +98,32 @@ struct asterism_trans_proto_s
 
 #pragma pack(pop)
 
+static inline uint16_t asterism_read_be16(const void *data)
+{
+    uint16_t value;
+    memcpy(&value, data, sizeof(value));
+    return ntohs(value);
+}
+
+static inline uint32_t asterism_read_be32(const void *data)
+{
+    uint32_t value;
+    memcpy(&value, data, sizeof(value));
+    return ntohl(value);
+}
+
+static inline void asterism_write_be16(void *data, uint16_t value)
+{
+    value = htons(value);
+    memcpy(data, &value, sizeof(value));
+}
+
+static inline void asterism_write_be32(void *data, uint32_t value)
+{
+    value = htonl(value);
+    memcpy(data, &value, sizeof(value));
+}
+
 typedef struct asterism_s asterism_t;
 
 struct asterism_write_req_s
@@ -185,7 +212,7 @@ struct asterism_s
     uv_loop_t *loop;
     unsigned char stoped : 1;
     unsigned char socks5_udp : 1;
-    unsigned char session_auth : 1;
+    asterism_session_policy session_policy;
     char *session_auth_user;
     char *session_auth_pass;
     struct asterism_portal_list_s *portals;
@@ -217,5 +244,12 @@ int asterism_udp_session_compare(struct asterism_udp_session_s* a, struct asteri
 RB_PROTOTYPE(asterism_udp_session_tree_s, asterism_udp_session_s, tree_entry, asterism_udp_session_compare);
 
 unsigned int asterism_tunnel_new_handshake_id();
+
+int asterism_proto_frame_size(const void *data, size_t data_len, uint16_t *frame_len);
+
+int asterism_socks5_udp_header_size(
+    const unsigned char *data,
+    size_t data_len,
+    size_t *header_len);
 
 #endif

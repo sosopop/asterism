@@ -20,7 +20,8 @@ static void requestor_close_cb(
             struct asterism_udp_session_s* session = RB_FIND(asterism_udp_session_tree_s, &obj->connector->udp_sessions, &sefilter);
             if (session)
             {
-                session->datagram = 0;
+                RB_REMOVE(asterism_udp_session_tree_s, &obj->connector->udp_sessions, session);
+                AS_FREE(session);
             }
         }
 
@@ -83,6 +84,9 @@ static void requestor_read_cb(uv_udp_t* handle,
     const struct sockaddr_in* addr_in = (const struct sockaddr_in*)addr;
     struct asterism_trans_proto_s* trans_buffer = 0;
     struct asterism_write_req_s* write_req = 0;
+    if (nread <= 0 || !addr)
+        goto cleanup;
+
     // write socks5 udp associate remote head
     ssize_t packet_len = sizeof(struct asterism_trans_proto_s) + 4 + 2 + 10 + nread;
     if (packet_len > ASTERISM_UDP_BLOCK_SIZE)
@@ -90,15 +94,15 @@ static void requestor_read_cb(uv_udp_t* handle,
 		goto cleanup;
 	}
 
-    if (nread <= 0)
-        goto cleanup;
     if (addr_in->sin_family != AF_INET)
         goto cleanup;
 
     trans_buffer = (struct asterism_trans_proto_s*)AS_MALLOC(packet_len);
+    if (!trans_buffer)
+        goto cleanup;
     trans_buffer->version = ASTERISM_TRANS_PROTO_VERSION;
     trans_buffer->cmd = ASTERISM_TRANS_PROTO_DATAGRAM_RESPONSE;
-    trans_buffer->len = ntohs((uint16_t)packet_len);
+    trans_buffer->len = htons((uint16_t)packet_len);
 
     //source ip, source port
     uint32_t source_ip = requestor->source_addr.sin_addr.s_addr;
@@ -139,6 +143,11 @@ static void requestor_read_cb(uv_udp_t* handle,
 
     //trans to connector
     write_req = AS_ZMALLOC(struct asterism_write_req_s);
+    if (!write_req)
+    {
+        AS_FREE(trans_buffer);
+        goto cleanup;
+    }
     write_req->write_buffer.base = (char*)trans_buffer;
     write_req->write_buffer.len = (uint16_t)packet_len;
     write_req->write_req.data = requestor;
@@ -180,10 +189,17 @@ static int requestor_write(
 {
 	int ret = 0;
     struct asterism_send_req_s* req = AS_ZMALLOC(struct asterism_send_req_s);
+    if (!req)
+        return ASTERISM_E_FAILED;
 	req->write_req.data = requestor;
     req->write_buffer = buf;
     req->write_buffer.base = __DUP_MEM(buf.base, buf.len);
-	ret = uv_udp_send((uv_udp_send_t*)req, &requestor->socket, &buf, 1, (const struct sockaddr*)&remote_addr, requestor_write_cb);
+    if (buf.len && !req->write_buffer.base)
+    {
+        AS_FREE(req);
+        return ASTERISM_E_FAILED;
+    }
+	ret = uv_udp_send((uv_udp_send_t*)req, &requestor->socket, &req->write_buffer, 1, (const struct sockaddr*)&remote_addr, requestor_write_cb);
 	if (ret != 0)
 	{
         AS_SFREE(req->write_buffer.base);
@@ -200,6 +216,7 @@ static void requestor_getaddrinfo(
     int ret = ASTERISM_E_OK;
     struct asterism_udp_requestor_s* requestor = (struct asterism_udp_requestor_s*)req->data;
     struct requestor_getaddrinfo_s* addr_req = (struct requestor_getaddrinfo_s*)req;
+    struct addrinfo* resolved = res;
 
     char addr[INET_ADDRSTRLEN] = { '\0' };
     if (!requestor)
@@ -212,27 +229,34 @@ static void requestor_getaddrinfo(
         ret = status;
         goto cleanup;
     }
-    //only support ipv4
-    if(res->ai_family != AF_INET)
-	{
-		ret = -1;
-		goto cleanup;
-	}
-    ret = uv_ip4_name((struct sockaddr_in*)res->ai_addr, addr, 16);
+    while (resolved && resolved->ai_family != AF_INET)
+        resolved = resolved->ai_next;
+    if (!resolved)
+    {
+        ret = -1;
+        goto cleanup;
+    }
+
+    ret = uv_ip4_name((struct sockaddr_in*)resolved->ai_addr, addr, sizeof(addr));
     if (ret != 0)
     {
         goto cleanup;
     }
 
     struct asterism_udp_addr_cache_s* cache = AS_ZMALLOC(struct asterism_udp_addr_cache_s);
+    if (!cache)
+    {
+        ret = ASTERISM_E_FAILED;
+        goto cleanup;
+    }
     strcpy(cache->domain, addr_req->domain);
     strcpy(cache->ip, addr);
     RB_INSERT(asterism_udp_addr_cache_tree_s, &requestor->udp_addr_cache, cache);
 
     if(addr_req->pendding_buffer.base)
 	{
-        struct sockaddr_in remtoe_addr = *(struct sockaddr_in*)res->ai_addr;
-		ret = requestor_write(requestor, remtoe_addr, addr_req->pendding_buffer);
+        struct sockaddr_in remote_addr = *(struct sockaddr_in*)resolved->ai_addr;
+		ret = requestor_write(requestor, remote_addr, addr_req->pendding_buffer);
 		if (ret != 0)
 		{
 			goto cleanup;
@@ -276,6 +300,9 @@ static int requestor_send(
     }
     else if (atyp == 3)
     {
+        if (!remote_host || strlen(remote_host) >= MAX_HOST_LEN)
+            goto cleanup;
+
         struct asterism_udp_addr_cache_s filter;
         strcpy(filter.domain, remote_host);
         struct asterism_udp_addr_cache_s* cache = RB_FIND(asterism_udp_addr_cache_tree_s, &requestor->udp_addr_cache, &filter);
@@ -295,18 +322,38 @@ static int requestor_send(
         }
         else
         {
-            struct requestor_getaddrinfo_s* addr_req = (struct requestor_getaddrinfo_s*)AS_MALLOC(sizeof(struct requestor_getaddrinfo_s));
+            struct requestor_getaddrinfo_s* addr_req = (struct requestor_getaddrinfo_s*)AS_ZMALLOC(struct requestor_getaddrinfo_s);
+            if (!addr_req)
+                goto cleanup;
             addr_req->addrinfo.data = requestor;
             addr_req->pendding_buffer = uv_buf_init((char*)__DUP_MEM(data, data_len), data_len);
+            if (data_len && !addr_req->pendding_buffer.base) {
+                AS_FREE(addr_req);
+                goto cleanup;
+            }
             strcpy(addr_req->domain, remote_host);
             requestor->addr_req = (struct uv_getaddrinfo_s*)addr_req;
 
             char port_str[10] = { 0 };
+            struct addrinfo hints;
+            memset(&hints, 0, sizeof(hints));
+            hints.ai_family = AF_INET;
+            hints.ai_socktype = SOCK_DGRAM;
+            hints.ai_protocol = IPPROTO_UDP;
             asterism_itoa(port_str, sizeof(port_str), remote_port, 10, 0, 0);
-            ret = uv_getaddrinfo(requestor->as->loop, (uv_getaddrinfo_t*)requestor->addr_req, requestor_getaddrinfo, remote_host, port_str, 0);
+            ret = uv_getaddrinfo(
+                requestor->as->loop,
+                (uv_getaddrinfo_t*)requestor->addr_req,
+                requestor_getaddrinfo,
+                remote_host,
+                port_str,
+                &hints);
             if (ret != 0)
             {
                 asterism_log(ASTERISM_LOG_DEBUG, "%s", uv_strerror(ret));
+                requestor->addr_req = 0;
+                AS_SFREE(addr_req->pendding_buffer.base);
+                AS_FREE(addr_req);
                 goto cleanup;
             }
         }
@@ -331,9 +378,14 @@ static int requestor_init(
 {
     int ret = -1;
     struct asterism_udp_requestor_s* requestor = AS_ZMALLOC(struct asterism_udp_requestor_s);
+    if (!requestor)
+        return ASTERISM_E_FAILED;
     ret = asterism_datagram_init(connector->as, 0, 0, requestor_read_cb, requestor_close_cb, (struct asterism_datagram_s*)requestor);
     if (ret != 0)
-        goto cleanup;
+    {
+        AS_FREE(requestor);
+        return ret;
+    }
 
     requestor->connector = connector;
     requestor->source_addr = source_addr;
@@ -357,6 +409,11 @@ cleanup:
     }
     else {
         struct asterism_udp_session_s* session = AS_ZMALLOC(struct asterism_udp_session_s);;
+        if (!session)
+        {
+            asterism_datagram_close((uv_handle_t*)&requestor->socket);
+            return ASTERISM_E_FAILED;
+        }
         session->datagram = (struct asterism_datagram_s*)requestor;
         session->source_addr = source_addr;
 		RB_INSERT(asterism_udp_session_tree_s, &connector->udp_sessions, session);

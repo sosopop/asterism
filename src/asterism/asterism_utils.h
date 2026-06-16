@@ -1,7 +1,7 @@
 #ifndef ASTERISM_UTILS_H_
 #define ASTERISM_UTILS_H_
 
-#ifdef WIN32
+#ifdef _WIN32
 #ifndef _CRTDBG_MAP_ALLOC
 #define _CRTDBG_MAP_ALLOC
 #endif
@@ -13,7 +13,7 @@
 #include <stdlib.h>
 #include <memory.h>
 
-#ifdef WIN32
+#ifdef _WIN32
 #define vsnprintf _vsnprintf
 #endif
 
@@ -28,8 +28,22 @@
         d = 0;      \
     }
 
-#define AS_ZMALLOC(s) (s *)memset(AS_MALLOC(sizeof(s)), 0, sizeof(s))
-#define __DUP_MEM(b, s) memcpy(AS_MALLOC(s), b, s)
+static inline void *asterism_zmalloc(size_t size)
+{
+    void *p = AS_MALLOC(size);
+    return p ? memset(p, 0, size) : NULL;
+}
+
+static inline void *asterism_dup_mem(const void *src, size_t size)
+{
+    if (!src && size)
+        return NULL;
+    void *p = AS_MALLOC(size);
+    return p ? memcpy(p, src, size) : NULL;
+}
+
+#define AS_ZMALLOC(s) (s *)asterism_zmalloc(sizeof(s))
+#define __DUP_MEM(b, s) asterism_dup_mem(b, s)
 #define __CONTAINER_PTR(s, m, p) (s *)((unsigned char *)p - (unsigned char *)(&((s *)0)->m))
 #define __ARRAY_SIZE(a) (sizeof(a) / sizeof((a)[0]))
 #define __CSLEN(s) (sizeof(s)-1)
@@ -113,7 +127,7 @@ void asterism_slist_free_all(struct asterism_slist *list);
 
 struct asterism_slist *asterism_slist_append(struct asterism_slist *list, const char *data);
 
-int asterism_base64_decode(const unsigned char *s, int len, char *dst, int *dec_len);
+int asterism_base64_decode(const unsigned char *s, int len, char *dst, size_t dst_size, int *dec_len);
 
 int asterism_itoa(char *buf, size_t buf_size, long long num, int base, int flags,
                   int field_width);

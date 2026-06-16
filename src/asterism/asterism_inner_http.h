@@ -1,7 +1,7 @@
 #ifndef ASTERISM_INNER_HTTP_H_
 #define ASTERISM_INNER_HTTP_H_
 #include <uv.h>
-#include <http_parser.h>
+#include <llhttp.h>
 #include "asterism.h"
 #include "asterism_core.h"
 #include "asterism_utils.h"
@@ -15,6 +15,10 @@
 #define HTTP_RESP_401                                                \
     "HTTP/1.1 401 Unauthorized\r\n"                                  \
     "WWW-Authenticate: Basic realm=\"Asterism Session List\"\r\n"    \
+    "Content-Length: 0\r\n\r\n"
+
+#define HTTP_RESP_404                 \
+    "HTTP/1.1 404 Not Found\r\n"      \
     "Content-Length: 0\r\n\r\n"
 
 #define HTTP_RESP_200 \
@@ -47,7 +51,7 @@ struct asterism_http_incoming_s
     ASTERISM_HANDLE_FIELDS
     ASTERISM_STREAM_FIELDS
 
-    http_parser parser;
+    llhttp_t parser;
     struct asterism_str http_header_field_temp;
     struct asterism_str http_header_value_temp;
     struct asterism_str connect_url;

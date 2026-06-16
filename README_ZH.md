@@ -100,9 +100,10 @@ graph LR
 
 ### 编译依赖
 
-- CMake >= 2.8
+- CMake >= 3.16
 - C 编译器（GCC / Clang / MSVC）
-- 第三方库作为 Git 子模块 (Submodule) 引用在 `3rdparty/` 目录中 (libuv、http-parser)
+- Node.js/npm，用于在构建时生成 vendored `llhttp` C 解析器源码
+- 第三方库作为 Git 子模块 (Submodule) 引用在 `3rdparty/` 目录中 (libuv、llhttp)
 
 ### 构建步骤
 
@@ -128,6 +129,7 @@ mkdir build
 cd build
 cmake -DUNIT_TEST=ON ..
 cmake --build . --config Debug
+ctest --output-on-failure
 ```
 
 ## 🚀 使用方法
@@ -152,10 +154,15 @@ asterism [options]
   -p, --pass <password>      Agent 认证密码
   -d, --udp                  启用 SOCKS5 UDP 支持（默认关闭）
   -t, --udp-timeout <seconds> UDP 会话空闲超时（0 表示不超时）
-  -A, --auth-sessions        启用会话列表接口（/sessions）的 HTTP Basic 认证
+  -A, --auth-sessions        要求会话列表接口（/sessions）使用 HTTP Basic 认证
+      --public-sessions      允许未认证访问 /sessions
   -U, --session-user <user>  会话列表认证用户名
   -P, --session-pass <pass>  会话列表认证密码
 ```
+
+### 安全说明
+
+内部 Relay-Agent TCP 流保留了一个简单的 XOR 混淆开关以兼容现有线协议。它不是传输加密，不能等同于 TLS。需要保密性时，请使用可信网络、主机级加密或外部 TLS/VPN 层。
 
 ### 快速开始
 
@@ -252,15 +259,24 @@ curl http://10.0.0.50:3389 --proxy socks5://relay:8082 --proxy-user "office:pass
 curl http://<relay_ip>:<http_port>/sessions
 ```
 
-默认情况下该接口是公开的。您可以通过 `-A` / `--auth-sessions` 选项开启 HTTP Basic 认证，并结合 `-U` / `--session-user` 和 `-P` / `--session-pass` 设置查询接口的用户名与密码：
+默认情况下该接口要求 HTTP Basic 认证。如果没有配置 `-U` / `--session-user` 和 `-P` / `--session-pass`，`/sessions` 会返回 `401 Unauthorized`。
 
 ```bash
 # 启动 Relay 并开启会话列表验证
-asterism -i http://0.0.0.0:8081 -o tcp://0.0.0.0:1234 -A -U admin -P admin123
+asterism -i http://0.0.0.0:8081 -o tcp://0.0.0.0:1234 -U admin -P admin123
 
 # 携带账密查询
 curl -u admin:admin123 http://<relay_ip>:8081/sessions
 ```
+
+如果需要显式恢复旧版本的公开行为，可以用 `--public-sessions` 启动 Relay：
+
+```bash
+asterism -i http://0.0.0.0:8081 -o tcp://0.0.0.0:1234 --public-sessions
+curl http://<relay_ip>:8081/sessions
+```
+
+`-A` / `--auth-sessions` 保留为兼容 alias，对应默认的认证策略。
 
 ## ⚙️ 系统服务部署
 
@@ -362,7 +378,7 @@ target_link_libraries(my_app PRIVATE asterism_lib)
 asterism/
 ├── 3rdparty/               # 第三方依赖
 │   ├── libuv/              # 跨平台异步 I/O 库
-│   └── http-parser/        # HTTP 协议解析器
+│   └── llhttp/             # HTTP 协议解析器
 ├── src/asterism/           # 核心源码
 │   ├── main.c              # 程序入口与命令行解析
 │   ├── asterism.h/.c       # 公共 API 接口

@@ -37,9 +37,15 @@ static void inner_read_cb(uv_udp_t* handle,
     unsigned flags)
 {
     struct asterism_socks5_udp_inner_s* datagram = __CONTAINER_PTR(struct asterism_socks5_udp_inner_s, socket, handle);
-    struct asterism_stream_s* stream = datagram->session->outer;
     struct asterism_write_req_s* req = 0;
-    if (addr->sa_family != AF_INET || nread < 10)
+    if (!datagram->session || !datagram->session->outer)
+    {
+        return;
+    }
+    size_t socks5_header_len = 0;
+    if (!addr || addr->sa_family != AF_INET || nread < 0 ||
+        asterism_socks5_udp_header_size(
+            (const unsigned char *)buf->base, (size_t)nread, &socks5_header_len) != 0)
 	{
         asterism_log(ASTERISM_LOG_DEBUG, "udp recv invalid data");
 		return;
@@ -58,6 +64,8 @@ static void inner_read_cb(uv_udp_t* handle,
     // trans to remote
     struct asterism_trans_proto_s* connect_data =
         (struct asterism_trans_proto_s*)AS_MALLOC(datagram_size);
+    if (!connect_data)
+        return;
 
     connect_data->version = ASTERISM_TRANS_PROTO_VERSION;
     connect_data->cmd = ASTERISM_TRANS_PROTO_DATAGRAM_REQUEST;
@@ -79,6 +87,11 @@ static void inner_read_cb(uv_udp_t* handle,
     memcpy((char*)(connect_data + 1) + 6, buf->base, nread);
 
     req = AS_ZMALLOC(struct asterism_write_req_s);
+    if (!req)
+    {
+        AS_FREE(connect_data);
+        return;
+    }
 
     req->write_buffer.base = (char*)connect_data;
     req->write_buffer.len = datagram_size;
@@ -104,11 +117,23 @@ int asterism_inner_socks5_udp_init(
     int name_len = 0;
 
     struct asterism_socks5_udp_inner_s* inner = AS_ZMALLOC(struct asterism_socks5_udp_inner_s);
+    if (!inner)
+        return ASTERISM_E_FAILED;
     ret = asterism_datagram_init(as, 0, 0, inner_read_cb, inner_close_cb, (struct asterism_datagram_s*)inner);
+    if (ret != 0)
+    {
+        AS_FREE(inner);
+        return ret;
+    }
 
     inner->session = session;
 
     addr = AS_ZMALLOC(struct sockaddr_in);
+    if (!addr)
+    {
+        ret = ASTERISM_E_FAILED;
+        goto cleanup;
+    }
     name_len = sizeof(struct sockaddr_in);
     ret = uv_ip4_addr(ip, (int)*port, (struct sockaddr_in*)addr);
     if (ret != 0)

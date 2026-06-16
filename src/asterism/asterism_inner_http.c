@@ -1,4 +1,4 @@
-#include <http_parser.h>
+#include <llhttp.h>
 #include "asterism_inner_http.h"
 #include "asterism_core.h"
 #include "asterism_log.h"
@@ -48,40 +48,54 @@ static void incoming_close_cb(
 static void regular_http_request(
     struct asterism_http_incoming_s *incoming)
 {
-    //remove proxy headers
     struct asterism_str remove_data[3];
-    remove_data[0] = incoming->host_info;
-    if (incoming->auth_key_info.p > incoming->conn_key_info.p)
+    int remove_count = 0;
+
+    if (incoming->host_info.p && incoming->host_info.len)
+        remove_data[remove_count++] = incoming->host_info;
+
+    if (incoming->conn_key_info.p)
     {
-        remove_data[1] = incoming->conn_key_info;
-        remove_data[1].len = (sizeof(HTTP_PROXY_PREFIX_HEAD) - 1);
-        remove_data[2] = incoming->auth_key_info;
-        remove_data[2].len = (incoming->auth_val_info.p + incoming->auth_val_info.len) - incoming->auth_key_info.p + 2;
+        remove_data[remove_count] = incoming->conn_key_info;
+        remove_data[remove_count].len = sizeof(HTTP_PROXY_PREFIX_HEAD) - 1;
+        remove_count++;
     }
-    else
+
+    if (incoming->auth_key_info.p && incoming->auth_val_info.p)
     {
-        remove_data[1] = incoming->auth_key_info;
-        remove_data[1].len = (incoming->auth_val_info.p + incoming->auth_val_info.len) - incoming->auth_key_info.p + 2;
-        remove_data[2] = incoming->conn_key_info;
-        remove_data[2].len = (sizeof(HTTP_PROXY_PREFIX_HEAD) - 1);
+        remove_data[remove_count] = incoming->auth_key_info;
+        remove_data[remove_count].len =
+            (incoming->auth_val_info.p + incoming->auth_val_info.len) - incoming->auth_key_info.p + 2;
+        remove_count++;
+    }
+
+    for (int i = 0; i < remove_count - 1; i++)
+    {
+        for (int j = i + 1; j < remove_count; j++)
+        {
+            if (remove_data[j].p < remove_data[i].p)
+            {
+                struct asterism_str tmp = remove_data[i];
+                remove_data[i] = remove_data[j];
+                remove_data[j] = tmp;
+            }
+        }
     }
 
     int off = 0;
     int len = incoming->buffer_len;
     char *buffer = incoming->buffer;
-
-    for (int i = 0; i < __ARRAY_SIZE(remove_data); i++)
+    for (int i = 0; i < remove_count; i++)
     {
-        if (!remove_data[i].p)
-        {
-            continue;
-        }
         char *remove_buffer = (char *)remove_data[i].p - off;
         int remove_len = (int)remove_data[i].len;
+        if (remove_buffer < buffer || remove_buffer + remove_len > buffer + len)
+            continue;
         memmove(remove_buffer, remove_buffer + remove_len, (buffer + len) - (remove_buffer + remove_len));
         off += remove_len;
+        len -= remove_len;
     }
-    incoming->buffer_len = len - off;
+    incoming->buffer_len = len;
 }
 
 static void write_connect_ack_cb(
@@ -117,9 +131,11 @@ static int conn_ack_cb(
     {
         goto cleanup;
     }
-    if (incoming->parser.method == HTTP_CONNECT)
+    if (llhttp_get_method(&incoming->parser) == HTTP_CONNECT)
     {
         req = AS_ZMALLOC(uv_write_t);
+        if (!req)
+            goto cleanup;
         req->data = stream;
         uv_buf_t buf;
         buf.base = HTTP_RESP_200;
@@ -174,10 +190,14 @@ static int parse_connect(
         return -1;
     char decode_buffer[128] = {0};
     int deocode_size = sizeof(decode_buffer);
+    if (incoming->auth_val_info.len <= base_prefix.len ||
+        incoming->auth_val_info.len - base_prefix.len >= sizeof(decode_buffer))
+        return -1;
     int parsed = asterism_base64_decode(
         (const unsigned char *)incoming->auth_val_info.p + base_prefix.len,
         (int)(incoming->auth_val_info.len - base_prefix.len),
         decode_buffer,
+        sizeof(decode_buffer),
         &deocode_size);
     if (parsed != incoming->auth_val_info.len - base_prefix.len)
         return -1;
@@ -187,7 +207,7 @@ static int parse_connect(
     *split_pos = 0;
     char *username = decode_buffer;
     char *password = split_pos + 1;
-    asterism_log(ASTERISM_LOG_DEBUG, "http request username: %s , password: %s", username, password);
+    asterism_log(ASTERISM_LOG_DEBUG, "http request username: %s", username);
 
     struct asterism_session_s sefilter;
     sefilter.username = username;
@@ -199,12 +219,19 @@ static int parse_connect(
         return 407;
 
     struct asterism_handshake_s *handshake = AS_ZMALLOC(struct asterism_handshake_s);
+    if (!handshake)
+        return -1;
     handshake->inner = (struct asterism_stream_s *)incoming;
     handshake->conn_ack_cb = conn_ack_cb;
     handshake->id = asterism_tunnel_new_handshake_id();
     incoming->handshake_id = handshake->id;
 
     struct asterism_write_req_s *req = AS_ZMALLOC(struct asterism_write_req_s);
+    if (!req)
+    {
+        AS_FREE(handshake);
+        return -1;
+    }
 
     int port_len = 0;
 
@@ -215,15 +242,21 @@ static int parse_connect(
     struct asterism_trans_proto_s *connect_data =
         (struct asterism_trans_proto_s *)malloc(sizeof(struct asterism_trans_proto_s) +
                                                 host.len + port_len + 2 + 4);
+    if (!connect_data)
+    {
+        AS_FREE(req);
+        AS_FREE(handshake);
+        return -1;
+    }
 
     connect_data->version = ASTERISM_TRANS_PROTO_VERSION;
     connect_data->cmd = ASTERISM_TRANS_PROTO_CONNECT;
 
     char *off = (char *)connect_data + sizeof(struct asterism_trans_proto_s);
-    *(uint32_t *)off = htonl(handshake->id);
+    asterism_write_be32(off, handshake->id);
     off += 4;
 
-    *(uint16_t *)off = htons((uint16_t)host.len + port_len);
+    asterism_write_be16(off, (uint16_t)host.len + port_len);
     off += 2;
     memcpy(off, host.p, host.len);
     off += host.len;
@@ -250,7 +283,7 @@ static int parse_connect(
         return -1;
     }
 
-    if (incoming->parser.method == HTTP_CONNECT)
+    if (llhttp_get_method(&incoming->parser) == HTTP_CONNECT)
     {
         asterism_stream_eaten((struct asterism_stream_s *)incoming, incoming->buffer_len);
     }
@@ -314,7 +347,7 @@ static int parse_normal_type(
     return parse_connect(incoming, host);
 }
 
-static int on_url(http_parser *parser, const char *at, size_t length)
+static int on_url(llhttp_t *parser, const char *at, size_t length)
 {
     struct asterism_http_incoming_s *obj = __CONTAINER_PTR(struct asterism_http_incoming_s, parser, parser);
     if (obj->connect_url.p)
@@ -357,7 +390,7 @@ static void parse_key(struct asterism_http_incoming_s *obj)
     obj->http_header_field_temp.len = 0;
 }
 
-static int on_header_field(http_parser *parser, const char *at, size_t length)
+static int on_header_field(llhttp_t *parser, const char *at, size_t length)
 {
     struct asterism_http_incoming_s *obj = __CONTAINER_PTR(struct asterism_http_incoming_s, parser, parser);
     if (obj->http_header_field_temp.p)
@@ -376,7 +409,7 @@ static int on_header_field(http_parser *parser, const char *at, size_t length)
     return 0;
 }
 
-static int on_header_value(http_parser *parser, const char *at, size_t length)
+static int on_header_value(llhttp_t *parser, const char *at, size_t length)
 {
     struct asterism_http_incoming_s *obj = __CONTAINER_PTR(struct asterism_http_incoming_s, parser, parser);
     if (obj->http_header_value_temp.p)
@@ -395,7 +428,7 @@ static int on_header_value(http_parser *parser, const char *at, size_t length)
     return 0;
 }
 
-static int on_headers_complete(http_parser *parser)
+static int on_headers_complete(llhttp_t *parser)
 {
     struct asterism_http_incoming_s *obj = __CONTAINER_PTR(struct asterism_http_incoming_s, parser, parser);
     obj->header_parsed = 1;
@@ -406,7 +439,7 @@ static int on_headers_complete(http_parser *parser)
     return 0;
 }
 
-static int on_message_begin(http_parser *parser)
+static int on_message_begin(llhttp_t *parser)
 {
     struct asterism_http_incoming_s *obj = __CONTAINER_PTR(struct asterism_http_incoming_s, parser, parser);
     struct asterism_str empty_str = {0, 0};
@@ -422,23 +455,28 @@ static int on_message_begin(http_parser *parser)
     return 0;
 }
 
-static int on_message_complete(http_parser *parser)
+static int on_message_complete(llhttp_t *parser)
 {
     struct asterism_http_incoming_s *obj = __CONTAINER_PTR(struct asterism_http_incoming_s, parser, parser);
     return 0;
 }
 
-static http_parser_settings parser_settings = {
-    on_message_begin,
-    on_url,
-    0,
-    on_header_field,
-    on_header_value,
-    on_headers_complete,
-    0,
-    on_message_complete,
-    0,
-    0};
+static llhttp_settings_t parser_settings;
+static int parser_settings_inited = 0;
+
+static void init_parser_settings(void)
+{
+    if (parser_settings_inited)
+        return;
+    llhttp_settings_init(&parser_settings);
+    parser_settings.on_message_begin = on_message_begin;
+    parser_settings.on_url = on_url;
+    parser_settings.on_header_field = on_header_field;
+    parser_settings.on_header_value = on_header_value;
+    parser_settings.on_headers_complete = on_headers_complete;
+    parser_settings.on_message_complete = on_message_complete;
+    parser_settings_inited = 1;
+}
 
 static void session_list_write_cb(
     uv_write_t *req,
@@ -451,19 +489,47 @@ static void session_list_write_cb(
     asterism_stream_end(stream);
 }
 
+static int write_session_response(
+    struct asterism_http_incoming_s *incoming,
+    const char *response)
+{
+    char *send_buffer = 0;
+    int len = asterism_snprintf(&send_buffer, 0, "%s", response);
+    if (len < 0 || !send_buffer)
+        return -1;
+
+    struct asterism_write_req_s *req = AS_ZMALLOC(struct asterism_write_req_s);
+    if (!req)
+    {
+        free(send_buffer);
+        return -1;
+    }
+
+    req->write_buffer.base = send_buffer;
+    req->write_buffer.len = len;
+    req->write_req.data = incoming;
+    int write_ret = asterism_stream_write((uv_write_t *)req, (struct asterism_stream_s *)incoming,
+        &req->write_buffer, session_list_write_cb);
+    if (write_ret != 0)
+    {
+        free(req->write_buffer.base);
+        free(req);
+        return -1;
+    }
+    return 0;
+}
+
 static int incoming_parse_connect(
     struct asterism_http_incoming_s *incoming,
     ssize_t nread,
     const uv_buf_t *buf)
 {
-    size_t nparsed = http_parser_execute(&incoming->parser, &parser_settings, buf->base, nread);
-    if (incoming->parser.http_errno != 0)
+    llhttp_errno_t err = llhttp_execute(&incoming->parser, buf->base, (size_t)nread);
+    if (err != HPE_OK && err != HPE_PAUSED_UPGRADE)
     {
-        asterism_log(ASTERISM_LOG_DEBUG, "%s", http_errno_description((enum http_errno)incoming->parser.http_errno));
+        asterism_log(ASTERISM_LOG_DEBUG, "%s", llhttp_errno_name(err));
         return -1;
     }
-    if (nparsed != nread)
-        return -1;
     if (!incoming->header_parsed)
     {
         if (incoming->buffer_len == ASTERISM_MAX_HTTP_HEADER_SIZE)
@@ -473,18 +539,24 @@ static int incoming_parse_connect(
     }
     else
     {
-        if (incoming->parser.method == HTTP_CONNECT)
+        if (llhttp_get_method(&incoming->parser) == HTTP_CONNECT)
         {
             return parse_connect_type(incoming);
         }
         else
         {
-            if (incoming->parser.method == HTTP_GET) {
+            if (llhttp_get_method(&incoming->parser) == HTTP_GET) {
                 struct asterism_str temp = asterism_mk_str_n("/sessions", sizeof("/sessions") - 1);
-                if (asterism_strstr(incoming->connect_url, temp)) {
-                    if (incoming->as->session_auth) {
+                if (incoming->connect_url.len == temp.len &&
+                    memcmp(incoming->connect_url.p, temp.p, temp.len) == 0) {
+                    if (incoming->as->session_policy == ASTERISM_SESSION_POLICY_DISABLED) {
+                        write_session_response(incoming, HTTP_RESP_404);
+                        return 0;
+                    }
+                    if (incoming->as->session_policy == ASTERISM_SESSION_POLICY_AUTH_REQUIRED) {
                         int auth_ok = 0;
-                        if (incoming->auth_val_info.len) {
+                        if (incoming->as->session_auth_user && incoming->as->session_auth_pass &&
+                            incoming->auth_val_info.len) {
                             struct asterism_str base_prefix = asterism_mk_str("Basic ");
                             if (asterism_strncmp(incoming->auth_val_info, base_prefix, base_prefix.len) == 0) {
                                 char decode_buffer[128] = {0};
@@ -495,6 +567,7 @@ static int incoming_parse_connect(
                                         (const unsigned char *)incoming->auth_val_info.p + base_prefix.len,
                                         (int)(incoming->auth_val_info.len - base_prefix.len),
                                         decode_buffer,
+                                        sizeof(decode_buffer),
                                         &decode_size);
                                     if (parsed == incoming->auth_val_info.len - base_prefix.len) {
                                         char *split_pos = strchr(decode_buffer, ':');
@@ -512,18 +585,7 @@ static int incoming_parse_connect(
                             }
                         }
                         if (!auth_ok) {
-                            char* send_buffer = 0;
-                            int len = asterism_snprintf(&send_buffer, 0, "%s", HTTP_RESP_401);
-                            struct asterism_write_req_s *req = AS_ZMALLOC(struct asterism_write_req_s);
-                            req->write_buffer.base = (char *)send_buffer;
-                            req->write_buffer.len = len;
-                            req->write_req.data = incoming;
-                            int write_ret = asterism_stream_write((uv_write_t *)req, (struct asterism_stream_s *)incoming, &req->write_buffer, session_list_write_cb);
-                            if (write_ret != 0)
-                            {
-                                free(req->write_buffer.base);
-                                free(req);
-                            }
+                            write_session_response(incoming, HTTP_RESP_401);
                             return 0;
                         }
                     }
@@ -564,10 +626,17 @@ static int incoming_parse_connect(
                     buf[pos] = 0;
 
                     int len = asterism_snprintf(&send_buffer, 0, "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length:%d\r\n\r\n%s", pos, buf);
+                    if (len < 0 || !send_buffer) {
+                        return -1;
+                    }
 
                     struct asterism_write_req_s *req = AS_ZMALLOC(struct asterism_write_req_s);
+                    if (!req) {
+                        free(send_buffer);
+                        return -1;
+                    }
                     req->write_buffer.base = (char *)send_buffer;
-                    req->write_buffer.len = len;
+                    req->write_buffer.len = (unsigned int)len;
                     req->write_req.data = incoming;
                     int write_ret = asterism_stream_write((uv_write_t *)req, (struct asterism_stream_s *)incoming, &req->write_buffer, session_list_write_cb);
                     if (write_ret != 0)
@@ -619,6 +688,11 @@ static void incoming_read_cb(
     {
 
         uv_write_t *req = AS_ZMALLOC(uv_write_t);
+        if (!req)
+        {
+            asterism_stream_close((uv_handle_t *)&incoming->socket);
+            return;
+        }
         req->data = incoming;
         uv_buf_t buf = uv_buf_init((char *)HTTP_RESP_407, sizeof(HTTP_RESP_407) - 1);
         int write_ret = asterism_stream_write((uv_write_t *)req, (struct asterism_stream_s *)incoming, &buf, resp_auth_write_cb);
@@ -649,7 +723,10 @@ static void inner_accept_cb(
         goto cleanup;
     }
     incoming = AS_ZMALLOC(struct asterism_http_incoming_s);
-    http_parser_init(&incoming->parser, HTTP_REQUEST);
+    if (!incoming)
+        return;
+    init_parser_settings();
+    llhttp_init(&incoming->parser, HTTP_REQUEST, &parser_settings);
     ret = asterism_stream_accept(inner->as, stream, 1, 0, 0,
                                  incoming_read_cb, incoming_close_cb, (struct asterism_stream_s *)incoming);
     if (ret != 0)
@@ -681,6 +758,8 @@ int asterism_inner_http_init(
     void *addr = 0;
     int name_len = 0;
     struct asterism_http_inner_s *inner = AS_ZMALLOC(struct asterism_http_inner_s);
+    if (!inner)
+        return ASTERISM_E_FAILED;
     inner->as = as;
     ASTERISM_HANDLE_INIT(inner, socket, inner_close);
     ret = uv_tcp_init(as->loop, &inner->socket);
@@ -691,6 +770,11 @@ int asterism_inner_http_init(
         goto cleanup;
     }
     addr = AS_ZMALLOC(struct sockaddr_in);
+    if (!addr)
+    {
+        ret = ASTERISM_E_FAILED;
+        goto cleanup;
+    }
     name_len = sizeof(struct sockaddr_in);
     ret = uv_ip4_addr(ip, (int)*port, (struct sockaddr_in *)addr);
     if (ret != 0)

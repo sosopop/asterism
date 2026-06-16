@@ -1,4 +1,4 @@
-#ifdef WIN32
+#ifdef _WIN32
 #ifndef _CRTDBG_MAP_ALLOC
 #define _CRTDBG_MAP_ALLOC
 #endif
@@ -37,7 +37,8 @@ static void help()
     printf("    -d, --udp                Enable SOCKS5 UDP support. Disabled by default.\n");
     printf("    -t, --udp-timeout <seconds> Set the UDP idle timeout in seconds. A value of 0 disables the timeout.\n");
     printf("                             Example: -t 60 sets a 60-second timeout.\n");
-    printf("    -A, --auth-sessions      Enable HTTP basic authentication for the session list (/sessions).\n");
+    printf("    -A, --auth-sessions      Require HTTP basic authentication for the session list (/sessions).\n");
+    printf("        --public-sessions    Allow unauthenticated access to /sessions.\n");
     printf("    -U, --session-user <user> Set the username for the session list authentication.\n");
     printf("    -P, --session-pass <pass> Set the password for the session list authentication.\n");
     printf("    -L, --portal <rule>      Enable Portal mode (local port forwarding).\n");
@@ -71,7 +72,7 @@ static void stop_prog(int signo)
 int main(int argc, char *argv[])
 {
     signal(SIGINT, stop_prog);
-#ifdef WIN32
+#ifdef _WIN32
     //_CrtSetBreakAlloc(138);
     _CrtSetDbgFlag(_CrtSetDbgFlag(_CRTDBG_REPORT_FLAG) | _CRTDBG_LEAK_CHECK_DF);
 #else
@@ -83,6 +84,7 @@ int main(int argc, char *argv[])
 
     int next_option;
     const char *const short_options = "hvVi:o:r:u:p:dt:AU:P:L:";
+    enum { OPT_PUBLIC_SESSIONS = 1000 };
     const struct parg_option long_options[] =
         {
             {"help", 0, NULL, 'h'},
@@ -96,6 +98,7 @@ int main(int argc, char *argv[])
             {"udp", 0, NULL, 'd'},
             {"udp-timeout", 1, NULL, 't'},
             {"auth-sessions", 0, NULL, 'A'},
+            {"public-sessions", 0, NULL, OPT_PUBLIC_SESSIONS},
             {"session-user", 1, NULL, 'U'},
             {"session-pass", 1, NULL, 'P'},
             {"portal", 1, NULL, 'L'},
@@ -167,6 +170,11 @@ int main(int argc, char *argv[])
             if (ret)
                 goto cleanup;
             break;
+        case OPT_PUBLIC_SESSIONS:
+            ret = asterism_set_option(as, ASTERISM_OPT_SESSION_POLICY, ASTERISM_SESSION_POLICY_PUBLIC);
+            if (ret)
+                goto cleanup;
+            break;
         case 'U':
             ret = asterism_set_option(as, ASTERISM_OPT_SESSION_AUTH_USER, ps.optarg);
             if (ret)
@@ -202,7 +210,7 @@ cleanup:
     {
         asterism_destroy(as);
     }
-#if defined(WIN32)
+#if defined(_WIN32)
     assert(_CrtDumpMemoryLeaks() == 0);
 #endif
     return ret;

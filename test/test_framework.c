@@ -27,15 +27,18 @@ int run_all_tests(void) {
     for (int i = 0; i < g_test_count; i++) {
         test_case_t *tc = &g_tests[i];
         printf("[ RUN      ] %s.%s\n", tc->suite_name, tc->case_name);
+        fflush(stdout);
         
         g_case_failures = 0;
         tc->func();
         
         if (g_case_failures == 0) {
             printf("[       OK ] %s.%s\n", tc->suite_name, tc->case_name);
+            fflush(stdout);
             passed_cases++;
         } else {
             printf("[  FAILED  ] %s.%s\n", tc->suite_name, tc->case_name);
+            fflush(stdout);
             failed_cases++;
         }
     }

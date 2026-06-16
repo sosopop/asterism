@@ -18,6 +18,8 @@ static struct
 const char *asterism_errno_description(
     asterism_errno error)
 {
+    if ((int)error < 0 || (size_t)error >= __ARRAY_SIZE(asterism_strerror_tab))
+        return "unknown error";
     return asterism_strerror_tab[error].description;
 }
 
@@ -34,6 +36,8 @@ asterism asterism_create()
 
 void asterism_destroy(asterism as)
 {
+    if (!as)
+        return;
     asterism_log(ASTERISM_LOG_DEBUG, "%s", "asterism_destroy");
     struct asterism_s *__as = (struct asterism_s *)as;
     asterism_core_destory(__as);
@@ -41,6 +45,9 @@ void asterism_destroy(asterism as)
 
 int asterism_set_option(asterism as, asterism_option opt, ...)
 {
+    if (!as)
+        return ASTERISM_E_INVALID_ARGS;
+
     int ret = ASTERISM_E_OK;
     struct asterism_s *__as = (struct asterism_s *)as;
     va_list ap;
@@ -49,19 +56,52 @@ int asterism_set_option(asterism as, asterism_option opt, ...)
     switch (opt)
     {
     case ASTERISM_OPT_INNER_BIND_ADDR:
-        __as->inner_bind_addrs = asterism_slist_append(__as->inner_bind_addrs,
-            va_arg(ap, const char *));
+    {
+        const char *addr = va_arg(ap, const char *);
+        if (!addr) {
+            ret = ASTERISM_E_INVALID_ARGS;
+            break;
+        }
+        struct asterism_slist *new_list = asterism_slist_append(__as->inner_bind_addrs, addr);
+        if (!new_list) {
+            ret = ASTERISM_E_FAILED;
+            break;
+        }
+        __as->inner_bind_addrs = new_list;
         break;
+    }
     case ASTERISM_OPT_OUTER_BIND_ADDR:
-        if (__as->outer_bind_addr)
-            free(__as->outer_bind_addr);
-        __as->outer_bind_addr = as_strdup(va_arg(ap, const char *));
+    {
+        const char *addr = va_arg(ap, const char *);
+        if (!addr) {
+            ret = ASTERISM_E_INVALID_ARGS;
+            break;
+        }
+        char *new_addr = as_strdup(addr);
+        if (!new_addr) {
+            ret = ASTERISM_E_FAILED;
+            break;
+        }
+        AS_SFREE(__as->outer_bind_addr);
+        __as->outer_bind_addr = new_addr;
         break;
+    }
     case ASTERISM_OPT_CONNECT_ADDR:
-        if (__as->connect_addr)
-            free(__as->connect_addr);
-        __as->connect_addr = as_strdup(va_arg(ap, const char *));
+    {
+        const char *addr = va_arg(ap, const char *);
+        if (!addr) {
+            ret = ASTERISM_E_INVALID_ARGS;
+            break;
+        }
+        char *new_addr = as_strdup(addr);
+        if (!new_addr) {
+            ret = ASTERISM_E_FAILED;
+            break;
+        }
+        AS_SFREE(__as->connect_addr);
+        __as->connect_addr = new_addr;
         break;
+    }
     case ASTERISM_OPT_IDLE_TIMEOUT:
         __as->idle_timeout = va_arg(ap, unsigned int);
         break;
@@ -74,29 +114,45 @@ int asterism_set_option(asterism as, asterism_option opt, ...)
     case ASTERISM_OPT_USERNAME:
     {
         const char *username = va_arg(ap, const char *);
+        if (!username) {
+            ret = ASTERISM_E_INVALID_ARGS;
+            break;
+        }
         size_t username_len = strlen(username);
         if (username_len > ASTREISM_USERNAME_MAX_LEN || username_len == 0)
         {
             ret = ASTERISM_E_INVALID_ARGS;
             break;
         }
-        if (__as->username)
-            free(__as->username);
-        __as->username = as_strdup(username);
+        char *new_username = as_strdup(username);
+        if (!new_username) {
+            ret = ASTERISM_E_FAILED;
+            break;
+        }
+        AS_SFREE(__as->username);
+        __as->username = new_username;
     }
     break;
     case ASTERISM_OPT_PASSWORD:
     {
         const char *password = va_arg(ap, const char *);
+        if (!password) {
+            ret = ASTERISM_E_INVALID_ARGS;
+            break;
+        }
         size_t password_len = strlen(password);
         if (password_len > ASTREISM_PASSWORD_MAX_LEN || password_len == 0)
         {
             ret = ASTERISM_E_INVALID_ARGS;
             break;
         }
-        if (__as->password)
-            free(__as->password);
-        __as->password = as_strdup(password);
+        char *new_password = as_strdup(password);
+        if (!new_password) {
+            ret = ASTERISM_E_FAILED;
+            break;
+        }
+        AS_SFREE(__as->password);
+        __as->password = new_password;
     }
     break;
     case ASTERISM_OPT_CONNECT_REDIRECT_HOOK:
@@ -112,39 +168,60 @@ int asterism_set_option(asterism as, asterism_option opt, ...)
         __as->udp_idle_timeout = va_arg(ap, unsigned int);
         break;
     case ASTERISM_OPT_SESSION_AUTH:
-        __as->session_auth = va_arg(ap, unsigned int);
+        __as->session_policy = va_arg(ap, unsigned int) ?
+            ASTERISM_SESSION_POLICY_AUTH_REQUIRED : ASTERISM_SESSION_POLICY_PUBLIC;
         break;
     case ASTERISM_OPT_SESSION_AUTH_USER:
     {
         const char *username = va_arg(ap, const char *);
+        if (!username) {
+            ret = ASTERISM_E_INVALID_ARGS;
+            break;
+        }
         size_t username_len = strlen(username);
         if (username_len > ASTREISM_USERNAME_MAX_LEN || username_len == 0)
         {
             ret = ASTERISM_E_INVALID_ARGS;
             break;
         }
-        if (__as->session_auth_user)
-            free(__as->session_auth_user);
-        __as->session_auth_user = as_strdup(username);
+        char *new_username = as_strdup(username);
+        if (!new_username) {
+            ret = ASTERISM_E_FAILED;
+            break;
+        }
+        AS_SFREE(__as->session_auth_user);
+        __as->session_auth_user = new_username;
     }
     break;
     case ASTERISM_OPT_SESSION_AUTH_PASS:
     {
         const char *password = va_arg(ap, const char *);
+        if (!password) {
+            ret = ASTERISM_E_INVALID_ARGS;
+            break;
+        }
         size_t password_len = strlen(password);
         if (password_len > ASTREISM_PASSWORD_MAX_LEN || password_len == 0)
         {
             ret = ASTERISM_E_INVALID_ARGS;
             break;
         }
-        if (__as->session_auth_pass)
-            free(__as->session_auth_pass);
-        __as->session_auth_pass = as_strdup(password);
+        char *new_password = as_strdup(password);
+        if (!new_password) {
+            ret = ASTERISM_E_FAILED;
+            break;
+        }
+        AS_SFREE(__as->session_auth_pass);
+        __as->session_auth_pass = new_password;
     }
     break;
     case ASTERISM_OPT_PORTAL:
     {
         const char *rule_str = va_arg(ap, const char *);
+        if (!rule_str) {
+            ret = ASTERISM_E_INVALID_ARGS;
+            break;
+        }
         struct asterism_portal_config_list_s *node = AS_ZMALLOC(struct asterism_portal_config_list_s);
         if (!node) {
             ret = ASTERISM_E_FAILED;
@@ -159,6 +236,18 @@ int asterism_set_option(asterism as, asterism_option opt, ...)
         __as->portal_configs = node;
     }
     break;
+    case ASTERISM_OPT_SESSION_POLICY:
+    {
+        asterism_session_policy policy = (asterism_session_policy)va_arg(ap, int);
+        if (policy != ASTERISM_SESSION_POLICY_AUTH_REQUIRED &&
+            policy != ASTERISM_SESSION_POLICY_PUBLIC &&
+            policy != ASTERISM_SESSION_POLICY_DISABLED) {
+            ret = ASTERISM_E_INVALID_ARGS;
+            break;
+        }
+        __as->session_policy = policy;
+    }
+    break;
     default:
         ret = ASTERISM_E_INVALID_ARGS;
         break;
@@ -170,11 +259,15 @@ int asterism_set_option(asterism as, asterism_option opt, ...)
 
 int asterism_run(asterism as)
 {
+    if (!as)
+        return ASTERISM_E_INVALID_ARGS;
     return asterism_core_run((struct asterism_s *)as);
 }
 
 int asterism_stop(asterism as)
 {
+    if (!as)
+        return ASTERISM_E_INVALID_ARGS;
     return asterism_core_stop((struct asterism_s *)as);
 }
 

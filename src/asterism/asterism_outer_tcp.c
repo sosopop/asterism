@@ -58,11 +58,13 @@ static int parse_cmd_join(
     char *username = 0;
     unsigned short password_len = 0;
     char *password = 0;
-    uint16_t proto_len = ntohs(proto->len);
+    uint16_t proto_len = asterism_read_be16(&proto->len);
+    if (proto_len < sizeof(struct asterism_trans_proto_s))
+        return -1;
 
     if (offset + 2 > proto_len)
         return -1;
-    username_len = ntohs(*(unsigned short *)((char *)proto + offset));
+    username_len = asterism_read_be16((char *)proto + offset);
     offset += 2;
 
     if (offset + username_len > proto_len)
@@ -72,16 +74,25 @@ static int parse_cmd_join(
 
     if (offset + 2 > proto_len)
         return -1;
-    password_len = ntohs(*(unsigned short *)((char *)proto + offset));
+    password_len = asterism_read_be16((char *)proto + offset);
     offset += 2;
 
     if (offset + password_len > proto_len)
         return -1;
     password = (char *)((char *)proto + offset);
     offset += password_len;
+    if (offset != proto_len)
+        return -1;
 
     struct asterism_session_s *session = AS_ZMALLOC(struct asterism_session_s);
+    if (!session)
+        return -1;
     session->username = as_strdup2(username, username_len);
+    if (!session->username)
+    {
+        AS_FREE(session);
+        return -1;
+    }
     struct asterism_session_s *fs = RB_FIND(asterism_session_tree_s, &incoming->as->sessions, session);
     if (fs)
     {
@@ -90,12 +101,18 @@ static int parse_cmd_join(
         return -1;
     }
     session->password = as_strdup2(password, password_len);
+    if (!session->password)
+    {
+        AS_SFREE(session->username);
+        AS_FREE(session);
+        return -1;
+    }
     session->outer = (struct asterism_stream_s *)incoming;
     incoming->session = session;
 
     RB_INSERT(asterism_session_tree_s, &incoming->as->sessions, session);
 
-    asterism_log(ASTERISM_LOG_INFO, "user: %s join, pass: %s", session->username, session->password);
+    asterism_log(ASTERISM_LOG_INFO, "user: %s join", session->username);
 
     return 0;
 }
@@ -104,15 +121,11 @@ static int parse_cmd_connect_ack(
     struct asterism_tcp_incoming_s *incoming,
     struct asterism_trans_proto_s *proto)
 {
-    uint16_t proto_len = ntohs(proto->len);
-    int offset = sizeof(struct asterism_trans_proto_s);
-    //id
-    if (offset + 4 > proto_len)
+    uint32_t id = 0;
+    int success = 0;
+    uint16_t proto_len = asterism_read_be16(&proto->len);
+    if (asterism_decode_connect_ack(proto, proto_len, &id, &success) != 0)
         return -1;
-    unsigned int id = ntohl(*(unsigned int *)((char *)proto + offset));
-    offset += 4;
-    unsigned int success = *(unsigned char *)((char *)proto + offset);
-    offset += 1;
 
     struct asterism_handshake_s fh = {id};
     struct asterism_handshake_s *handshake = RB_FIND(asterism_handshake_tree_s, &incoming->as->handshake_set, &fh);
@@ -127,6 +140,32 @@ static int parse_cmd_connect_ack(
     AS_FREE(handshake);
 
     return conn_ack_cb(incoming->link, success);
+}
+
+int asterism_decode_connect_ack(
+    const void *data,
+    size_t data_len,
+    uint32_t *handshake_id,
+    int *success)
+{
+    if (!handshake_id || !success)
+        return -1;
+
+    uint16_t frame_len = 0;
+    if (asterism_proto_frame_size(data, data_len, &frame_len) != 1)
+        return -1;
+    if (frame_len != sizeof(struct asterism_trans_proto_s) + 4 + 1)
+        return -1;
+
+    const unsigned char *bytes = (const unsigned char *)data;
+    if (bytes[1] != ASTERISM_TRANS_PROTO_CONNECT_ACK)
+        return -1;
+    if (bytes[sizeof(struct asterism_trans_proto_s) + 4] > 1)
+        return -1;
+
+    *handshake_id = asterism_read_be32(bytes + sizeof(struct asterism_trans_proto_s));
+    *success = bytes[sizeof(struct asterism_trans_proto_s) + 4];
+    return 0;
 }
 
 static void write_cmd_pong_cb(
@@ -145,13 +184,21 @@ static int parse_cmd_ping(
     struct asterism_trans_proto_s* proto)
 {
     char* pong_buf = __DUP_MEM((char*)&_global_proto_pong, sizeof(_global_proto_pong));
+    if (!pong_buf)
+        return ASTERISM_E_FAILED;
     struct asterism_write_req_s* write_req = AS_ZMALLOC(struct asterism_write_req_s);
+    if (!write_req)
+    {
+        AS_FREE(pong_buf);
+        return ASTERISM_E_FAILED;
+    }
     write_req->write_buffer = uv_buf_init(pong_buf, sizeof(_global_proto_pong));
     write_req->write_req.data = incoming;
 
     int ret = asterism_stream_write((uv_write_t*)write_req, (struct asterism_stream_s*)incoming, &write_req->write_buffer, write_cmd_pong_cb);
     if (ret)
     {
+        AS_FREE(write_req->write_buffer.base);
         AS_FREE(write_req);
         return ret;
     }
@@ -177,16 +224,26 @@ static int udp_response_write(
     uv_buf_t buf)
 {
     int ret = 0;
-    struct asterism_send_req_s* req = AS_ZMALLOC(struct asterism_send_req_s);
     struct asterism_session_s* session = incoming->session;
     if (session == 0)
-        return ret;
+        return -1;
     struct asterism_datagram_s* responser = session->inner_datagram;
+    if (responser == 0)
+        return -1;
+
+    struct asterism_send_req_s* req = AS_ZMALLOC(struct asterism_send_req_s);
+    if (!req)
+        return -1;
 
     req->write_req.data = responser;
     req->write_buffer = buf;
     req->write_buffer.base = __DUP_MEM(buf.base, buf.len);
-    ret = uv_udp_send((uv_udp_send_t*)req, &responser->socket, &buf, 1, (const struct sockaddr*)&source_addr, responser_write_cb);
+    if (buf.len && !req->write_buffer.base)
+    {
+        AS_FREE(req);
+        return -1;
+    }
+    ret = uv_udp_send((uv_udp_send_t*)req, &responser->socket, &req->write_buffer, 1, (const struct sockaddr*)&source_addr, responser_write_cb);
     if (ret != 0)
     {
         AS_SFREE(req->write_buffer.base);
@@ -201,7 +258,9 @@ static int parse_cmd_datagram_response(
 {
     int ret = -1;
     int offset = sizeof(struct asterism_trans_proto_s);
-    int proto_len = ntohs(proto->len);
+    int proto_len = asterism_read_be16(&proto->len);
+    if (proto_len < (int)sizeof(struct asterism_trans_proto_s))
+        goto cleanup;
 
     struct sockaddr_in source_addr;
     memset(&source_addr, 0, sizeof(source_addr));
@@ -241,54 +300,49 @@ static int incoming_parse_cmd_data(
     uv_buf_t *buf,
     int *eaten)
 {
-    if (buf->len < sizeof(struct asterism_trans_proto_s))
-        return 0;
-    struct asterism_trans_proto_s *proto = (struct asterism_trans_proto_s *)buf->base;
-    uint16_t proto_len = ntohs(proto->len);
-    if (proto->version != ASTERISM_TRANS_PROTO_VERSION)
-        return -1;
-    if (proto_len > ASTERISM_MAX_PROTO_SIZE)
-        return -1;
-    if (proto_len > buf->len)
+    size_t consumed = 0;
+    while (consumed < buf->len)
     {
-        return 0;
-    }
-    if (proto->cmd == ASTERISM_TRANS_PROTO_JOIN)
-    {
-        asterism_log(ASTERISM_LOG_DEBUG, "connection join recv");
-        if (parse_cmd_join(incoming, proto) != 0)
+        uint16_t proto_len = 0;
+        int frame_status = asterism_proto_frame_size(
+            buf->base + consumed, buf->len - consumed, &proto_len);
+        if (frame_status < 0)
             return -1;
-    }
-    else if (proto->cmd == ASTERISM_TRANS_PROTO_CONNECT_ACK)
-    {
-        asterism_log(ASTERISM_LOG_DEBUG, "connection connect ack recv");
-        if (parse_cmd_connect_ack(incoming, proto) != 0)
+        if (frame_status == 0)
+            break;
+
+        struct asterism_trans_proto_s *proto =
+            (struct asterism_trans_proto_s *)(buf->base + consumed);
+        if (proto->cmd == ASTERISM_TRANS_PROTO_JOIN)
+        {
+            asterism_log(ASTERISM_LOG_DEBUG, "connection join recv");
+            if (parse_cmd_join(incoming, proto) != 0)
+                return -1;
+        }
+        else if (proto->cmd == ASTERISM_TRANS_PROTO_CONNECT_ACK)
+        {
+            asterism_log(ASTERISM_LOG_DEBUG, "connection connect ack recv");
+            if (parse_cmd_connect_ack(incoming, proto) != 0)
+                return -1;
+        }
+        else if (proto->cmd == ASTERISM_TRANS_PROTO_PING)
+        {
+            if (proto_len != sizeof(struct asterism_trans_proto_s) ||
+                parse_cmd_ping(incoming, proto) != 0)
+                return -1;
+        }
+        else if (proto->cmd == ASTERISM_TRANS_PROTO_DATAGRAM_RESPONSE)
+        {
+            if (parse_cmd_datagram_response(incoming, proto) != 0)
+                return -1;
+        }
+        else
+        {
             return -1;
+        }
+        consumed += proto_len;
     }
-    else if (proto->cmd == ASTERISM_TRANS_PROTO_PING)
-    {
-        //asterism_log(ASTERISM_LOG_DEBUG, "connection ping recv");
-        if (parse_cmd_ping(incoming, proto) != 0)
-            return -1;
-    }
-    else if (proto->cmd == ASTERISM_TRANS_PROTO_DATAGRAM_RESPONSE)
-    {
-        if (parse_cmd_datagram_response(incoming, proto) != 0)
-			return -1;
-    }
-    else
-    {
-        return -1;
-    }
-    *eaten += proto_len;
-    unsigned int remain = buf->len - proto_len;
-    if (remain)
-    {
-        uv_buf_t __buf;
-        __buf.base = buf->base + proto_len;
-        __buf.len = remain;
-        return incoming_parse_cmd_data(incoming, &__buf, eaten);
-    }
+    *eaten += (int)consumed;
     return 0;
 }
 
@@ -325,6 +379,8 @@ static void outer_accept_cb(
         goto cleanup;
     }
     incoming = AS_ZMALLOC(struct asterism_tcp_incoming_s);
+    if (!incoming)
+        return;
     ret = asterism_stream_accept(outer->as, stream, 1, 1, 0, incoming_read_cb, incoming_close_cb, (struct asterism_stream_s *)incoming);
     if (ret != 0)
     {
@@ -356,6 +412,8 @@ int asterism_outer_tcp_init(
     int name_len = 0;
 
     struct asterism_tcp_outer_s *outer = AS_ZMALLOC(struct asterism_tcp_outer_s);
+    if (!outer)
+        return ASTERISM_E_FAILED;
     outer->as = as;
     ASTERISM_HANDLE_INIT(outer, socket, outer_close);
     ret = uv_tcp_init(as->loop, &outer->socket);
@@ -366,6 +424,11 @@ int asterism_outer_tcp_init(
         goto cleanup;
     }
     addr = AS_ZMALLOC(struct sockaddr_in);
+    if (!addr)
+    {
+        ret = ASTERISM_E_FAILED;
+        goto cleanup;
+    }
     name_len = sizeof(struct sockaddr_in);
     ret = uv_ip4_addr(ip, (int)*port, (struct sockaddr_in *)addr);
 

@@ -1,4 +1,4 @@
-#ifdef WIN32
+#ifdef _WIN32
 #ifndef _CRTDBG_MAP_ALLOC
 #define _CRTDBG_MAP_ALLOC
 #endif
@@ -17,7 +17,7 @@ void register_suite_timeouts(void);
 void register_suite_portal(void);
 
 int main(int argc, char *argv[]) {
-#ifdef WIN32
+#ifdef _WIN32
     // Enable memory leak check on exit
     _CrtSetDbgFlag(_CrtSetDbgFlag(_CRTDBG_REPORT_FLAG) | _CRTDBG_LEAK_CHECK_DF);
 
@@ -39,7 +39,7 @@ int main(int argc, char *argv[]) {
     // Run all tests
     int failures = run_all_tests();
 
-#ifdef WIN32
+#ifdef _WIN32
     WSACleanup();
 #endif
 

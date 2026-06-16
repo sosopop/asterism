@@ -22,7 +22,8 @@
     QUEUE queue;                          \
     unsigned int active_tick_count;       \
     unsigned int auto_trans : 1;\
-    unsigned int crypt : 1;
+    /* XOR obfuscation only; this is not transport encryption. */ \
+    unsigned int xor_obfuscation : 1;
 
 typedef struct asterism_stream_s asterism_stream_t;
 
@@ -37,7 +38,7 @@ int asterism_stream_connect(
     const char *host,
     unsigned int port,
     unsigned int auto_trans,
-    unsigned int crypt,
+    unsigned int xor_obfuscation,
     uv_connect_cb connect_cb,
     uv_alloc_cb alloc_cb,
     uv_read_cb read_cb,
@@ -48,7 +49,7 @@ int asterism_stream_accept(
     struct asterism_s *as,
     uv_stream_t *server_stream,
     unsigned int auto_trans,
-    unsigned int crypt,
+    unsigned int xor_obfuscation,
     uv_alloc_cb alloc_cb,
     uv_read_cb read_cb,
     uv_close_cb close_cb,
@@ -78,5 +79,10 @@ int asterism_stream_write(
     struct asterism_stream_s *stream,
     const uv_buf_t* bufs,
     uv_write_cb cb);
+
+int asterism_stream_write_copy(
+    struct asterism_stream_s *stream,
+    const void *data,
+    unsigned int len);
 
 #endif // ASTERISM_STREAM_H_

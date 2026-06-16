@@ -109,9 +109,10 @@ graph LR
 
 ### Prerequisites
 
-- CMake >= 2.8
+- CMake >= 3.16
 - C compiler (GCC / Clang / MSVC)
-- Third-party libraries are referenced as Git submodules in `3rdparty/` (libuv, http-parser)
+- Node.js/npm for generating the vendored `llhttp` C parser sources during build
+- Third-party libraries are referenced as Git submodules in `3rdparty/` (libuv, llhttp)
 
 ### Build Steps
 
@@ -137,6 +138,7 @@ mkdir build
 cd build
 cmake -DUNIT_TEST=ON ..
 cmake --build . --config Debug
+ctest --output-on-failure
 ```
 
 ## 🚀 Usage
@@ -161,10 +163,15 @@ Options:
   -p, --pass <password>      Agent authentication password
   -d, --udp                  Enable SOCKS5 UDP support (disabled by default)
   -t, --udp-timeout <seconds> UDP session idle timeout (0 = no timeout)
-  -A, --auth-sessions        Enable HTTP basic authentication for the session list (/sessions)
+  -A, --auth-sessions        Require HTTP basic authentication for the session list (/sessions)
+      --public-sessions      Allow unauthenticated access to /sessions
   -U, --session-user <user>  Username for the session list authentication
   -P, --session-pass <pass>  Password for the session list authentication
 ```
+
+### Security Notes
+
+The internal relay-agent TCP stream uses a simple XOR obfuscation flag for compatibility with the existing wire format. It is not transport encryption and should not be treated as TLS. Use trusted networks, host-level encryption, or an external TLS/VPN layer when confidentiality is required.
 
 ### Quick Start
 
@@ -261,15 +268,24 @@ You can query the list of currently connected agent sessions by sending an HTTP 
 curl http://<relay_ip>:<http_port>/sessions
 ```
 
-By default, this endpoint is public. You can enable HTTP Basic Authentication for `/sessions` using the `-A` / `--auth-sessions` flag, combined with `-U` / `--session-user` and `-P` / `--session-pass`:
+By default, this endpoint requires HTTP Basic Authentication. If `-U` / `--session-user` and `-P` / `--session-pass` are not configured, `/sessions` returns `401 Unauthorized`.
 
 ```bash
 # Start relay with sessions list authentication
-asterism -i http://0.0.0.0:8081 -o tcp://0.0.0.0:1234 -A -U admin -P admin123
+asterism -i http://0.0.0.0:8081 -o tcp://0.0.0.0:1234 -U admin -P admin123
 
 # Query with credentials
 curl -u admin:admin123 http://<relay_ip>:8081/sessions
 ```
+
+To intentionally restore the older public behavior, start the relay with `--public-sessions`:
+
+```bash
+asterism -i http://0.0.0.0:8081 -o tcp://0.0.0.0:1234 --public-sessions
+curl http://<relay_ip>:8081/sessions
+```
+
+`-A` / `--auth-sessions` is kept as a compatibility alias for the default authenticated policy.
 
 ## ⚙️ System Service Deployment
 
@@ -371,7 +387,7 @@ target_link_libraries(my_app PRIVATE asterism_lib)
 asterism/
 ├── 3rdparty/               # Third-party dependencies
 │   ├── libuv/              # Cross-platform async I/O library
-│   └── http-parser/        # HTTP protocol parser
+│   └── llhttp/             # HTTP protocol parser
 ├── src/asterism/           # Core source code
 │   ├── main.c              # Entry point and CLI argument parsing
 │   ├── asterism.h/.c       # Public API interface

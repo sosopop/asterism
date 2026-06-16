@@ -1,7 +1,7 @@
 #include "asterism_utils.h"
 #include <string.h>
 #include <ctype.h>
-#ifdef WIN32
+#ifdef _WIN32
 #include <ws2tcpip.h>
 #else
 #include <sys/socket.h>
@@ -37,7 +37,8 @@ int asterism_vsnprintf(char **buf, size_t size, const char *fmt, va_list ap)
             va_end(ap_copy);
         }
 
-        (*buf)[len] = 0;
+        if (len >= 0 && *buf)
+            (*buf)[len] = 0;
     }
     else if (len >= (int)size)
     {
@@ -69,6 +70,9 @@ int asterism_snprintf(char **buf, size_t size, const char *fmt, ...)
 /* Convert one byte of encoded base64 input stream to 6-bit chunk */
 static unsigned char from_b64(unsigned char ch)
 {
+    if (ch >= 128)
+        return 255;
+
     /* Inverse lookup map */
     static const unsigned char tab[128] = {
         255, 255, 255, 255,
@@ -104,34 +108,52 @@ static unsigned char from_b64(unsigned char ch)
         49, 50, 51, 255,
         255, 255, 255, 255, /*  120 */
     };
-    return tab[ch & 127];
+    return tab[ch];
 }
 
-int asterism_base64_decode(const unsigned char *s, int len, char *dst, int *dec_len)
+int asterism_base64_decode(const unsigned char *s, int len, char *dst, size_t dst_size, int *dec_len)
 {
     unsigned char a, b, c, d;
-    int orig_len = len;
+    int offset = 0;
     char *orig_dst = dst;
-    while (len >= 4 && (a = from_b64(s[0])) != 255 &&
-           (b = from_b64(s[1])) != 255 && (c = from_b64(s[2])) != 255 &&
-           (d = from_b64(s[3])) != 255)
+    if (!s || !dst || dst_size == 0 || len < 0)
+        return -1;
+    if (len % 4 != 0)
+        return -1;
+    char *dst_end = dst + dst_size;
+
+    while (offset < len)
     {
-        s += 4;
-        len -= 4;
-        if (a == 200 || b == 200)
-            break; /* '=' can't be there */
-        *dst++ = a << 2 | b >> 4;
+        a = from_b64(s[offset]);
+        b = from_b64(s[offset + 1]);
+        c = from_b64(s[offset + 2]);
+        d = from_b64(s[offset + 3]);
+        if (a >= 64 || b >= 64 || c == 255 || d == 255)
+            return -1;
+        if (c == 200 && d != 200)
+            return -1;
+        if ((c == 200 || d == 200) && offset + 4 != len)
+            return -1;
+
+        if (dst + 1 >= dst_end)
+            return -1;
+        *dst++ = (char)(a << 2 | b >> 4);
         if (c == 200)
             break;
-        *dst++ = b << 4 | c >> 2;
+        if (dst + 1 >= dst_end)
+            return -1;
+        *dst++ = (char)(b << 4 | c >> 2);
         if (d == 200)
             break;
-        *dst++ = c << 6 | d;
+        if (dst + 1 >= dst_end)
+            return -1;
+        *dst++ = (char)(c << 6 | d);
+        offset += 4;
     }
     *dst = 0;
     if (dec_len != NULL)
         *dec_len = (int)(dst - orig_dst);
-    return orig_len - len;
+    return len;
 }
 
 struct asterism_str asterism_mk_str(const char *s)
@@ -179,7 +201,7 @@ int asterism_ncasecmp(const char *s1, const char *s2, size_t len)
 
 int asterism_casecmp(const char *s1, const char *s2)
 {
-    return asterism_ncasecmp(s1, s2, (size_t)~0);
+    return asterism_ncasecmp(s1, s2, (size_t)-1);
 }
 
 int asterism_vcasecmp(const struct asterism_str *str1, const char *str2)
@@ -224,6 +246,8 @@ struct asterism_str asterism_strdup_nul(const struct asterism_str s)
 
 char *as_strdup(const char *src)
 {
+    if (!src)
+        return NULL;
     size_t len = strlen(src) + 1;
     char *ret = (char *)AS_MALLOC(len);
     if (ret != NULL)
@@ -235,6 +259,8 @@ char *as_strdup(const char *src)
 
 char *as_strdup2(const char *src, size_t len)
 {
+    if (!src && len)
+        return NULL;
     char *ret = (char *)AS_MALLOC(len + 1);
     if (ret != NULL)
     {
@@ -307,12 +333,12 @@ const char *asterism_strstr(const struct asterism_str haystack,
 
 struct asterism_str asterism_strstrip(struct asterism_str s)
 {
-    while (s.len > 0 && isspace((int)*s.p))
+    while (s.len > 0 && isspace((unsigned char)*s.p))
     {
         s.p++;
         s.len--;
     }
-    while (s.len > 0 && isspace((int)*(s.p + s.len - 1)))
+    while (s.len > 0 && isspace((unsigned char)*(s.p + s.len - 1)))
     {
         s.len--;
     }
@@ -331,11 +357,14 @@ int asterism_parse_address(
     unsigned int *port,
     asterism_host_type *host_type)
 {
-    char __scheme[100] = {0};
-    char __host[100] = {0};
+    if (!address || !port || !host_type)
+        return -1;
+
+    char parsed_scheme[100] = {0};
+    char parsed_host[100] = {0};
     int ch = 0, len = 0, host_offset = 0, host_len = 0;
 
-    if (sscanf(address, "%99[^:]://%n", __scheme, &host_offset) == 1)
+    if (sscanf(address, "%99[^:]://%n", parsed_scheme, &host_offset) == 1)
     {
         if (scheme && host_offset)
         {
@@ -344,7 +373,7 @@ int asterism_parse_address(
             scheme->p = address;
         }
     }
-    if (sscanf(address + host_offset, "%99[^:[]%n:%u%n", __host, &host_len, port, &len) == 2)
+    if (sscanf(address + host_offset, "%99[^:[]%n:%u%n", parsed_host, &host_len, port, &len) == 2)
     {
         int a = 0;
         int ret = sscanf(address + host_offset, "%*u.%*u.%*u.%*u:%u%n", &a, &len);
@@ -365,7 +394,7 @@ int asterism_parse_address(
             host->p = address + host_offset;
         }
     }
-    else if (sscanf(address + host_offset, "[%99[^]]]%n:%u%n", __host, &host_len, port, &len) == 2)
+    else if (sscanf(address + host_offset, "[%99[^]]]%n:%u%n", parsed_host, &host_len, port, &len) == 2)
     {
         *host_type = ASTERISM_HOST_TYPE_IPV6;
         if (host && host_len)
@@ -381,9 +410,9 @@ int asterism_parse_address(
         return -1;
     }
 
-    ch = address[host_offset + len];
+    ch = (unsigned char)address[host_offset + len];
 
-    return *port < 0xffffUL && (ch == '\0' || ch == ',' || isspace(ch)) ? 0 : -1;
+    return *port <= 0xffffUL && (ch == '\0' || ch == ',' || isspace((unsigned char)ch)) ? 0 : -1;
 }
 
 int asterism_itoa(char *buf, size_t buf_size, long long num, int base, int flags,

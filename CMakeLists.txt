@@ -1,25 +1,8 @@
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.16)
 project(asterism VERSION 0.7.0.1 LANGUAGES C)
 
 
 if(WIN32)
-    if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio ([0-9]+)")
-        # Note: "v110_xp" is for Visual Studio 11 2012, which is unsupported.
-        if (${CMAKE_MATCH_1} EQUAL 12)
-            # Visual Studio 12 2013
-            set(CMAKE_GENERATOR_TOOLSET "v120_xp" CACHE STRING "CMAKE_GENERATOR_TOOLSET" FORCE)
-            set(CMAKE_VS_PLATFORM_TOOLSET "v120_xp" CACHE STRING "CMAKE_VS_PLATFORM_TOOLSET" FORCE)
-        elseif (${CMAKE_MATCH_1} EQUAL 14)
-            # Visual Studio 14 2015
-            set(CMAKE_GENERATOR_TOOLSET "v140_xp" CACHE STRING "CMAKE_GENERATOR_TOOLSET" FORCE)
-            set(CMAKE_VS_PLATFORM_TOOLSET "v140_xp" CACHE STRING "CMAKE_VS_PLATFORM_TOOLSET" FORCE)
-        elseif (${CMAKE_MATCH_1} EQUAL 15)
-            # Visual Studio 15 2017
-            set(CMAKE_GENERATOR_TOOLSET "v141_xp" CACHE STRING "CMAKE_GENERATOR_TOOLSET" FORCE)
-            set(CMAKE_VS_PLATFORM_TOOLSET "v141_xp" CACHE STRING "CMAKE_VS_PLATFORM_TOOLSET" FORCE)
-        endif()
-    endif()
-
     set(CompilerDebugFlags
             CMAKE_CXX_FLAGS
             CMAKE_CXX_FLAGS_DEBUG
@@ -46,13 +29,7 @@ if(WIN32)
         string(REPLACE "/MD" "/MT" ${CompilerFlag} "${${CompilerFlag}}")
     endforeach()
 
-    if(CMAKE_SIZEOF_VOID_P EQUAL 8)
-        set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /SUBSYSTEM:CONSOLE,5.02")
-    elseif(CMAKE_SIZEOF_VOID_P EQUAL 4)
-        set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /SUBSYSTEM:CONSOLE,5.01")
-    endif()
-
-    add_definitions(-D_WIN32_WINNT=0x0502 -D_CRT_NONSTDC_NO_DEPRECATE -D_CRT_SECURE_NO_WARNINGS)
+    add_definitions(-D_CRT_NONSTDC_NO_DEPRECATE -D_CRT_SECURE_NO_WARNINGS)
 endif()
 
 if(UNIX)
@@ -60,10 +37,28 @@ if(UNIX)
     set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -O0")
 endif()
 
+option(ASTERISM_SANITIZERS "Build with AddressSanitizer and UndefinedBehaviorSanitizer" OFF)
+option(ASTERISM_COVERAGE "Build with GCC/Clang coverage instrumentation" OFF)
+
+if((ASTERISM_SANITIZERS OR ASTERISM_COVERAGE) AND NOT CMAKE_C_COMPILER_ID MATCHES "Clang|GNU")
+    message(FATAL_ERROR "ASTERISM_SANITIZERS and ASTERISM_COVERAGE require GCC or Clang")
+endif()
+
+if(ASTERISM_SANITIZERS)
+    add_compile_options(-fsanitize=address,undefined -fno-omit-frame-pointer)
+    add_link_options(-fsanitize=address,undefined)
+endif()
+
+if(ASTERISM_COVERAGE)
+    add_compile_options(--coverage -O0 -g)
+    add_link_options(--coverage)
+endif()
+
 add_subdirectory(3rdparty)
 add_subdirectory(src/asterism)
 
 option(UNIT_TEST "Build unit tests" ON)
 if(UNIT_TEST)
+    enable_testing()
     add_subdirectory(test)
 endif()

@@ -41,25 +41,9 @@ static void incoming_close_cb(
     asterism_log(ASTERISM_LOG_DEBUG, "socks5 is closing");
 }
 
-static void conn_write_done(uv_write_t *req, int status)
-{
-    struct asterism_stream_s *stream = (struct asterism_stream_s *)req->data;
-    if (status || asterism_stream_read(stream))
-    {
-        asterism_stream_close((uv_handle_t *)&stream->socket);
-    }
-}
-
 static int conn_write(struct asterism_stream_s *stream, const void *data, unsigned int len)
 {
-    uv_buf_t buf;
-    buf.base = (char *)data;
-    buf.len = len;
-    stream->write_req.data = stream;
-    return asterism_stream_write(&stream->write_req,
-                    stream,
-                    &buf,
-                    conn_write_done);
+    return asterism_stream_write_copy(stream, data, len);
 }
 
 static int conn_ack_cb(
@@ -238,31 +222,47 @@ static int incoming_parse_connect(
                     return -1;
                 }
                 char port[10] = { 0 };
-                sprintf(port, ":%d", incoming->parser.dport);
+                int port_len = snprintf(port, sizeof(port), ":%d", incoming->parser.dport);
+                if (port_len < 0 || (size_t)port_len >= sizeof(port) ||
+                    strlen(addr) + (size_t)port_len >= sizeof(addr))
+                    return -1;
                 strcat(addr, port);
 
                 struct asterism_handshake_s* handshake = AS_ZMALLOC(struct asterism_handshake_s);
+                if (!handshake)
+                    return -1;
                 handshake->inner = (struct asterism_stream_s*)incoming;
                 handshake->conn_ack_cb = conn_ack_cb;
                 handshake->id = asterism_tunnel_new_handshake_id();
                 incoming->handshake_id = handshake->id;
 
                 struct asterism_write_req_s* req = AS_ZMALLOC(struct asterism_write_req_s);
+                if (!req)
+                {
+                    AS_FREE(handshake);
+                    return -1;
+                }
 
                 unsigned short host_len = (unsigned short)strlen(addr);
 
                 struct asterism_trans_proto_s* connect_data =
                     (struct asterism_trans_proto_s*)AS_MALLOC(sizeof(struct asterism_trans_proto_s) +
                         host_len + 2 + 4);
+                if (!connect_data)
+                {
+                    AS_FREE(req);
+                    AS_FREE(handshake);
+                    return -1;
+                }
 
                 connect_data->version = ASTERISM_TRANS_PROTO_VERSION;
                 connect_data->cmd = ASTERISM_TRANS_PROTO_CONNECT;
 
                 char* off = (char*)connect_data + sizeof(struct asterism_trans_proto_s);
-                *(uint32_t*)off = htonl(handshake->id);
+                asterism_write_be32(off, handshake->id);
                 off += 4;
 
-                *(uint16_t*)off = htons((uint16_t)host_len);
+                asterism_write_be16(off, host_len);
                 off += 2;
                 memcpy(off, addr, host_len);
                 off += host_len;
@@ -292,7 +292,7 @@ static int incoming_parse_connect(
                 incoming->as->socks5_udp)
             {
                 char ip[INET6_ADDRSTRLEN] = { 0 };
-                int port = 0;
+                unsigned int port = 0;
 
                 if (session->inner_datagram) {
                     // Reuse the existing UDP association
@@ -377,6 +377,8 @@ static void inner_accept_cb(
         goto cleanup;
     }
     incoming = AS_ZMALLOC(struct asterism_socks5_incoming_s);
+    if (!incoming)
+        return;
     ret = asterism_stream_accept(inner->as, stream, 1, 0, 0,
                                  incoming_read_cb, incoming_close_cb, (struct asterism_stream_s *)incoming);
     if (ret != 0)
@@ -410,6 +412,8 @@ int asterism_inner_socks5_init(
     void *addr = 0;
     int name_len = 0;
     struct asterism_socks5_inner_s *inner = AS_ZMALLOC(struct asterism_socks5_inner_s);
+    if (!inner)
+        return ASTERISM_E_FAILED;
     inner->as = as;
     ASTERISM_HANDLE_INIT(inner, socket, inner_close);
     ret = uv_tcp_init(as->loop, &inner->socket);
@@ -420,6 +424,11 @@ int asterism_inner_socks5_init(
         goto cleanup;
     }
     addr = AS_ZMALLOC(struct sockaddr_in);
+    if (!addr)
+    {
+        ret = ASTERISM_E_FAILED;
+        goto cleanup;
+    }
     name_len = sizeof(struct sockaddr_in);
     ret = uv_ip4_addr(ip, (int)*port, (struct sockaddr_in *)addr);
     if (ret != 0)

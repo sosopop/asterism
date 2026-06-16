@@ -30,7 +30,7 @@ struct asterism_datagram_s
 
 int asterism_datagram_init(
     struct asterism_s* as,
-    unsigned int crypt,
+    unsigned int xor_obfuscation,
     uv_alloc_cb alloc_cb,
     uv_udp_recv_cb recv_cb,
     uv_close_cb close_cb,

@@ -44,26 +44,28 @@ int test_socket_accept(int listen_fd) {
 }
 
 int test_socket_connect(const char *ip, unsigned short port) {
-    int sock = (int)socket(AF_INET, SOCK_STREAM, 0);
-    if (sock < 0) return -1;
-    
     struct sockaddr_in serv_addr;
     memset(&serv_addr, 0, sizeof(serv_addr));
     if (uv_ip4_addr(ip, port, &serv_addr) != 0) {
-        test_socket_close(sock);
         return -1;
     }
-    
-    if (connect(sock, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0) {
+
+    for (int attempt = 0; attempt < 50; ++attempt) {
+        int sock = (int)socket(AF_INET, SOCK_STREAM, 0);
+        if (sock < 0) return -1;
+
+        if (connect(sock, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) == 0) {
+            return sock;
+        }
         test_socket_close(sock);
-        return -1;
+        test_sleep(20);
     }
-    
-    return sock;
+
+    return -1;
 }
 
 void test_sleep(int ms) {
-#ifdef WIN32
+#ifdef _WIN32
     Sleep(ms);
 #else
     usleep(ms * 1000);
@@ -72,7 +74,7 @@ void test_sleep(int ms) {
 
 void test_socket_close(int fd) {
     if (fd >= 0) {
-#ifdef WIN32
+#ifdef _WIN32
         closesocket(fd);
 #else
         close(fd);
@@ -105,8 +107,16 @@ test_env_t *test_env_create_ex(const char *inner_scheme, asterism_connnect_redir
     memset(env, 0, sizeof(test_env_t));
     
     env->outer_port = test_get_free_port();
-    env->inner_port = test_get_free_port();
-    env->mock_port = test_get_free_port();
+    do {
+        env->inner_port = test_get_free_port();
+    } while (env->inner_port == env->outer_port);
+    do {
+        env->mock_port = test_get_free_port();
+    } while (env->mock_port == env->outer_port || env->mock_port == env->inner_port);
+    if (!env->outer_port || !env->inner_port || !env->mock_port) {
+        free(env);
+        return NULL;
+    }
     
     env->as = asterism_create();
     if (!env->as) {
@@ -157,7 +167,11 @@ test_env_t *test_env_create_ex(const char *inner_scheme, asterism_connnect_redir
     
     int r = uv_thread_create(&env->as_thread, asterism_run_thread, env);
     EXPECT_EQ(r, 0);
-    (void)r;
+    if (r != 0) {
+        asterism_destroy(env->as);
+        free(env);
+        return NULL;
+    }
     
     test_sleep(100);
     return env;

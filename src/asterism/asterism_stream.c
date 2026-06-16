@@ -12,6 +12,49 @@ static void stream_shutdown_cb(
     AS_FREE(req);
 }
 
+static void stream_dynamic_write_cb(
+    uv_write_t *req,
+    int status)
+{
+    struct asterism_write_req_s *write_req = (struct asterism_write_req_s *)req;
+    struct asterism_stream_s *stream = (struct asterism_stream_s *)req->data;
+    AS_FREE(write_req->write_buffer.base);
+    AS_FREE(write_req);
+    if (status || asterism_stream_read(stream))
+    {
+        asterism_stream_close((uv_handle_t *)&stream->socket);
+    }
+}
+
+int asterism_stream_write_copy(
+    struct asterism_stream_s *stream,
+    const void *data,
+    unsigned int len)
+{
+    if (!stream || (!data && len))
+        return ASTERISM_E_INVALID_ARGS;
+
+    struct asterism_write_req_s *req = AS_ZMALLOC(struct asterism_write_req_s);
+    if (!req)
+        return ASTERISM_E_FAILED;
+
+    req->write_buffer.base = len ? (char *)__DUP_MEM(data, len) : NULL;
+    if (len && !req->write_buffer.base)
+    {
+        AS_FREE(req);
+        return ASTERISM_E_FAILED;
+    }
+    req->write_buffer.len = len;
+    req->write_req.data = stream;
+    int ret = asterism_stream_write(&req->write_req, stream, &req->write_buffer, stream_dynamic_write_cb);
+    if (ret != 0)
+    {
+        AS_FREE(req->write_buffer.base);
+        AS_FREE(req);
+    }
+    return ret;
+}
+
 static int stream_end(
     struct asterism_stream_s *stream)
 {
@@ -63,7 +106,7 @@ static void stream_read_cb(
 
     if (nread > 0)
     {
-        if (stm->crypt)
+        if (stm->xor_obfuscation)
         {
             for (int i = 0; i < nread; i++)
             {
@@ -90,7 +133,6 @@ static void stream_read_cb(
     }
     else if (nread == 0)
     {
-        asterism_stream_close((uv_handle_t *)stream);
         return;
     }
     else if (nread == UV_EOF)
@@ -137,7 +179,8 @@ static void stream_getaddrinfo(
     int ret = ASTERISM_E_OK;
     uv_connect_t *connect_req = 0;
     struct asterism_stream_s *stream = (struct asterism_stream_s *)req->data;
-    char addr[17] = {'\0'};
+    struct addrinfo *resolved = res;
+    char addr[INET_ADDRSTRLEN] = {'\0'};
     if (!stream)
     {
         goto cleanup;
@@ -148,15 +191,26 @@ static void stream_getaddrinfo(
         ret = status;
         goto cleanup;
     }
-    //only support ipv4
-    ret = uv_ip4_name((struct sockaddr_in *)res->ai_addr, addr, 16);
+    while (resolved && resolved->ai_family != AF_INET)
+        resolved = resolved->ai_next;
+    if (!resolved)
+    {
+        ret = ASTERISM_E_ADDRESS_PARSE_ERROR;
+        goto cleanup;
+    }
+    ret = uv_ip4_name((struct sockaddr_in *)resolved->ai_addr, addr, sizeof(addr));
     if (ret != 0)
     {
         goto cleanup;
     }
     connect_req = (uv_connect_t *)AS_MALLOC(sizeof(uv_connect_t));
+    if (!connect_req)
+    {
+        ret = ASTERISM_E_FAILED;
+        goto cleanup;
+    }
     connect_req->data = stream;
-    ret = uv_tcp_connect(connect_req, (uv_tcp_t *)&stream->socket, res->ai_addr, stream_connected);
+    ret = uv_tcp_connect(connect_req, (uv_tcp_t *)&stream->socket, resolved->ai_addr, stream_connected);
     if (ret != 0)
     {
         goto cleanup;
@@ -212,10 +266,12 @@ static int stream_init(
     asterism_stream_t *stream,
     struct asterism_s *as)
 {
+    if (!stream || !as || !as->loop)
+        return ASTERISM_E_INVALID_ARGS;
+
     stream->as = as;
     ASTERISM_HANDLE_INIT(stream, socket, asterism_stream_close);
 
-    QUEUE_INSERT_TAIL(&as->conns_queue, &stream->queue);
     int ret = uv_tcp_init(as->loop, (uv_tcp_t *)&stream->socket);
     if (ret != 0)
     {
@@ -223,6 +279,7 @@ static int stream_init(
         return ret;
     }
 
+    QUEUE_INSERT_TAIL(&as->conns_queue, &stream->queue);
     stream->active_tick_count = as->current_tick_count;
     asterism_log(ASTERISM_LOG_DEBUG, "tcp init %p", stream);
     return ret;
@@ -233,13 +290,16 @@ int asterism_stream_connect(
     const char *host,
     unsigned int port,
     unsigned int auto_trans,
-    unsigned int crypt,
+    unsigned int xor_obfuscation,
     uv_connect_cb connect_cb,
     uv_alloc_cb alloc_cb,
     uv_read_cb read_cb,
     uv_close_cb close_cb,
     asterism_stream_t *stream)
 {
+    if (!host || !connect_cb || !close_cb)
+        return ASTERISM_E_INVALID_ARGS;
+
     int ret = stream_init(stream, as);
     if (ret != 0)
     {
@@ -247,18 +307,25 @@ int asterism_stream_connect(
     }
 
     stream->auto_trans = auto_trans;
-    stream->crypt = crypt;
+    stream->xor_obfuscation = xor_obfuscation;
     stream->_connect_cb = connect_cb;
     stream->_close_cb = close_cb;
     stream->_read_cb = read_cb;
     stream->_alloc_cb = alloc_cb;
 
     stream->addr_req = (uv_getaddrinfo_t *)AS_MALLOC(sizeof(uv_getaddrinfo_t));
+    if (!stream->addr_req)
+        return ASTERISM_E_FAILED;
     stream->addr_req->data = stream;
 
     char port_str[10] = {0};
+    struct addrinfo hints;
+    memset(&hints, 0, sizeof(hints));
+    hints.ai_family = AF_INET;
+    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_protocol = IPPROTO_TCP;
     asterism_itoa(port_str, sizeof(port_str), port, 10, 0, 0);
-    ret = uv_getaddrinfo(as->loop, stream->addr_req, stream_getaddrinfo, host, port_str, 0);
+    ret = uv_getaddrinfo(as->loop, stream->addr_req, stream_getaddrinfo, host, port_str, &hints);
     if (ret != 0)
     {
         asterism_log(ASTERISM_LOG_DEBUG, "%s", uv_strerror(ret));
@@ -278,12 +345,15 @@ int asterism_stream_accept(
     struct asterism_s *as,
     uv_stream_t *server_stream,
     unsigned int auto_trans,
-    unsigned int crypt,
+    unsigned int xor_obfuscation,
     uv_alloc_cb alloc_cb,
     uv_read_cb read_cb,
     uv_close_cb close_cb,
     asterism_stream_t *stream)
 {
+    if (!server_stream || !read_cb || !close_cb)
+        return ASTERISM_E_INVALID_ARGS;
+
     int ret = stream_init(stream, as);
     if (ret != 0)
     {
@@ -291,7 +361,7 @@ int asterism_stream_accept(
     }
 
     stream->auto_trans = auto_trans;
-    stream->crypt = crypt;
+    stream->xor_obfuscation = xor_obfuscation;
     stream->_alloc_cb = alloc_cb;
     stream->_read_cb = read_cb;
     stream->_close_cb = close_cb;
@@ -325,7 +395,7 @@ int asterism_stream_write(
     const uv_buf_t *bufs,
     uv_write_cb cb)
 {
-    if (stream->crypt)
+    if (stream->xor_obfuscation)
     {
         int len = bufs->len;
         char *base = bufs->base;
@@ -394,7 +464,7 @@ void asterism_stream_eaten(struct asterism_stream_s *stream, unsigned int eaten)
     }
     else if (eaten <= stream->buffer_len)
     {
-        memmove(stream->buffer, stream->buffer + eaten, eaten);
+        memmove(stream->buffer, stream->buffer + eaten, stream->buffer_len - eaten);
         stream->buffer_len -= eaten;
     }
 }

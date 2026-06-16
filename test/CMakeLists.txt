@@ -21,6 +21,8 @@ target_compile_definitions(asterism_test PRIVATE UNIT_TEST)
 # Link against asterism_lib which already brings in all dependencies and their headers transitively
 target_link_libraries(asterism_test PRIVATE asterism_lib)
 
+add_test(NAME asterism_test COMMAND asterism_test)
+
 if(UNIX)
     target_compile_options(asterism_test PRIVATE -std=gnu99)
 endif()

@@ -43,6 +43,55 @@ static void test_portal_parse_rules(void) {
         EXPECT_EQ(config.remote_port, 53);
         asterism_portal_free_config(&config);
     }
+
+    memset(&config, 0, sizeof(config));
+    char long_rule[900];
+    memset(long_rule, 'a', sizeof(long_rule));
+    long_rule[sizeof(long_rule) - 1] = '\0';
+    r = asterism_portal_parse_rule(long_rule, &config);
+    EXPECT_EQ(r, -1);
+
+    memset(&config, 0, sizeof(config));
+    r = asterism_portal_parse_rule("127.0.0.1:3306#127.0.0.1:8080", &config);
+    EXPECT_EQ(r, -1);
+
+    memset(&config, 0, sizeof(config));
+    r = asterism_portal_parse_rule("udp://127.0.0.1:3306#http://127.0.0.1:8080#127.0.0.1:3306", &config);
+    EXPECT_EQ(r, -1);
+    EXPECT_TRUE(config.local_host == NULL);
+    EXPECT_TRUE(config.remote_host == NULL);
+
+    memset(&config, 0, sizeof(config));
+    r = asterism_portal_parse_rule("127.0.0.1:3306#socks5://127.0.0.1:8080#127.0.0.1:3306", &config);
+    EXPECT_EQ(r, -1);
+    EXPECT_TRUE(config.local_host == NULL);
+    EXPECT_TRUE(config.remote_host == NULL);
+    EXPECT_TRUE(config.relay_user == NULL);
+
+    char long_host[320];
+    memset(long_host, 'a', sizeof(long_host) - 1);
+    long_host[sizeof(long_host) - 1] = '\0';
+    char invalid_rule[768];
+    snprintf(invalid_rule, sizeof(invalid_rule),
+             "127.0.0.1:3306#http://127.0.0.1:8080#%s:3306", long_host);
+    memset(&config, 0, sizeof(config));
+    r = asterism_portal_parse_rule(invalid_rule, &config);
+    EXPECT_EQ(r, -1);
+    EXPECT_TRUE(config.local_host == NULL);
+    EXPECT_TRUE(config.remote_host == NULL);
+
+    char long_credential[520];
+    memset(long_credential, 'b', sizeof(long_credential) - 1);
+    long_credential[sizeof(long_credential) - 1] = '\0';
+    snprintf(invalid_rule, sizeof(invalid_rule),
+             "127.0.0.1:3306#http://%s@127.0.0.1:8080#127.0.0.1:3306",
+             long_credential);
+    memset(&config, 0, sizeof(config));
+    r = asterism_portal_parse_rule(invalid_rule, &config);
+    EXPECT_EQ(r, -1);
+    EXPECT_TRUE(config.local_host == NULL);
+    EXPECT_TRUE(config.remote_host == NULL);
+    EXPECT_TRUE(config.relay_user == NULL);
 }
 
 static void test_portal_forwarding(void) {

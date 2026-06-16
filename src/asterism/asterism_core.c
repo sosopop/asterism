@@ -30,7 +30,7 @@ unsigned int asterism_tunnel_new_handshake_id()
 
 int asterism_handshake_compare(struct asterism_handshake_s *a, struct asterism_handshake_s *b)
 {
-    return a->id - b->id;
+    return (a->id > b->id) - (a->id < b->id);
 }
 
 RB_GENERATE(asterism_handshake_tree_s, asterism_handshake_s, tree_entry, asterism_handshake_compare);
@@ -44,14 +44,64 @@ RB_GENERATE(asterism_session_tree_s, asterism_session_s, tree_entry, asterism_se
 
 int asterism_udp_session_compare(struct asterism_udp_session_s* a, struct asterism_udp_session_s* b)
 {
-    int ip = (int)a->source_addr.sin_addr.s_addr - (int)b->source_addr.sin_addr.s_addr;
-    if (ip) {
-		return ip;
-	}
-    return (int)a->source_addr.sin_port - (int)b->source_addr.sin_port;
+    if (a->source_addr.sin_addr.s_addr != b->source_addr.sin_addr.s_addr)
+        return a->source_addr.sin_addr.s_addr > b->source_addr.sin_addr.s_addr ? 1 : -1;
+    return (a->source_addr.sin_port > b->source_addr.sin_port) -
+           (a->source_addr.sin_port < b->source_addr.sin_port);
 }
 
 RB_GENERATE(asterism_udp_session_tree_s, asterism_udp_session_s, tree_entry, asterism_udp_session_compare);
+
+int asterism_proto_frame_size(const void *data, size_t data_len, uint16_t *frame_len)
+{
+    if (!data || !frame_len)
+        return -1;
+    if (data_len < sizeof(struct asterism_trans_proto_s))
+        return 0;
+
+    const unsigned char *bytes = (const unsigned char *)data;
+    if (bytes[0] != ASTERISM_TRANS_PROTO_VERSION)
+        return -1;
+
+    uint16_t len = asterism_read_be16(bytes + 2);
+    if (len < sizeof(struct asterism_trans_proto_s) || len > ASTERISM_MAX_PROTO_SIZE)
+        return -1;
+    if (len > data_len)
+        return 0;
+
+    *frame_len = len;
+    return 1;
+}
+
+int asterism_socks5_udp_header_size(
+    const unsigned char *data,
+    size_t data_len,
+    size_t *header_len)
+{
+    if (!data || !header_len || data_len < 4)
+        return -1;
+    if (data[0] != 0 || data[1] != 0 || data[2] != 0)
+        return -1;
+
+    if (data[3] == 0x01)
+    {
+        if (data_len < 10)
+            return -1;
+        *header_len = 10;
+        return 0;
+    }
+    if (data[3] == 0x03)
+    {
+        if (data_len < 5 || data[4] == 0)
+            return -1;
+        size_t len = 7u + data[4];
+        if (len > data_len)
+            return -1;
+        *header_len = len;
+        return 0;
+    }
+    return -1;
+}
 
 static void check_timer_close_cb(
     uv_handle_t *handle)
@@ -113,17 +163,13 @@ static void check_timer_cb(
 
 int asterism_core_prepare(struct asterism_s *as)
 {
+    if (!as)
+        return ASTERISM_E_INVALID_ARGS;
+
     int ret = ASTERISM_E_OK;
     as->loop = uv_loop_new();
-    if (as->session_auth)
-    {
-        if (!as->session_auth_user || !as->session_auth_pass ||
-            strlen(as->session_auth_user) == 0 || strlen(as->session_auth_pass) == 0)
-        {
-            ret = ASTERISM_E_USERPASS_EMPTY;
-            goto cleanup;
-        }
-    }
+    if (!as->loop)
+        return ASTERISM_E_FAILED;
     if (as->idle_timeout == 0) {
         as->idle_timeout = ASTERISM_CONNECTION_MAX_IDLE_COUNT;
     }
@@ -167,6 +213,11 @@ int asterism_core_prepare(struct asterism_s *as)
             if (asterism_vcasecmp(&scheme, "http") == 0)
             {
                 struct asterism_str __host = asterism_strdup_nul(host);
+                if (host.len && !__host.p)
+                {
+                    ret = ASTERISM_E_FAILED;
+                    goto cleanup;
+                }
                 ret = asterism_inner_http_init(as, __host.p, &port);
                 AS_FREE((char *)__host.p);
                 if (ret)
@@ -175,6 +226,11 @@ int asterism_core_prepare(struct asterism_s *as)
             else if (asterism_vcasecmp(&scheme, "socks5") == 0)
             {
                 struct asterism_str __host = asterism_strdup_nul(host);
+                if (host.len && !__host.p)
+                {
+                    ret = ASTERISM_E_FAILED;
+                    goto cleanup;
+                }
                 ret = asterism_inner_socks5_init(as, __host.p, &port);
                 AS_FREE((char *)__host.p);
                 if (ret)
@@ -209,6 +265,11 @@ int asterism_core_prepare(struct asterism_s *as)
             goto cleanup;
         }
         struct asterism_str __host = asterism_strdup_nul(host);
+        if (host.len && !__host.p)
+        {
+            ret = ASTERISM_E_FAILED;
+            goto cleanup;
+        }
         ret = asterism_outer_tcp_init(as, __host.p, &port);
         AS_FREE((char *)__host.p);
         if (ret)
@@ -239,6 +300,11 @@ int asterism_core_prepare(struct asterism_s *as)
             goto cleanup;
         }
         struct asterism_str __host = asterism_strdup_nul(host);
+        if (host.len && !__host.p)
+        {
+            ret = ASTERISM_E_FAILED;
+            goto cleanup;
+        }
         ret = asterism_connector_tcp_init(as, __host.p, port);
         AS_FREE((char *)__host.p);
         if (ret)
@@ -255,6 +321,11 @@ int asterism_core_prepare(struct asterism_s *as)
     }
 
     as->check_timer = AS_ZMALLOC(struct check_timer_s);
+    if (!as->check_timer)
+    {
+        ret = ASTERISM_E_FAILED;
+        goto cleanup;
+    }
     ASTERISM_HANDLE_INIT(as->check_timer, timer, check_timer_close);
     as->check_timer->as = as;
     ret = uv_timer_init(as->loop, &as->check_timer->timer);
@@ -275,6 +346,9 @@ cleanup:
 
 int asterism_core_destory(struct asterism_s *as)
 {
+    if (!as)
+        return ASTERISM_E_INVALID_ARGS;
+
     int ret = ASTERISM_E_OK;
     if (as->loop)
         uv_loop_delete(as->loop);
@@ -331,8 +405,11 @@ int asterism_core_run(struct asterism_s *as)
     ret = asterism_core_prepare(as);
     if (ret)
     {
-        uv_walk(as->loop, handles_close_cb, as);
-        uv_run(as->loop, UV_RUN_DEFAULT);
+        if (as->loop)
+        {
+            uv_walk(as->loop, handles_close_cb, as);
+            uv_run(as->loop, UV_RUN_DEFAULT);
+        }
         return ret;
     }
 
@@ -351,7 +428,8 @@ void handles_close_cb(
     void *arg)
 {
     struct asterism_handle_s *_handle = (struct asterism_handle_s *)handle->data;
-    _handle->close(handle);
+    if (_handle && _handle->close)
+        _handle->close(handle);
 }
 
 struct stop_async_s
@@ -380,17 +458,24 @@ static void stop_async_cb(uv_async_t *handle)
 
 int asterism_core_stop(struct asterism_s *as)
 {
+    if (!as || !as->loop)
+        return ASTERISM_E_INVALID_ARGS;
+
     int ret = ASTERISM_E_OK;
     as->stoped = 1;
     struct stop_async_s *async = AS_ZMALLOC(struct stop_async_s);
+    if (!async)
+        return ASTERISM_E_FAILED;
     async->as = as;
     ASTERISM_HANDLE_INIT(async, async, stop_async_close);
     ret = uv_async_init(as->loop, &async->async, stop_async_cb);
     if (ret != 0)
-        goto cleanup;
+    {
+        AS_FREE(async);
+        return ret;
+    }
     ret = uv_async_send(&async->async);
     if (ret != 0)
-        goto cleanup;
-cleanup:
+        stop_async_close((uv_handle_t *)&async->async);
     return ret;
 }

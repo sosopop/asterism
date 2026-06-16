@@ -23,4 +23,10 @@ int asterism_outer_tcp_init(
     struct asterism_s *as,
     const char *ip, unsigned int *port);
 
+int asterism_decode_connect_ack(
+    const void *data,
+    size_t data_len,
+    uint32_t *handshake_id,
+    int *success);
+
 #endif

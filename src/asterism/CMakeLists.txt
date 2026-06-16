@@ -41,7 +41,7 @@ if(ANDROID)
 endif()
 
 # Link dependencies to the library. Linking publicly propagates these dependencies (and their includes)
-target_link_libraries(asterism_lib PUBLIC uv http_parser PUBLIC ${SYS_LIBS})
+target_link_libraries(asterism_lib PUBLIC libuv::libuv llhttp ${SYS_LIBS})
 
 # CLI executable target
 add_executable(asterism main.c ${ASTERISM_RC_SOURCE})

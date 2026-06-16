@@ -72,17 +72,30 @@ static void connector_close_cb(
     struct asterism_tcp_connector_s *obj = __CONTAINER_PTR(struct asterism_tcp_connector_s, socket, handle);
     if (obj->heartbeat_timer)
     {
-        close_hearbeat(handle);
+        close_hearbeat((uv_handle_t *)&obj->heartbeat_timer->timer);
         obj->heartbeat_timer->connector = 0;
     }
     if (obj->as->stoped != 1)
     {
         struct connector_timer_s *timer = AS_ZMALLOC(struct connector_timer_s);
+        if (!timer)
+        {
+            connector_delete(obj);
+            return;
+        }
         ASTERISM_HANDLE_INIT(timer, timer, reconnect_timer_close);
         timer->connector = obj;
         unsigned int reconnect_delay = obj->as->reconnect_delay;
-        uv_timer_init(obj->as->loop, &timer->timer);
-        uv_timer_start(&timer->timer, reconnect_timer_cb, reconnect_delay, reconnect_delay);
+        if (uv_timer_init(obj->as->loop, &timer->timer) != 0)
+        {
+            connector_delete(obj);
+            AS_FREE(timer);
+            return;
+        }
+        if (uv_timer_start(&timer->timer, reconnect_timer_cb, reconnect_delay, 0) != 0)
+        {
+            reconnect_timer_close((uv_handle_t *)&timer->timer);
+        }
     }
     else
     {
@@ -95,126 +108,61 @@ static int connector_parse_datagram_request(
     struct asterism_tcp_connector_s* conn,
     struct asterism_trans_proto_s* proto)
 {
-    int ret = -1;
     int offset = sizeof(struct asterism_trans_proto_s);
-    int proto_len = ntohs(proto->len);
-
-    unsigned char atyp;
-    struct sockaddr_storage remote_addr_storage;
-    struct sockaddr_in* remote_addr;
-    char remote_host_str[MAX_HOST_LEN];
-    unsigned short remote_port;
-    unsigned char remote_host_len;
-    unsigned char* data;
-    int data_len = 0;
+    int proto_len = asterism_read_be16(&proto->len);
+    if (proto_len < (int)sizeof(struct asterism_trans_proto_s))
+        return -1;
 
     struct sockaddr_in source_addr;
     memset(&source_addr, 0, sizeof(source_addr));
     source_addr.sin_family = AF_INET;
 
-    remote_host_str[0] = '\0';
-
     if (offset + 4  > proto_len)
-		goto cleanup;
-    // Extract the source IPv4 address
+        return -1;
     memcpy(&source_addr.sin_addr.s_addr, ((char*)proto) + offset, 4);
     offset += 4;
-    
+
     if (offset + 2 > proto_len)
-        goto cleanup;
-    // Extract the source port
+        return -1;
     memcpy(&source_addr.sin_port, ((char*)proto) + offset, 2);
     offset += 2;
 
-    // Convert the IP to a string
-    char ip_str[INET_ADDRSTRLEN];
-    uv_inet_ntop(AF_INET, &source_addr.sin_addr, ip_str, INET_ADDRSTRLEN);
+    const unsigned char *socks5 = (const unsigned char *)proto + offset;
+    size_t socks5_len = (size_t)(proto_len - offset);
+    size_t header_len = 0;
+    if (asterism_socks5_udp_header_size(socks5, socks5_len, &header_len) != 0)
+        return -1;
 
-    // Convert the port to host byte order and print both IP and port
-    unsigned short port_host_order = ntohs(source_addr.sin_port);
-    //asterism_log(ASTERISM_LOG_DEBUG, "parsed source address: ip=%s, port=%u", ip_str, port_host_order);
-
-    //+---- + ------ + ------ + ---------- + ---------- + ---------- +
-    //| RSV |  FRAG  |  ATYP  |  DST.ADDR  |  DST.PORT  |    DATA    |
-    //+---- + ------ + ------ + ---------- + ---------- + ---------- +
-    //|  2  |    1   |    1   |  Variable  |      2     |  Variable  |
-    //+---- + ------ + ------ + ---------- + ---------- + ---------- +
-
-    // Skip RSV and FRAG fields (3 bytes)
-    offset += 3;
-
-    if (offset + 1 > proto_len)
-        goto cleanup;
-
-    // Extract ATYP
-    memcpy(&atyp, ((char*)proto) + offset, 1);
-    offset += 1;
-
-    // Handle different ATYP cases
-    switch (atyp) {
-    case 0x01: // IPv4
-        remote_addr = (struct sockaddr_in*)&remote_addr_storage;
-        memset(remote_addr, 0, sizeof(struct sockaddr_in));
-        remote_addr->sin_family = AF_INET;
-
-        if (offset + 4 + 2 > proto_len)
-            goto cleanup;
-
-        memcpy(&remote_addr->sin_addr.s_addr, ((char*)proto) + offset, 4);
-        offset += 4;
-        memcpy(&remote_addr->sin_port, ((char*)proto) + offset, 2);
-        offset += 2;
-
-        uv_inet_ntop(AF_INET, &remote_addr->sin_addr, remote_host_str, INET_ADDRSTRLEN);
-        remote_port = ntohs(remote_addr->sin_port);
-
-        // Log the destination address and port
-        //asterism_log(ASTERISM_LOG_DEBUG, "parsed destination address: ip=%s, port=%u", remote_host_str, remote_port);
-        break;
-
-    case 0x03: // Domain name
-		// Extract the domain name length
-		memcpy(&remote_host_len, ((char*)proto) + offset, 1);
-		offset += 1;
-
-		if (offset + remote_host_len + 2 > proto_len)
-			goto cleanup;
-        if (remote_host_len > MAX_HOST_LEN - 1)
-            goto cleanup;
-
-		// Extract the domain name
-		memcpy(remote_host_str, ((char*)proto) + offset, remote_host_len);
-        remote_host_str[remote_host_len] = '\0';
-		offset += remote_host_len;
-
-		// Extract the port
-		memcpy(&remote_port, ((char*)proto) + offset, 2);
-        remote_port = ntohs(remote_port);
-		offset += 2;
-
-		// Log the destination address and port
-		//asterism_log(ASTERISM_LOG_DEBUG, "parsed destination address: domain=%s, port=%u", remote_host_str, remote_port);
-        break;
-    default:
-        asterism_log(ASTERISM_LOG_DEBUG, "unknown atyp value: %u", atyp);
-        break;
+    unsigned char atyp = socks5[3];
+    char remote_host[MAX_HOST_LEN] = {0};
+    unsigned short remote_port = 0;
+    if (atyp == 0x01)
+    {
+        struct in_addr remote_ip;
+        memcpy(&remote_ip.s_addr, socks5 + 4, 4);
+        if (uv_inet_ntop(AF_INET, &remote_ip, remote_host, sizeof(remote_host)) != 0)
+            return -1;
+        remote_port = asterism_read_be16(socks5 + 8);
+    }
+    else
+    {
+        unsigned char host_len = socks5[4];
+        memcpy(remote_host, socks5 + 5, host_len);
+        remote_host[host_len] = '\0';
+        remote_port = asterism_read_be16(socks5 + 5 + host_len);
     }
 
-    data = (unsigned char*)((char*)proto + offset);
-    data_len = proto_len - offset;
+    if (!remote_host[0] || remote_port == 0)
+        return -1;
 
-    offset += data_len;
-
-    if (offset != proto_len)
-		goto cleanup;
-
-    if (remote_host_str[0] != '\0' && remote_port != 0) {
-        ret = asterism_requestor_udp_trans(conn, atyp, remote_host_str, remote_port, source_addr, data, data_len);
-    }
-
-    ret = 0;
-cleanup:
-    return ret;
+    return asterism_requestor_udp_trans(
+        conn,
+        atyp,
+        remote_host,
+        remote_port,
+        source_addr,
+        socks5 + header_len,
+        (int)(socks5_len - header_len));
 }
 
 static int connector_parse_connect_data(
@@ -227,16 +175,18 @@ static int connector_parse_connect_data(
     char *host = 0;
     char *__host = 0;
     char* target = 0;
-    uint16_t proto_len = ntohs(proto->len);
+    uint16_t proto_len = asterism_read_be16(&proto->len);
+    if (proto_len < sizeof(struct asterism_trans_proto_s))
+        goto cleanup;
 
     if (offset + 4 > proto_len)
         goto cleanup;
-    unsigned int handshake_id = ntohl(*(unsigned int *)((char *)proto + offset));
+    unsigned int handshake_id = asterism_read_be32((char *)proto + offset);
     offset += 4;
 
     if (offset + 2 > proto_len)
         goto cleanup;
-    host_len = ntohs(*(unsigned short *)((char *)proto + offset));
+    host_len = asterism_read_be16((char *)proto + offset);
     offset += 2;
 
     if (host_len > MAX_HOST_LEN)
@@ -251,6 +201,8 @@ static int connector_parse_connect_data(
     asterism_log(ASTERISM_LOG_INFO, "connect to: %.*s", (int)host_len, host);
 
     target = as_strdup2(host, host_len);
+    if (!target)
+        goto cleanup;
     if (conn->as->connect_redirect_hook_cb)
     {
         char *new_target = conn->as->connect_redirect_hook_cb(
@@ -275,6 +227,8 @@ static int connector_parse_connect_data(
         goto error;
 
     __host = as_strdup2(host_str.p, host_str.len);
+    if (!__host)
+        goto error;
 
     if (asterism_requestor_tcp_init(conn->as, __host, port, conn->host, conn->port, handshake_id))
         goto error;
@@ -297,47 +251,42 @@ static int connector_parse_cmd_data(
     uv_buf_t *buf,
     int *eaten)
 {
-    if (buf->len < sizeof(struct asterism_trans_proto_s))
-        return 0;
-    struct asterism_trans_proto_s *proto = (struct asterism_trans_proto_s *)buf->base;
-    uint16_t proto_len = ntohs(proto->len);
-    if (proto->version != ASTERISM_TRANS_PROTO_VERSION)
-        return -1;
-    if (proto_len > ASTERISM_MAX_PROTO_SIZE)
-        return -1;
-    if (proto_len > buf->len)
+    size_t consumed = 0;
+    while (consumed < buf->len)
     {
-        return 0;
-    }
-    if (proto->cmd == ASTERISM_TRANS_PROTO_CONNECT)
-    {
-        asterism_log(ASTERISM_LOG_DEBUG, "connection connect recv");
-        if (connector_parse_connect_data(conn, proto) != 0)
+        uint16_t proto_len = 0;
+        int frame_status = asterism_proto_frame_size(
+            buf->base + consumed, buf->len - consumed, &proto_len);
+        if (frame_status < 0)
             return -1;
+        if (frame_status == 0)
+            break;
+
+        struct asterism_trans_proto_s *proto =
+            (struct asterism_trans_proto_s *)(buf->base + consumed);
+        if (proto->cmd == ASTERISM_TRANS_PROTO_CONNECT)
+        {
+            asterism_log(ASTERISM_LOG_DEBUG, "connection connect recv");
+            if (connector_parse_connect_data(conn, proto) != 0)
+                return -1;
+        }
+        else if (proto->cmd == ASTERISM_TRANS_PROTO_PONG)
+        {
+            if (proto_len != sizeof(struct asterism_trans_proto_s))
+                return -1;
+        }
+        else if (proto->cmd == ASTERISM_TRANS_PROTO_DATAGRAM_REQUEST)
+        {
+            if (connector_parse_datagram_request(conn, proto) != 0)
+                return -1;
+        }
+        else
+        {
+            return -1;
+        }
+        consumed += proto_len;
     }
-    else if (proto->cmd == ASTERISM_TRANS_PROTO_PONG)
-    {
-        //asterism_log(ASTERISM_LOG_DEBUG, "connection pong recv");
-    }
-    else if (proto->cmd == ASTERISM_TRANS_PROTO_DATAGRAM_REQUEST)
-    {
-		// asterism_log(ASTERISM_LOG_DEBUG, "connection datagram request recv");
-		if (connector_parse_datagram_request(conn, proto) != 0)
-			return -1;
-    }
-    else
-    {
-        return -1;
-    }
-    *eaten += proto_len;
-    unsigned int remain = buf->len - proto_len;
-    if (remain)
-    {
-        uv_buf_t __buf;
-        __buf.base = buf->base + proto_len;
-        __buf.len = remain;
-        return connector_parse_cmd_data(conn, &__buf, eaten);
-    }
+    *eaten += (int)consumed;
     return 0;
 }
 
@@ -391,15 +340,23 @@ static int connector_send_ping(struct asterism_tcp_connector_s *connector)
     int ret = 0;
 
     char* ping_buf = __DUP_MEM((char *)&_global_proto_ping, sizeof(_global_proto_ping));
+    if (!ping_buf)
+        return ASTERISM_E_FAILED;
 
     struct asterism_write_req_s *write_req = AS_ZMALLOC(struct asterism_write_req_s);
+    if (!write_req)
+    {
+        AS_FREE(ping_buf);
+        return ASTERISM_E_FAILED;
+    }
     write_req->write_buffer = uv_buf_init(ping_buf, sizeof(_global_proto_ping));
     write_req->write_req.data = connector;
 
     ret = asterism_stream_write((uv_write_t*)write_req, (struct asterism_stream_s *)connector, &write_req->write_buffer, connector_send_ping_cb);
     if (ret != 0)
     {
-        goto cleanup;
+        AS_FREE(write_req->write_buffer.base);
+        AS_FREE(write_req);
     }
     //asterism_log(ASTERISM_LOG_DEBUG, "connection send ping");
 cleanup:
@@ -416,7 +373,7 @@ static void heartbeat_timeout_cb(
     }
     int ret = connector_send_ping(timer->connector);
     if (ret != 0)
-        asterism_stream_close((uv_handle_t *)handle);
+        asterism_stream_close((uv_handle_t *)&timer->connector->socket);
 }
 
 static void connector_send_cb(
@@ -431,6 +388,11 @@ static void connector_send_cb(
         goto cleanup;
     }
     connector->heartbeat_timer = AS_ZMALLOC(struct connector_timer_s);
+    if (!connector->heartbeat_timer)
+    {
+        ret = ASTERISM_E_FAILED;
+        goto cleanup;
+    }
     ASTERISM_HANDLE_INIT(connector->heartbeat_timer, timer, close_hearbeat);
     connector->heartbeat_timer->connector = connector;
     ret = uv_timer_init(connector->as->loop, &connector->heartbeat_timer->timer);
@@ -462,19 +424,25 @@ static int connector_send_join(struct asterism_tcp_connector_s *connector)
     struct asterism_s *as = connector->as;
     size_t username_len = strlen(as->username);
     size_t password_len = strlen(as->password);
+    size_t packet_capacity = sizeof(struct asterism_trans_proto_s) + username_len + password_len + 4;
+    if (username_len > UINT16_MAX || password_len > UINT16_MAX ||
+        packet_capacity > ASTERISM_MAX_PROTO_SIZE)
+        return ASTERISM_E_INVALID_ARGS;
 
     struct asterism_trans_proto_s *connect_data = (struct asterism_trans_proto_s *)
-        malloc(sizeof(struct asterism_trans_proto_s) + username_len + password_len + 2 + 2);
+        malloc(packet_capacity);
+    if (!connect_data)
+        return ASTERISM_E_FAILED;
     connect_data->version = ASTERISM_TRANS_PROTO_VERSION;
     connect_data->cmd = ASTERISM_TRANS_PROTO_JOIN;
 
     char *off = (char *)connect_data + sizeof(struct asterism_trans_proto_s);
-    *(uint16_t *)off = htons((uint16_t)username_len);
+    asterism_write_be16(off, (uint16_t)username_len);
     off += 2;
     memcpy(off, as->username, username_len);
     off += username_len;
 
-    *(uint16_t *)off = htons((uint16_t)password_len);
+    asterism_write_be16(off, (uint16_t)password_len);
     off += 2;
     memcpy(off, as->password, password_len);
     off += password_len;
@@ -483,6 +451,11 @@ static int connector_send_join(struct asterism_tcp_connector_s *connector)
     connect_data->len = htons(packet_len);
 
     struct asterism_write_req_s *write_req = AS_ZMALLOC(struct asterism_write_req_s);
+    if (!write_req)
+    {
+        AS_FREE(connect_data);
+        return ASTERISM_E_FAILED;
+    }
     write_req->write_buffer.base = (char *)connect_data;
     write_req->write_buffer.len = packet_len;
     write_req->write_req.data = connector;
@@ -528,8 +501,17 @@ int asterism_connector_tcp_init(struct asterism_s *as,
                                 const char *host, unsigned int port)
 {
     int ret = 0;
+    if (!as || !host)
+        return ASTERISM_E_INVALID_ARGS;
     struct asterism_tcp_connector_s *connector = AS_ZMALLOC(struct asterism_tcp_connector_s);
+    if (!connector)
+        return ASTERISM_E_FAILED;
     connector->host = as_strdup(host);
+    if (!connector->host)
+    {
+        AS_FREE(connector);
+        return ASTERISM_E_FAILED;
+    }
     connector->port = port;
     ret = asterism_stream_connect(as, host, port, 1, 1,
                                   connector_connect_cb, 0, connector_read_cb, connector_close_cb, (struct asterism_stream_s *)connector);

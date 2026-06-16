@@ -1,7 +1,7 @@
 #ifndef ASTERISM_H_
 #define ASTERISM_H_
 
-#if defined(WIN32)
+#if defined(_WIN32)
 #if defined(ASTERISM_EXPORTS)
 #ifdef __cplusplus
 #define ASTERISM_EXPORT extern "C" __declspec(dllexport)
@@ -44,6 +44,13 @@ extern "C"
         ASTERISM_LOG_ERROR,
         ASTERISM_LOG_NULL
     } asterism_log_level;
+
+    typedef enum
+    {
+        ASTERISM_SESSION_POLICY_AUTH_REQUIRED = 0,
+        ASTERISM_SESSION_POLICY_PUBLIC = 1,
+        ASTERISM_SESSION_POLICY_DISABLED = 2,
+    } asterism_session_policy;
 
     /**
      * @brief set log level
@@ -115,6 +122,8 @@ extern "C"
         ASTERISM_OPT_SESSION_AUTH_PASS,
         /* Portal rule (format: local_addr:local_port#relay_addr#remote_addr:remote_port) */
         ASTERISM_OPT_PORTAL,
+        /* Policy for HTTP GET /sessions on relay HTTP proxy address */
+        ASTERISM_OPT_SESSION_POLICY,
     } asterism_option;
 
     /**

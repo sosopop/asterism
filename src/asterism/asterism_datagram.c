@@ -3,12 +3,16 @@
 
 int asterism_datagram_init(
     struct asterism_s* as,
-    unsigned int crypt, 
+    unsigned int xor_obfuscation,
     uv_alloc_cb alloc_cb, 
     uv_udp_recv_cb read_cb,
     uv_close_cb close_cb, 
     struct asterism_datagram_s* datagram)
 {
+    if (!as || !as->loop || !datagram || !close_cb)
+        return ASTERISM_E_INVALID_ARGS;
+
+    (void)xor_obfuscation;
     int ret = 0;
 
     ASTERISM_HANDLE_INIT(datagram, socket, asterism_datagram_close);
@@ -18,8 +22,6 @@ int asterism_datagram_init(
     datagram->_close_cb = close_cb;
     datagram->_alloc_cb = alloc_cb;
     datagram->_recv_cb = read_cb;
-    QUEUE_INSERT_TAIL(&as->udp_conns_queue, &datagram->queue);
-
     ret = uv_udp_init(as->loop, &datagram->socket);
     if (ret != 0)
     {
@@ -27,6 +29,7 @@ int asterism_datagram_init(
         ret = ASTERISM_E_SOCKET_LISTEN_ERROR;
         goto cleanup;
     }
+    QUEUE_INSERT_TAIL(&as->udp_conns_queue, &datagram->queue);
 cleanup:
     return ret;
 }
