@@ -1,5 +1,8 @@
 # ✦ Asterism
 
+[![CI](https://github.com/sosopop/asterism/actions/workflows/ci.yml/badge.svg)](https://github.com/sosopop/asterism/actions/workflows/ci.yml)
+[![License](https://img.shields.io/github/license/sosopop/asterism)](LICENSE)
+
 ![Title Banner](assets/title_banner.png)
 
 [English](README.md) | 中文
@@ -376,7 +379,7 @@ target_link_libraries(my_app PRIVATE asterism_lib)
 
 ```
 asterism/
-├── 3rdparty/               # 第三方依赖
+├── 3rdparty/               # 第三方依赖 (作为 Git 子模块引入)
 │   ├── libuv/              # 跨平台异步 I/O 库
 │   └── llhttp/             # HTTP 协议解析器
 ├── src/asterism/           # 核心源码
@@ -389,7 +392,8 @@ asterism/
 │   ├── asterism_connector_*# Agent 连接器
 │   ├── asterism_requestor_*# 请求转发
 │   ├── asterism_responser_*# 响应转发
-│   └── test/               # 单元测试
+│   └── asterism_portal.*   # Portal 传送门转发逻辑
+├── test/                   # 单元测试
 ├── install/                # 服务安装与卸载脚本
 ├── CMakeLists.txt          # 构建配置
 ├── README.md               # 英文文档

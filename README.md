@@ -1,5 +1,8 @@
 # ✦ Asterism
 
+[![CI](https://github.com/sosopop/asterism/actions/workflows/ci.yml/badge.svg)](https://github.com/sosopop/asterism/actions/workflows/ci.yml)
+[![License](https://img.shields.io/github/license/sosopop/asterism)](LICENSE)
+
 ![Title Banner](assets/title_banner.png)
 
 English | [中文](README_ZH.md)
@@ -385,7 +388,7 @@ target_link_libraries(my_app PRIVATE asterism_lib)
 
 ```
 asterism/
-├── 3rdparty/               # Third-party dependencies
+├── 3rdparty/               # Third-party dependencies (integrated as Git submodules)
 │   ├── libuv/              # Cross-platform async I/O library
 │   └── llhttp/             # HTTP protocol parser
 ├── src/asterism/           # Core source code
@@ -398,7 +401,8 @@ asterism/
 │   ├── asterism_connector_*# Agent connector
 │   ├── asterism_requestor_*# Request forwarding
 │   ├── asterism_responser_*# Response forwarding
-│   └── test/               # Unit tests
+│   └── asterism_portal.*   # Portal mode forwarding
+├── test/                   # Unit tests
 ├── install/                # Service installation scripts
 ├── CMakeLists.txt          # Build configuration
 ├── README.md               # English documentation
