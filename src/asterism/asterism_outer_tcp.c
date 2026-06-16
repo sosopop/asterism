@@ -324,6 +324,14 @@ static int incoming_parse_cmd_data(
             asterism_log(ASTERISM_LOG_DEBUG, "connection connect ack recv");
             if (parse_cmd_connect_ack(incoming, proto) != 0)
                 return -1;
+            // The link is now established. Any bytes following this frame are
+            // raw relayed payload (e.g. a server-first banner that TCP
+            // coalesced into the same read as the ACK), not control frames.
+            // Stop frame parsing and let the caller forward the remainder
+            // transparently; parsing it as a control frame would fail and tear
+            // down the tunnel, dropping the first packet.
+            consumed += proto_len;
+            break;
         }
         else if (proto->cmd == ASTERISM_TRANS_PROTO_PING)
         {
@@ -363,6 +371,18 @@ static void incoming_read_cb(
         return;
     }
     asterism_stream_eaten((struct asterism_stream_s *)incoming, eaten);
+
+    // If a CONNECT_ACK just established the link and the server-first payload
+    // was coalesced into this same read, flush the leftover bytes to the
+    // linked stream now. Subsequent reads are forwarded automatically in
+    // stream_read_cb once both link and auto_trans are set.
+    if (incoming->link && incoming->buffer_len > 0)
+    {
+        if (asterism_stream_trans((struct asterism_stream_s *)incoming) != 0)
+        {
+            asterism_stream_close((uv_handle_t *)stream);
+        }
+    }
 }
 
 static void outer_accept_cb(

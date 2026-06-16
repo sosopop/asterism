@@ -643,6 +643,10 @@ static int incoming_parse_connect(
                     {
                         AS_FREE(req->write_buffer.base);
                         AS_FREE(req);
+                        // Signal failure so the caller closes the stream;
+                        // returning 0 here would leak the connection until the
+                        // idle timeout (write_session_response already does this).
+                        return -1;
                     }
                     return 0;
                 }

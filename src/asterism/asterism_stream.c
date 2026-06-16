@@ -272,6 +272,11 @@ static int stream_init(
     stream->as = as;
     ASTERISM_HANDLE_INIT(stream, socket, asterism_stream_close);
 
+    // Self-init the queue node up front so that if uv_tcp_init fails (before
+    // the QUEUE_INSERT_TAIL below) the caller's asterism_stream_close path can
+    // still QUEUE_REMOVE it safely instead of dereferencing NULL links.
+    QUEUE_INIT(&stream->queue);
+
     int ret = uv_tcp_init(as->loop, (uv_tcp_t *)&stream->socket);
     if (ret != 0)
     {
@@ -418,7 +423,17 @@ static void link_write_cb(
         return;
     }
     if (stream->link)
+    {
+        // The write destination just saw activity; refresh its idle tick AND
+        // its position in conns_queue. check_timer_cb assumes the queue is
+        // ordered by ascending active_tick_count and stops at the first
+        // non-idle node, so failing to requeue here would pin a write-only
+        // connection (e.g. a long download) near the head and starve the
+        // reaping of genuinely idle connections behind it.
         stream->link->active_tick_count = stream->as->current_tick_count;
+        QUEUE_REMOVE(&stream->link->queue);
+        QUEUE_INSERT_TAIL(&stream->as->conns_queue, &stream->link->queue);
+    }
 
     if (asterism_stream_read(stream))
     {
