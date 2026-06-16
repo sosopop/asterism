@@ -443,7 +443,7 @@ int asterism_itoa(char *buf, size_t buf_size, long long num, int base, int flags
     } while (num > 0);
 
     /* Zero padding */
-    if (flags && ASTERISM_SNPRINTF_FLAG_ZERO)
+    if (flags & ASTERISM_SNPRINTF_FLAG_ZERO)
     {
         while (k < field_width && k < (int)sizeof(tmp) - 1)
         {

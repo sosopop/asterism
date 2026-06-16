@@ -30,7 +30,7 @@ struct asterism_portal_config_list_s;
 
 #define ASTERISM_CONNECTION_MAX_IDLE_COUNT 60
 #define ASTERISM_RECONNECT_DELAY 10000
-#define ASTERISM_HEARTBEART_INTERVAL 30000
+#define ASTERISM_HEARTBEAT_INTERVAL 30000
 
 /*
 payload
@@ -203,7 +203,7 @@ struct asterism_s
     unsigned int current_tick_count;
     unsigned int idle_timeout;
     unsigned int udp_idle_timeout;
-    unsigned int heartbeart_interval;
+    unsigned int heartbeat_interval;
     unsigned int reconnect_delay;
     QUEUE conns_queue;
     QUEUE udp_conns_queue;
@@ -224,7 +224,7 @@ extern struct asterism_trans_proto_s _global_proto_pong;
 
 int asterism_core_prepare(struct asterism_s *as);
 
-int asterism_core_destory(struct asterism_s *as);
+int asterism_core_destroy(struct asterism_s *as);
 
 int asterism_core_run(struct asterism_s *as);
 

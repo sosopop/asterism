@@ -146,7 +146,7 @@ int asterism_portal_parse_rule(const char *rule_str, struct asterism_portal_conf
             config->relay_user = as_strdup(cred);
             config->relay_pass = as_strdup("");
         }
-        free(cred);
+        AS_FREE(cred);
         if (!config->relay_user || !config->relay_pass)
             goto fail;
 
@@ -172,11 +172,11 @@ int asterism_portal_parse_rule(const char *rule_str, struct asterism_portal_conf
         goto fail;
     config->relay_port = port;
 
-    free(s);
+    AS_FREE(s);
     return 0;
 
 fail:
-    free(s);
+    AS_FREE(s);
     asterism_portal_free_config(config);
     return -1;
 }
@@ -184,11 +184,11 @@ fail:
 void asterism_portal_free_config(struct asterism_portal_config_s *config)
 {
     if (!config) return;
-    if (config->local_host) free(config->local_host);
-    if (config->remote_host) free(config->remote_host);
-    if (config->relay_host) free(config->relay_host);
-    if (config->relay_user) free(config->relay_user);
-    if (config->relay_pass) free(config->relay_pass);
+    if (config->local_host) AS_FREE(config->local_host);
+    if (config->remote_host) AS_FREE(config->remote_host);
+    if (config->relay_host) AS_FREE(config->relay_host);
+    if (config->relay_user) AS_FREE(config->relay_user);
+    if (config->relay_pass) AS_FREE(config->relay_pass);
     memset(config, 0, sizeof(*config));
 }
 

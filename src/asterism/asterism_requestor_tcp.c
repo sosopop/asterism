@@ -18,8 +18,8 @@ static void handshake_write_cb(
     int status)
 {
     struct asterism_write_req_s *write_req = (struct asterism_write_req_s *)req;
-    free(write_req->write_buffer.base);
-    free(write_req);
+    AS_FREE(write_req->write_buffer.base);
+    AS_FREE(write_req);
 }
 
 static void requestor_connect_cb(

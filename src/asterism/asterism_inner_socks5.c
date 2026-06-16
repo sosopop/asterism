@@ -114,8 +114,8 @@ static void handshake_write_cb(
     int status)
 {
     struct asterism_write_req_s *write_req = (struct asterism_write_req_s *)req;
-    free(write_req->write_buffer.base);
-    free(write_req);
+    AS_FREE(write_req->write_buffer.base);
+    AS_FREE(write_req);
 }
 
 static int incoming_parse_connect(
@@ -278,9 +278,9 @@ static int incoming_parse_connect(
                 int write_ret = asterism_stream_write((uv_write_t*)req, (struct asterism_stream_s*)session->outer, &req->write_buffer, handshake_write_cb);
                 if (write_ret != 0)
                 {
-                    free(req->write_buffer.base);
-                    free(req);
-                    free(handshake);
+                    AS_FREE(req->write_buffer.base);
+                    AS_FREE(req);
+                    AS_FREE(handshake);
                     return -1;
                 }
 

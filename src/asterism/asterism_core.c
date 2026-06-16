@@ -176,8 +176,8 @@ int asterism_core_prepare(struct asterism_s *as)
     if (as->reconnect_delay == 0) {
         as->reconnect_delay = ASTERISM_RECONNECT_DELAY;
     }
-    if (as->heartbeart_interval == 0) {
-        as->heartbeart_interval = ASTERISM_HEARTBEART_INTERVAL;
+    if (as->heartbeat_interval == 0) {
+        as->heartbeat_interval = ASTERISM_HEARTBEAT_INTERVAL;
     }
     _global_proto_ping.len = htons(sizeof(_global_proto_ping));
     _global_proto_pong.len = htons(sizeof(_global_proto_pong));
@@ -344,7 +344,7 @@ cleanup:
     return ret;
 }
 
-int asterism_core_destory(struct asterism_s *as)
+int asterism_core_destroy(struct asterism_s *as)
 {
     if (!as)
         return ASTERISM_E_INVALID_ARGS;

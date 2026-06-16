@@ -17,8 +17,8 @@ static void handshake_write_cb(
     int status)
 {
     struct asterism_write_req_s *write_req = (struct asterism_write_req_s *)req;
-    free(write_req->write_buffer.base);
-    free(write_req);
+    AS_FREE(write_req->write_buffer.base);
+    AS_FREE(write_req);
 }
 
 static int responser_connect_ack(
@@ -27,7 +27,7 @@ static int responser_connect_ack(
     int ret = 0;
 
     struct asterism_trans_proto_s *connect_data =
-        (struct asterism_trans_proto_s *)malloc(sizeof(struct asterism_trans_proto_s) + 4 + 1);
+        (struct asterism_trans_proto_s *)AS_MALLOC(sizeof(struct asterism_trans_proto_s) + 4 + 1);
     if (!connect_data)
         return ASTERISM_E_FAILED;
 
@@ -54,8 +54,8 @@ static int responser_connect_ack(
     int write_ret = asterism_stream_write((uv_write_t *)req, (struct asterism_stream_s*)responser, &req->write_buffer, handshake_write_cb);
     if (write_ret != 0)
     {
-        free(req->write_buffer.base);
-        free(req);
+        AS_FREE(req->write_buffer.base);
+        AS_FREE(req);
         return -1;
     }
 

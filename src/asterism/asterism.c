@@ -40,7 +40,7 @@ void asterism_destroy(asterism as)
         return;
     asterism_log(ASTERISM_LOG_DEBUG, "%s", "asterism_destroy");
     struct asterism_s *__as = (struct asterism_s *)as;
-    asterism_core_destory(__as);
+    asterism_core_destroy(__as);
 }
 
 int asterism_set_option(asterism as, asterism_option opt, ...)
@@ -109,7 +109,7 @@ int asterism_set_option(asterism as, asterism_option opt, ...)
         __as->reconnect_delay = va_arg(ap, unsigned int);
         break;
     case ASTERISM_OPT_HEARTBEAT_INTERVAL:
-        __as->heartbeart_interval = va_arg(ap, unsigned int);
+        __as->heartbeat_interval = va_arg(ap, unsigned int);
         break;
     case ASTERISM_OPT_USERNAME:
     {

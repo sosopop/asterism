@@ -118,7 +118,7 @@ cleanup:
     {
         asterism_stream_close((uv_handle_t *)&incoming->socket);
     }
-    free(req);
+    AS_FREE(req);
 }
 
 static int conn_ack_cb(
@@ -171,8 +171,8 @@ static void handshake_write_cb(
     int status)
 {
     struct asterism_write_req_s *write_req = (struct asterism_write_req_s *)req;
-    free(write_req->write_buffer.base);
-    free(write_req);
+    AS_FREE(write_req->write_buffer.base);
+    AS_FREE(write_req);
 }
 
 static int parse_connect(
@@ -240,7 +240,7 @@ static int parse_connect(
     if (!has_port)
         port_len = 3;
     struct asterism_trans_proto_s *connect_data =
-        (struct asterism_trans_proto_s *)malloc(sizeof(struct asterism_trans_proto_s) +
+        (struct asterism_trans_proto_s *)AS_MALLOC(sizeof(struct asterism_trans_proto_s) +
                                                 host.len + port_len + 2 + 4);
     if (!connect_data)
     {
@@ -277,9 +277,9 @@ static int parse_connect(
     int write_ret = asterism_stream_write((uv_write_t *)req, (struct asterism_stream_s *)session->outer, &req->write_buffer, handshake_write_cb);
     if (write_ret != 0)
     {
-        free(req->write_buffer.base);
-        free(req);
-        free(handshake);
+        AS_FREE(req->write_buffer.base);
+        AS_FREE(req);
+        AS_FREE(handshake);
         return -1;
     }
 
@@ -484,8 +484,8 @@ static void session_list_write_cb(
 {
     struct asterism_write_req_s *write_req = (struct asterism_write_req_s *)req;
     struct asterism_stream_s *stream = (struct asterism_stream_s *)req->data;
-    free(write_req->write_buffer.base);
-    free(write_req);
+    AS_FREE(write_req->write_buffer.base);
+    AS_FREE(write_req);
     asterism_stream_end(stream);
 }
 
@@ -501,7 +501,7 @@ static int write_session_response(
     struct asterism_write_req_s *req = AS_ZMALLOC(struct asterism_write_req_s);
     if (!req)
     {
-        free(send_buffer);
+        AS_FREE(send_buffer);
         return -1;
     }
 
@@ -512,8 +512,8 @@ static int write_session_response(
         &req->write_buffer, session_list_write_cb);
     if (write_ret != 0)
     {
-        free(req->write_buffer.base);
-        free(req);
+        AS_FREE(req->write_buffer.base);
+        AS_FREE(req);
         return -1;
     }
     return 0;
@@ -632,7 +632,7 @@ static int incoming_parse_connect(
 
                     struct asterism_write_req_s *req = AS_ZMALLOC(struct asterism_write_req_s);
                     if (!req) {
-                        free(send_buffer);
+                        AS_FREE(send_buffer);
                         return -1;
                     }
                     req->write_buffer.base = (char *)send_buffer;
@@ -641,8 +641,8 @@ static int incoming_parse_connect(
                     int write_ret = asterism_stream_write((uv_write_t *)req, (struct asterism_stream_s *)incoming, &req->write_buffer, session_list_write_cb);
                     if (write_ret != 0)
                     {
-                        free(req->write_buffer.base);
-                        free(req);
+                        AS_FREE(req->write_buffer.base);
+                        AS_FREE(req);
                     }
                     return 0;
                 }
@@ -664,7 +664,7 @@ static void resp_auth_write_cb(
     int status)
 {
     struct asterism_stream_s *stream = (struct asterism_stream_s *)req->data;
-    free(req);
+    AS_FREE(req);
     //asterism_stream_end(stream);
 }
 
@@ -698,7 +698,7 @@ static void incoming_read_cb(
         int write_ret = asterism_stream_write((uv_write_t *)req, (struct asterism_stream_s *)incoming, &buf, resp_auth_write_cb);
         if (write_ret != 0)
         {
-            free(req);
+            AS_FREE(req);
         }
         //asterism_stream_eaten((struct asterism_stream_s *)incoming, incoming->buffer_len);
         asterism_stream_end((struct asterism_stream_s *)incoming);

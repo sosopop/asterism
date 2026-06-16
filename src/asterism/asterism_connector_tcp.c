@@ -400,9 +400,9 @@ static void connector_send_cb(
     {
         goto cleanup;
     }
-    unsigned int heartbeart_interval = connector->as->heartbeart_interval;
+    unsigned int heartbeat_interval = connector->as->heartbeat_interval;
     ret = uv_timer_start(&connector->heartbeat_timer->timer, heartbeat_timeout_cb,
-                         heartbeart_interval, heartbeart_interval);
+                         heartbeat_interval, heartbeat_interval);
     if (ret != 0)
     {
         goto cleanup;
@@ -414,8 +414,8 @@ cleanup:
             close_hearbeat((uv_handle_t *)&connector->heartbeat_timer->timer);
         asterism_stream_close((uv_handle_t *)&connector->socket);
     }
-    free(write_req->write_buffer.base);
-    free(write_req);
+    AS_FREE(write_req->write_buffer.base);
+    AS_FREE(write_req);
 }
 
 static int connector_send_join(struct asterism_tcp_connector_s *connector)
@@ -430,7 +430,7 @@ static int connector_send_join(struct asterism_tcp_connector_s *connector)
         return ASTERISM_E_INVALID_ARGS;
 
     struct asterism_trans_proto_s *connect_data = (struct asterism_trans_proto_s *)
-        malloc(packet_capacity);
+        AS_MALLOC(packet_capacity);
     if (!connect_data)
         return ASTERISM_E_FAILED;
     connect_data->version = ASTERISM_TRANS_PROTO_VERSION;
@@ -464,7 +464,7 @@ static int connector_send_join(struct asterism_tcp_connector_s *connector)
     {
         AS_FREE(write_req);
         if (connect_data)
-            free(connect_data);
+            AS_FREE(connect_data);
         goto cleanup;
     }
     ret = uv_read_stop((uv_stream_t *)&connector->socket);

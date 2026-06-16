@@ -64,8 +64,8 @@ static void udp_response_cb(
         goto cleanup;
 
 cleanup:
-    free(write_req->write_buffer.base);
-    free(write_req);
+    AS_FREE(write_req->write_buffer.base);
+    AS_FREE(write_req);
     if (ret != 0)
 	{
 		asterism_datagram_close((uv_handle_t*)&requestor->socket);
