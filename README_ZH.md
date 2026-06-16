@@ -1,7 +1,7 @@
 # ✦ Asterism
 
 [![CI](https://github.com/sosopop/asterism/actions/workflows/ci.yml/badge.svg)](https://github.com/sosopop/asterism/actions/workflows/ci.yml)
-[![License](https://img.shields.io/github/license/sosopop/asterism)](LICENSE)
+[![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 ![Title Banner](assets/title_banner.png)
 
