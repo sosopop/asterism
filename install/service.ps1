@@ -197,8 +197,25 @@ if ($Action -eq "Install") {
     if (-not (Test-Path $INSTALL_DIR)) {
         New-Item -ItemType Directory -Force -Path $INSTALL_DIR | Out-Null
     }
-    Copy-Item $bin_source $BIN_DEST -Force
-    Log-Info "Binary copied to $BIN_DEST"
+    $needCopy = $true
+    if (Test-Path $BIN_DEST) {
+        $srcHash = (Get-FileHash $bin_source -Algorithm SHA256).Hash
+        $dstHash = (Get-FileHash $BIN_DEST -Algorithm SHA256).Hash
+        if ($srcHash -eq $dstHash) {
+            Log-Info "Binary already up-to-date at $BIN_DEST, skipping copy."
+            $needCopy = $false
+        }
+    }
+    if ($needCopy) {
+        try {
+            Copy-Item $bin_source $BIN_DEST -Force -ErrorAction Stop
+            Log-Info "Binary copied to $BIN_DEST"
+        } catch {
+            Log-Error "Failed to copy binary: $_"
+            Log-Error "The file may be locked by a running service. Please stop the running scheduled task first, then re-run this installer."
+            Exit
+        }
+    }
 
     # Register Scheduled Task
     Log-Info "[2/3] Registering Windows Scheduled Task..."
