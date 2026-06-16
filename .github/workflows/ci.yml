@@ -32,13 +32,26 @@ jobs:
           node-version: 20
 
       - name: Configure
-        run: cmake -S . -B build -DUNIT_TEST=ON -DCMAKE_BUILD_TYPE=Debug ${{ matrix.extra_args }}
+        shell: bash
+        run: cmake -S . -B build -DUNIT_TEST=ON -DCMAKE_BUILD_TYPE=Debug ${{ matrix.extra_args }} > cmake_configure.log 2>&1 || (cat cmake_configure.log && exit 1)
 
       - name: Build
         run: cmake --build build --config Debug --parallel
 
       - name: Test
         run: ctest --test-dir build --build-config Debug --output-on-failure
+
+      - name: Dump Configure Log on Failure
+        if: failure()
+        shell: bash
+        run: |
+          if [ -f cmake_configure.log ]; then
+            echo "### CMake Configure Log (${{ matrix.name }})" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+            cat cmake_configure.log >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          fi
+
 
   coverage:
     name: Linux Coverage
@@ -61,13 +74,26 @@ jobs:
         run: python -m pip install --upgrade gcovr
 
       - name: Configure
-        run: cmake -S . -B build-coverage -DUNIT_TEST=ON -DCMAKE_BUILD_TYPE=Debug -DASTERISM_COVERAGE=ON
+        shell: bash
+        run: cmake -S . -B build-coverage -DUNIT_TEST=ON -DCMAKE_BUILD_TYPE=Debug -DASTERISM_COVERAGE=ON > cmake_configure.log 2>&1 || (cat cmake_configure.log && exit 1)
 
       - name: Build
         run: cmake --build build-coverage --parallel
 
       - name: Test
         run: ctest --test-dir build-coverage --output-on-failure
+
+      - name: Dump Configure Log on Failure
+        if: failure()
+        shell: bash
+        run: |
+          if [ -f cmake_configure.log ]; then
+            echo "### CMake Configure Log (Coverage)" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+            cat cmake_configure.log >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          fi
+
 
       - name: Coverage
         run: >
