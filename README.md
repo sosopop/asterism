@@ -166,6 +166,9 @@ Options:
   -p, --pass <password>      Agent authentication password
   -d, --udp                  Enable SOCKS5 UDP support (disabled by default)
   -t, --udp-timeout <seconds> UDP session idle timeout (0 = no timeout)
+  -T, --idle-timeout <seconds> TCP connection idle timeout in seconds (0 = disabled, default 300).
+                             Idle but live tunnels (SSH/RDP/DB) stay up; dead peers are
+                             detected via TCP keepalive.
   -A, --auth-sessions        Require HTTP basic authentication for the session list (/sessions)
       --public-sessions      Allow unauthenticated access to /sessions
   -U, --session-user <user>  Username for the session list authentication

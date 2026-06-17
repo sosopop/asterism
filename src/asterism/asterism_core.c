@@ -128,18 +128,23 @@ static void check_timer_cb(
     unsigned int idle_timeout = as->idle_timeout;
     unsigned int udp_idle_timeout = as->udp_idle_timeout;
 
-    QUEUE_FOREACH(q, &as->conns_queue)
+    // idle_timeout == 0 disables TCP idle reaping entirely (-T 0); dead peers
+    // are still detected by TCP keepalive configured in stream_init.
+    if (idle_timeout)
     {
-        struct asterism_stream_s *stream = QUEUE_DATA(q, struct asterism_stream_s, queue);
-        if (current_tick_count - stream->active_tick_count > idle_timeout)
+        QUEUE_FOREACH(q, &as->conns_queue)
         {
-            asterism_log(ASTERISM_LOG_DEBUG, "tcp connection timeout!!!");
-            asterism_stream_close((uv_handle_t *)&stream->socket);
-        }
-        else
-        {
-            //asterism_log(ASTERISM_LOG_DEBUG, "%d", stream->active_tick_count);
-            break;
+            struct asterism_stream_s *stream = QUEUE_DATA(q, struct asterism_stream_s, queue);
+            if (current_tick_count - stream->active_tick_count > idle_timeout)
+            {
+                asterism_log(ASTERISM_LOG_DEBUG, "tcp connection timeout!!!");
+                asterism_stream_close((uv_handle_t *)&stream->socket);
+            }
+            else
+            {
+                //asterism_log(ASTERISM_LOG_DEBUG, "%d", stream->active_tick_count);
+                break;
+            }
         }
     }
 
@@ -170,7 +175,7 @@ int asterism_core_prepare(struct asterism_s *as)
     as->loop = uv_loop_new();
     if (!as->loop)
         return ASTERISM_E_FAILED;
-    if (as->idle_timeout == 0) {
+    if (!as->idle_timeout_set) {
         as->idle_timeout = ASTERISM_CONNECTION_MAX_IDLE_COUNT;
     }
     if (as->reconnect_delay == 0) {

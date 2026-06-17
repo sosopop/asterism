@@ -104,6 +104,7 @@ int asterism_set_option(asterism as, asterism_option opt, ...)
     }
     case ASTERISM_OPT_IDLE_TIMEOUT:
         __as->idle_timeout = va_arg(ap, unsigned int);
+        __as->idle_timeout_set = 1;
         break;
     case ASTERISM_OPT_RECONNECT_DELAY:
         __as->reconnect_delay = va_arg(ap, unsigned int);

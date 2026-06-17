@@ -284,6 +284,11 @@ static int stream_init(
         return ret;
     }
 
+    // Enable OS-level TCP keepalive so dead peers are detected even when the
+    // application idle timeout is relaxed or disabled (-T 0). Best-effort:
+    // a failure here must not prevent the connection from being used.
+    uv_tcp_keepalive((uv_tcp_t *)&stream->socket, 1, ASTERISM_TCP_KEEPALIVE_DELAY);
+
     QUEUE_INSERT_TAIL(&as->conns_queue, &stream->queue);
     stream->active_tick_count = as->current_tick_count;
     asterism_log(ASTERISM_LOG_DEBUG, "tcp init %p", stream);

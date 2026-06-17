@@ -157,6 +157,8 @@ asterism [options]
   -p, --pass <password>      Agent 认证密码
   -d, --udp                  启用 SOCKS5 UDP 支持（默认关闭）
   -t, --udp-timeout <seconds> UDP 会话空闲超时（0 表示不超时）
+  -T, --idle-timeout <seconds> TCP 连接空闲超时（秒，0 表示禁用回收，默认 300）。
+                             空闲但仍存活的隧道（SSH/RDP/数据库）不会被回收；死连接由 TCP keepalive 探测。
   -A, --auth-sessions        要求会话列表接口（/sessions）使用 HTTP Basic 认证
       --public-sessions      允许未认证访问 /sessions
   -U, --session-user <user>  会话列表认证用户名

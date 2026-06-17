@@ -86,24 +86,61 @@ int asterism_datagram_stop_read(
     return uv_udp_recv_stop(&datagram->socket);
 }
 
+static void datagram_free_if_done(struct asterism_datagram_s* obj)
+{
+    // Free only once the uv handle has finished closing AND no in-flight
+    // cross-stream write still holds a back-pointer to this datagram.
+    if (obj->uv_closing && obj->pending_writes == 0)
+    {
+        AS_FREE(obj);
+    }
+}
+
 static void inner_close_cb(
     uv_handle_t* handle)
 {
     struct asterism_datagram_s* obj = __CONTAINER_PTR(struct asterism_datagram_s, socket, handle);
     QUEUE_REMOVE(&obj->queue);
 
+    obj->uv_closing = 1;
+
+    // The derived close callback now only clears back-pointers; it must not
+    // free the struct. Memory ownership lives here so the free can be deferred
+    // until pending_writes drops to zero.
     if (obj->_close_cb)
     {
         obj->_close_cb(handle);
     }
 
     asterism_log(ASTERISM_LOG_DEBUG, "udp connection is closing %p", handle);
+
+    datagram_free_if_done(obj);
 }
 
 void asterism_datagram_close(
     uv_handle_t* handle)
 {
     as_uv_close(handle, inner_close_cb);
+}
+
+void asterism_datagram_write_ref(
+    struct asterism_datagram_s* datagram)
+{
+    datagram->pending_writes++;
+}
+
+void asterism_datagram_write_unref(
+    struct asterism_datagram_s* datagram)
+{
+    if (datagram->pending_writes)
+        datagram->pending_writes--;
+    datagram_free_if_done(datagram);
+}
+
+int asterism_datagram_is_closing(
+    struct asterism_datagram_s* datagram)
+{
+    return datagram->uv_closing;
 }
 
 int asterism_datagram_write(

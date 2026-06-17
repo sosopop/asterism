@@ -101,11 +101,10 @@ static int udp_associate_ack(
     // Send response
     ret = conn_write(stream, response, response_length);
 
-    // If failure or send error, close the connection
-    if (ret != 0) {
-        ret = ret || asterism_stream_end(stream);
-    }
-
+    // On write failure return non-zero; the caller (incoming_read_cb) tears
+    // the connection down via asterism_stream_close. (The previous
+    // `ret = ret || asterism_stream_end(stream)` short-circuited and never ran
+    // stream_end when ret was already non-zero.)
     return ret;
 }
 

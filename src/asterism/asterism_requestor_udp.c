@@ -43,7 +43,8 @@ static void requestor_close_cb(
         }
         RB_INIT(&obj->udp_addr_cache);
 
-		AS_FREE(obj);
+        // Do not free here: the datagram layer owns the struct and frees it
+        // once no in-flight write still references it (see asterism_datagram.c).
     }
 }
 
@@ -53,23 +54,35 @@ static void udp_response_cb(
 {
     struct asterism_write_req_s* write_req = (struct asterism_write_req_s*)req;
     struct asterism_udp_requestor_s* requestor = (struct asterism_udp_requestor_s*)req->data;
-    int ret = -1;
-    if (status != 0)
-	{
-		asterism_log(ASTERISM_LOG_DEBUG, "%s", uv_strerror(status));
-		goto cleanup;
-	}
-    ret = asterism_datagram_read((struct asterism_datagram_s*)requestor);
-    if (ret != 0)
-        goto cleanup;
+    int ret = 0;
 
-cleanup:
     AS_FREE(write_req->write_buffer.base);
     AS_FREE(write_req);
+
+    // This write held a reference to the requestor datagram. If it was closed
+    // (e.g. by the UDP idle reaper) while the write was in flight, only drop
+    // the reference (which may free it) and never touch the closed socket.
+    if (asterism_datagram_is_closing((struct asterism_datagram_s*)requestor))
+    {
+        asterism_datagram_write_unref((struct asterism_datagram_s*)requestor);
+        return;
+    }
+
+    if (status != 0)
+    {
+        asterism_log(ASTERISM_LOG_DEBUG, "%s", uv_strerror(status));
+        ret = -1;
+    }
+    else
+    {
+        ret = asterism_datagram_read((struct asterism_datagram_s*)requestor);
+    }
+
     if (ret != 0)
-	{
-		asterism_datagram_close((uv_handle_t*)&requestor->socket);
-	}
+    {
+        asterism_datagram_close((uv_handle_t*)&requestor->socket);
+    }
+    asterism_datagram_write_unref((struct asterism_datagram_s*)requestor);
 }
 
 static void requestor_read_cb(uv_udp_t* handle,
@@ -158,6 +171,10 @@ static void requestor_read_cb(uv_udp_t* handle,
         AS_FREE(write_req);
         goto cleanup;
     }
+
+    // udp_response_cb will dereference this requestor after the TCP write
+    // completes; hold a reference so it survives an intervening close.
+    asterism_datagram_write_ref((struct asterism_datagram_s*)requestor);
 
     ret = asterism_datagram_stop_read((struct asterism_datagram_s*)requestor);
     if (ret != 0)

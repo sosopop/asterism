@@ -28,9 +28,17 @@ struct asterism_portal_config_list_s;
 
 #define MAX_HOST_LEN 256
 
-#define ASTERISM_CONNECTION_MAX_IDLE_COUNT 60
+/* Default idle timeout (seconds) for connections with no data transfer.
+   Kept generous so that genuinely-in-use but momentarily idle tunnels
+   (SSH/RDP/DB sessions) are not reaped; dead peers are detected via TCP
+   keepalive (see stream_init). Can be overridden with -T/--idle-timeout
+   (0 disables idle reaping entirely). */
+#define ASTERISM_CONNECTION_MAX_IDLE_COUNT 300
 #define ASTERISM_RECONNECT_DELAY 10000
 #define ASTERISM_HEARTBEAT_INTERVAL 30000
+/* Seconds a tunnel socket may be idle before the OS starts sending TCP
+   keepalive probes to detect a dead peer. */
+#define ASTERISM_TCP_KEEPALIVE_DELAY 60
 
 /*
 payload
@@ -212,6 +220,9 @@ struct asterism_s
     uv_loop_t *loop;
     unsigned char stoped : 1;
     unsigned char socks5_udp : 1;
+    /* Set once ASTERISM_OPT_IDLE_TIMEOUT has been explicitly configured, so
+       an explicit 0 (disable reaping) is distinguishable from "unset". */
+    unsigned char idle_timeout_set : 1;
     asterism_session_policy session_policy;
     char *session_auth_user;
     char *session_auth_pass;

@@ -6,12 +6,13 @@ static void inner_close_cb(
     uv_handle_t* handle)
 {
     struct asterism_socks5_udp_inner_s* obj = __CONTAINER_PTR(struct asterism_socks5_udp_inner_s, socket, handle);
-    if (obj->session) 
+    if (obj->session)
     {
         obj->session->inner_datagram = 0;
         obj->session = 0;
     }
-    AS_FREE(obj);
+    // Do not free here: the datagram layer owns the struct and frees it once
+    // there are no in-flight writes referencing it (see asterism_datagram.c).
 }
 
 static void outer_write_cb(
@@ -27,7 +28,19 @@ static void outer_write_cb(
 	AS_FREE(write_req->write_buffer.base);
     AS_FREE(write_req);
 
-    asterism_datagram_read((struct asterism_datagram_s*)datagram);
+    // This write held a reference to the datagram. If the datagram was closed
+    // (e.g. by the idle reaper) while the write was in flight, only drop the
+    // reference (which may free it) and never touch the closed socket.
+    if (asterism_datagram_is_closing((struct asterism_datagram_s*)datagram))
+    {
+        asterism_datagram_write_unref((struct asterism_datagram_s*)datagram);
+        return;
+    }
+    if (asterism_datagram_read((struct asterism_datagram_s*)datagram) != 0)
+    {
+        asterism_datagram_close((uv_handle_t*)&datagram->socket);
+    }
+    asterism_datagram_write_unref((struct asterism_datagram_s*)datagram);
 }
 
 static void inner_read_cb(uv_udp_t* handle,
@@ -104,6 +117,9 @@ static void inner_read_cb(uv_udp_t* handle,
         AS_FREE(req);
         return;
     }
+    // outer_write_cb will dereference this datagram after the TCP write
+    // completes; hold a reference so it survives an intervening close.
+    asterism_datagram_write_ref((struct asterism_datagram_s*)datagram);
     asterism_datagram_stop_read((struct asterism_datagram_s*)datagram);
 }
 

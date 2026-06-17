@@ -37,6 +37,7 @@ static void help()
     printf("    -d, --udp                Enable SOCKS5 UDP support. Disabled by default.\n");
     printf("    -t, --udp-timeout <seconds> Set the UDP idle timeout in seconds. A value of 0 disables the timeout.\n");
     printf("                             Example: -t 60 sets a 60-second timeout.\n");
+    printf("    -T, --idle-timeout <seconds> Set the TCP connection idle timeout in seconds. 0 disables idle reaping (default 300).\n");
     printf("    -A, --auth-sessions      Require HTTP basic authentication for the session list (/sessions).\n");
     printf("        --public-sessions    Allow unauthenticated access to /sessions.\n");
     printf("    -U, --session-user <user> Set the username for the session list authentication.\n");
@@ -83,7 +84,7 @@ int main(int argc, char *argv[])
     char verbose = 0;
 
     int next_option;
-    const char *const short_options = "hvVi:o:r:u:p:dt:AU:P:L:";
+    const char *const short_options = "hvVi:o:r:u:p:dt:T:AU:P:L:";
     enum { OPT_PUBLIC_SESSIONS = 1000 };
     const struct parg_option long_options[] =
         {
@@ -97,6 +98,7 @@ int main(int argc, char *argv[])
             {"pass", 1, NULL, 'p'},
             {"udp", 0, NULL, 'd'},
             {"udp-timeout", 1, NULL, 't'},
+            {"idle-timeout", 1, NULL, 'T'},
             {"auth-sessions", 0, NULL, 'A'},
             {"public-sessions", 0, NULL, OPT_PUBLIC_SESSIONS},
             {"session-user", 1, NULL, 'U'},
@@ -162,6 +164,11 @@ int main(int argc, char *argv[])
             break;
         case 't':
             ret = asterism_set_option(as, ASTERISM_OPT_UDP_IDLE_TIMEOUT, atoi(ps.optarg));
+            if (ret)
+                goto cleanup;
+            break;
+        case 'T':
+            ret = asterism_set_option(as, ASTERISM_OPT_IDLE_TIMEOUT, (unsigned int)atoi(ps.optarg));
             if (ret)
                 goto cleanup;
             break;
