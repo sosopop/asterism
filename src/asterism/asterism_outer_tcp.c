@@ -401,7 +401,7 @@ static void outer_accept_cb(
     incoming = AS_ZMALLOC(struct asterism_tcp_incoming_s);
     if (!incoming)
         return;
-    ret = asterism_stream_accept(outer->as, stream, 1, 1, 0, incoming_read_cb, incoming_close_cb, (struct asterism_stream_s *)incoming);
+    ret = asterism_stream_accept(outer->as, stream, 1, 0, incoming_read_cb, incoming_close_cb, (struct asterism_stream_s *)incoming);
     if (ret != 0)
     {
         ret = ASTERISM_E_FAILED;

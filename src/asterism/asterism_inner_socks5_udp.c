@@ -135,7 +135,7 @@ int asterism_inner_socks5_udp_init(
     struct asterism_socks5_udp_inner_s* inner = AS_ZMALLOC(struct asterism_socks5_udp_inner_s);
     if (!inner)
         return ASTERISM_E_FAILED;
-    ret = asterism_datagram_init(as, 0, 0, inner_read_cb, inner_close_cb, (struct asterism_datagram_s*)inner);
+    ret = asterism_datagram_init(as, 0, inner_read_cb, inner_close_cb, (struct asterism_datagram_s*)inner);
     if (ret != 0)
     {
         AS_FREE(inner);

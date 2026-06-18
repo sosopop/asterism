@@ -3,16 +3,14 @@
 
 int asterism_datagram_init(
     struct asterism_s* as,
-    unsigned int xor_obfuscation,
-    uv_alloc_cb alloc_cb, 
+    uv_alloc_cb alloc_cb,
     uv_udp_recv_cb read_cb,
-    uv_close_cb close_cb, 
+    uv_close_cb close_cb,
     struct asterism_datagram_s* datagram)
 {
     if (!as || !as->loop || !datagram || !close_cb)
         return ASTERISM_E_INVALID_ARGS;
 
-    (void)xor_obfuscation;
     int ret = 0;
 
     ASTERISM_HANDLE_INIT(datagram, socket, asterism_datagram_close);

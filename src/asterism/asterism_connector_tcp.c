@@ -513,7 +513,7 @@ int asterism_connector_tcp_init(struct asterism_s *as,
         return ASTERISM_E_FAILED;
     }
     connector->port = port;
-    ret = asterism_stream_connect(as, host, port, 1, 1,
+    ret = asterism_stream_connect(as, host, port, 1,
                                   connector_connect_cb, 0, connector_read_cb, connector_close_cb, (struct asterism_stream_s *)connector);
     if (ret)
         goto cleanup;

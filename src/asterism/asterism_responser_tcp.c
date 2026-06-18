@@ -109,7 +109,7 @@ int asterism_responser_tcp_init(
     struct asterism_tcp_responser_s *responser = AS_ZMALLOC(struct asterism_tcp_responser_s);
     if (!responser)
         return ASTERISM_E_FAILED;
-    ret = asterism_stream_connect(as, host, port, 1, 1,
+    ret = asterism_stream_connect(as, host, port, 1,
                                   responser_connect_cb, 0, 0, responser_close_cb, (struct asterism_stream_s *)responser);
     if (ret)
         goto cleanup;

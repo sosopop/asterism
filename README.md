@@ -177,7 +177,7 @@ Options:
 
 ### Security Notes
 
-The internal relay-agent TCP stream uses a simple XOR obfuscation flag for compatibility with the existing wire format. It is not transport encryption and should not be treated as TLS. Use trusted networks, host-level encryption, or an external TLS/VPN layer when confidentiality is required.
+The relay-agent communication is transmitted as plaintext and provides no transport encryption. Use trusted networks, host-level encryption, or an external TLS/VPN layer when confidentiality is required.
 
 ### Quick Start
 

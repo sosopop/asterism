@@ -731,7 +731,7 @@ static void inner_accept_cb(
         return;
     init_parser_settings();
     llhttp_init(&incoming->parser, HTTP_REQUEST, &parser_settings);
-    ret = asterism_stream_accept(inner->as, stream, 1, 0, 0,
+    ret = asterism_stream_accept(inner->as, stream, 1, 0,
                                  incoming_read_cb, incoming_close_cb, (struct asterism_stream_s *)incoming);
     if (ret != 0)
     {

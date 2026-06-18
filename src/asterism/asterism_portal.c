@@ -366,7 +366,7 @@ static void on_local_connection(uv_stream_t *server_stream, int status)
 
     conn->portal = portal;
 
-    int ret = asterism_stream_accept(portal->as, server_stream, 0, 0,
+    int ret = asterism_stream_accept(portal->as, server_stream, 0,
                                      NULL, on_local_read, on_local_close, &conn->local_stream);
     if (ret != 0) {
         AS_FREE(conn);
@@ -374,7 +374,7 @@ static void on_local_connection(uv_stream_t *server_stream, int status)
     }
 
     ret = asterism_stream_connect(portal->as, portal->config->relay_host, portal->config->relay_port,
-                                  0, 0, on_relay_connected, NULL, on_relay_read, on_relay_close, &conn->relay_stream);
+                                  0, on_relay_connected, NULL, on_relay_read, on_relay_close, &conn->relay_stream);
     if (ret != 0) {
         asterism_stream_close((uv_handle_t*)&conn->local_stream.socket);
     }

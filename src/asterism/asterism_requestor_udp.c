@@ -397,7 +397,7 @@ static int requestor_init(
     struct asterism_udp_requestor_s* requestor = AS_ZMALLOC(struct asterism_udp_requestor_s);
     if (!requestor)
         return ASTERISM_E_FAILED;
-    ret = asterism_datagram_init(connector->as, 0, 0, requestor_read_cb, requestor_close_cb, (struct asterism_datagram_s*)requestor);
+    ret = asterism_datagram_init(connector->as, 0, requestor_read_cb, requestor_close_cb, (struct asterism_datagram_s*)requestor);
     if (ret != 0)
     {
         AS_FREE(requestor);

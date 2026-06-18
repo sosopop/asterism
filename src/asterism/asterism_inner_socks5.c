@@ -378,7 +378,7 @@ static void inner_accept_cb(
     incoming = AS_ZMALLOC(struct asterism_socks5_incoming_s);
     if (!incoming)
         return;
-    ret = asterism_stream_accept(inner->as, stream, 1, 0, 0,
+    ret = asterism_stream_accept(inner->as, stream, 1, 0,
                                  incoming_read_cb, incoming_close_cb, (struct asterism_stream_s *)incoming);
     if (ret != 0)
     {

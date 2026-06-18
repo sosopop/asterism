@@ -56,7 +56,7 @@ int asterism_requestor_tcp_init(
     struct asterism_tcp_requestor_s *requestor = AS_ZMALLOC(struct asterism_tcp_requestor_s);
     if (!requestor)
         return ASTERISM_E_FAILED;
-    ret = asterism_stream_connect(as, host_lhs, port_lhs, 1, 0,
+    ret = asterism_stream_connect(as, host_lhs, port_lhs, 1,
                                   requestor_connect_cb, 0, 0, requestor_close_cb, (struct asterism_stream_s *)requestor);
     if (ret)
         goto cleanup;

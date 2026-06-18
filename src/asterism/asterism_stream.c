@@ -106,13 +106,6 @@ static void stream_read_cb(
 
     if (nread > 0)
     {
-        if (stm->xor_obfuscation)
-        {
-            for (int i = 0; i < nread; i++)
-            {
-                buf->base[i] ^= 'A';
-            }
-        }
         struct asterism_s *as = stm->as;
         stm->active_tick_count = as->current_tick_count;
         QUEUE_REMOVE(&stm->queue);
@@ -300,7 +293,6 @@ int asterism_stream_connect(
     const char *host,
     unsigned int port,
     unsigned int auto_trans,
-    unsigned int xor_obfuscation,
     uv_connect_cb connect_cb,
     uv_alloc_cb alloc_cb,
     uv_read_cb read_cb,
@@ -317,7 +309,6 @@ int asterism_stream_connect(
     }
 
     stream->auto_trans = auto_trans;
-    stream->xor_obfuscation = xor_obfuscation;
     stream->_connect_cb = connect_cb;
     stream->_close_cb = close_cb;
     stream->_read_cb = read_cb;
@@ -355,7 +346,6 @@ int asterism_stream_accept(
     struct asterism_s *as,
     uv_stream_t *server_stream,
     unsigned int auto_trans,
-    unsigned int xor_obfuscation,
     uv_alloc_cb alloc_cb,
     uv_read_cb read_cb,
     uv_close_cb close_cb,
@@ -371,7 +361,6 @@ int asterism_stream_accept(
     }
 
     stream->auto_trans = auto_trans;
-    stream->xor_obfuscation = xor_obfuscation;
     stream->_alloc_cb = alloc_cb;
     stream->_read_cb = read_cb;
     stream->_close_cb = close_cb;
@@ -405,15 +394,6 @@ int asterism_stream_write(
     const uv_buf_t *bufs,
     uv_write_cb cb)
 {
-    if (stream->xor_obfuscation)
-    {
-        int len = bufs->len;
-        char *base = bufs->base;
-        for (int i = 0; i < len; i++)
-        {
-            base[i] ^= 'A';
-        }
-    }
     return uv_write(req, (uv_stream_t *)&stream->socket, bufs, 1, cb);
 }
 
