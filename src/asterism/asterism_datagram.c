@@ -59,7 +59,12 @@ static void inner_read(uv_udp_t* handle,
     struct asterism_s* as = datagram->as;
     if (nread <= 0)
     {
-        asterism_log(ASTERISM_LOG_DEBUG, "%s", uv_strerror((int)nread));
+        // nread == 0 is an empty datagram / "no more data" marker, not an
+        // error. Only log real errors: uv_strerror() on code 0 strdups an
+        // "unknown error" string that libuv never frees (LeakSanitizer flags
+        // it). Valid negative UV codes map to static strings, so no leak.
+        if (nread < 0)
+            asterism_log(ASTERISM_LOG_DEBUG, "%s", uv_strerror((int)nread));
         return;
     }
 

@@ -272,7 +272,9 @@ static void test_udp_large_payload(void) {
     uv_thread_t echo_tid;
     EXPECT_EQ(uv_thread_create(&echo_tid, test_udp_echo_thread, &echo_args), 0);
 
-    const int data_len = 16000;
+    // Keep under macOS's default net.inet.udp.maxdgram (9216): the on-the-wire
+    // datagram is 10 (SOCKS5 header) + data_len in both directions.
+    const int data_len = 8000;
     unsigned char *payload = (unsigned char *)malloc(data_len);
     unsigned char *pkt = (unsigned char *)malloc(16 + data_len);
     unsigned char *resp = (unsigned char *)malloc(64 + data_len);
