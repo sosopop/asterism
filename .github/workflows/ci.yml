@@ -30,6 +30,10 @@ jobs:
         with:
           node-version: 20
 
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.x"
+
       - name: Configure
         shell: bash
         run: cmake -S . -B build -DUNIT_TEST=ON -DCMAKE_BUILD_TYPE=Debug ${{ matrix.extra_args }} > cmake_configure.log 2>&1 || (cat cmake_configure.log && exit 1)
@@ -39,6 +43,9 @@ jobs:
 
       - name: Test
         run: ctest --test-dir build --build-config Debug --output-on-failure --timeout 180
+
+      - name: Smoke test (multi-process Relay/Agent/Portal/Client, TCP & UDP)
+        run: python test/smoke_test.py build
 
       - name: Dump Configure Log on Failure
         if: failure()
