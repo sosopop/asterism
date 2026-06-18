@@ -4,6 +4,94 @@
 #include <stdlib.h>
 #include <string.h>
 
+void test_set_socket_recv_timeout(int socket_fd, int milliseconds) {
+#ifdef _WIN32
+    DWORD timeout = (DWORD)milliseconds;
+    setsockopt(socket_fd, SOL_SOCKET, SO_RCVTIMEO, (const char *)&timeout, sizeof(timeout));
+#else
+    struct timeval timeout;
+    timeout.tv_sec = milliseconds / 1000;
+    timeout.tv_usec = (milliseconds % 1000) * 1000;
+    setsockopt(socket_fd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
+#endif
+}
+
+int test_create_udp_echo_socket(int family, unsigned short *port) {
+    int socket_fd = (int)socket(family, SOCK_DGRAM, 0);
+    if (socket_fd < 0) return -1;
+
+    if (family == AF_INET6) {
+        struct sockaddr_in6 addr;
+        if (uv_ip6_addr("::1", 0, &addr) != 0) {
+            test_socket_close(socket_fd);
+            return -1;
+        }
+        if (bind(socket_fd, (struct sockaddr *)&addr, sizeof(addr)) != 0) {
+            test_socket_close(socket_fd);
+            return -1;
+        }
+        socklen_t addr_len = sizeof(addr);
+        if (getsockname(socket_fd, (struct sockaddr *)&addr, &addr_len) != 0) {
+            test_socket_close(socket_fd);
+            return -1;
+        }
+        *port = ntohs(addr.sin6_port);
+    } else {
+        struct sockaddr_in addr;
+        memset(&addr, 0, sizeof(addr));
+        addr.sin_family = AF_INET;
+        addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+        addr.sin_port = 0;
+        if (bind(socket_fd, (struct sockaddr *)&addr, sizeof(addr)) != 0) {
+            test_socket_close(socket_fd);
+            return -1;
+        }
+        socklen_t addr_len = sizeof(addr);
+        if (getsockname(socket_fd, (struct sockaddr *)&addr, &addr_len) != 0) {
+            test_socket_close(socket_fd);
+            return -1;
+        }
+        *port = ntohs(addr.sin_port);
+    }
+    test_set_socket_recv_timeout(socket_fd, 5000);
+    return socket_fd;
+}
+
+void test_udp_echo_thread(void *arg) {
+    udp_echo_args_t *args = (udp_echo_args_t *)arg;
+    for (int i = 0; i < args->packet_count; i++) {
+        char buffer[65536];
+        struct sockaddr_storage peer;
+        socklen_t peer_len = sizeof(peer);
+        int received = recvfrom(args->socket_fd, buffer, sizeof(buffer), 0,
+                                (struct sockaddr *)&peer, &peer_len);
+        if (received <= 0) return;
+        sendto(args->socket_fd, buffer, received, 0,
+               (const struct sockaddr *)&peer, peer_len);
+    }
+}
+
+int test_socks5_udp_associate(int control_fd, unsigned short *relay_udp_port) {
+    char response[256];
+    test_set_socket_recv_timeout(control_fd, 5000);
+
+    if (send(control_fd, "\x05\x01\x02", 3, 0) != 3) return -1;
+    if (recv(control_fd, response, sizeof(response), 0) != 2) return -1;
+
+    if (send(control_fd, "\x01\x04test\x04test", 11, 0) != 11) return -1;
+    if (recv(control_fd, response, sizeof(response), 0) != 2) return -1;
+
+    const unsigned char associate[] = {5, 3, 0, 1, 0, 0, 0, 0, 0, 0};
+    if (send(control_fd, (const char *)associate, sizeof(associate), 0) != (int)sizeof(associate)) return -1;
+    if (recv(control_fd, response, sizeof(response), 0) != 10) return -1;
+    if ((unsigned char)response[1] != 0) return -1;
+
+    unsigned short p = 0;
+    memcpy(&p, response + 8, sizeof(p));
+    *relay_udp_port = ntohs(p);
+    return *relay_udp_port != 0 ? 0 : -1;
+}
+
 int test_socket_listen(unsigned short *port) {
     int sock = (int)socket(AF_INET, SOCK_STREAM, 0);
     if (sock < 0) return -1;

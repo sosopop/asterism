@@ -11,7 +11,8 @@ struct asterism_tcp_connector_s;
 struct asterism_udp_addr_cache_s
 {
     char domain[MAX_HOST_LEN];
-    char ip[INET_ADDRSTRLEN];
+    char ip[INET6_ADDRSTRLEN];
+    int family;
     RB_ENTRY(asterism_udp_addr_cache_s)
         tree_entry;
 };

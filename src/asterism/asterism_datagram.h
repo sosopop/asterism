@@ -67,10 +67,15 @@ void asterism_datagram_write_unref(
 int asterism_datagram_is_closing(
     struct asterism_datagram_s* datagram);
 
+/* Send one datagram to peer over this datagram's own socket. The buffer is
+   copied internally, so the caller keeps ownership of buf->base. Returns 0 on
+   success; on failure the internal request is released and non-zero returned.
+   No write_ref is taken: the send is on this handle, and libuv completes any
+   pending send (with ECANCELED) before the close callback, so there is no
+   use-after-free even if the datagram is closed while the send is in flight. */
 int asterism_datagram_write(
-    uv_udp_send_t* req,
     struct asterism_datagram_s* datagram,
-    const uv_buf_t* bufs,
-    uv_udp_send_cb cb);
+    const uv_buf_t* buf,
+    const struct sockaddr* peer);
 
 #endif

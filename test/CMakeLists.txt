@@ -8,6 +8,7 @@ set(TEST_SOURCE
     suite_hooks.c
     suite_timeouts.c
     suite_portal.c
+    suite_udp.c
     main.c
 )
 

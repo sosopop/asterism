@@ -205,51 +205,18 @@ static int parse_cmd_ping(
     return 0;
 }
 
-static void responser_write_cb(
-    uv_udp_send_t* req, 
-    int status)
-{
-    struct asterism_send_req_s* write_req = (struct asterism_send_req_s*)req;
-    if (status != 0)
-    {
-        asterism_log(ASTERISM_LOG_DEBUG, "%s", uv_strerror(status));
-    }
-    AS_SFREE(write_req->write_buffer.base);
-    AS_FREE(write_req);
-}
-
 static int udp_response_write(
     struct asterism_tcp_incoming_s* incoming,
     struct sockaddr_in source_addr,
     uv_buf_t buf)
 {
-    int ret = 0;
     struct asterism_session_s* session = incoming->session;
     if (session == 0)
         return -1;
     struct asterism_datagram_s* responser = session->inner_datagram;
     if (responser == 0)
         return -1;
-
-    struct asterism_send_req_s* req = AS_ZMALLOC(struct asterism_send_req_s);
-    if (!req)
-        return -1;
-
-    req->write_req.data = responser;
-    req->write_buffer = buf;
-    req->write_buffer.base = __DUP_MEM(buf.base, buf.len);
-    if (buf.len && !req->write_buffer.base)
-    {
-        AS_FREE(req);
-        return -1;
-    }
-    ret = uv_udp_send((uv_udp_send_t*)req, &responser->socket, &req->write_buffer, 1, (const struct sockaddr*)&source_addr, responser_write_cb);
-    if (ret != 0)
-    {
-        AS_SFREE(req->write_buffer.base);
-        AS_FREE(req);
-    }
-    return ret;
+    return asterism_datagram_write(responser, &buf, (const struct sockaddr*)&source_addr);
 }
 
 static int parse_cmd_datagram_response(
@@ -341,8 +308,11 @@ static int incoming_parse_cmd_data(
         }
         else if (proto->cmd == ASTERISM_TRANS_PROTO_DATAGRAM_RESPONSE)
         {
+            // A datagram whose association is already gone (idle-reaped) or
+            // whose send fails must NOT tear down the control channel: drop it
+            // and keep processing the stream.
             if (parse_cmd_datagram_response(incoming, proto) != 0)
-                return -1;
+                asterism_log(ASTERISM_LOG_DEBUG, "drop udp response");
         }
         else
         {

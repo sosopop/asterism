@@ -167,6 +167,7 @@ int asterism_set_option(asterism as, asterism_option opt, ...)
         break;
     case ASTERISM_OPT_UDP_IDLE_TIMEOUT:
         __as->udp_idle_timeout = va_arg(ap, unsigned int);
+        __as->udp_idle_timeout_set = 1;
         break;
     case ASTERISM_OPT_SESSION_AUTH:
         __as->session_policy = va_arg(ap, unsigned int) ?

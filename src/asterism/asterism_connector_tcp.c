@@ -144,6 +144,14 @@ static int connector_parse_datagram_request(
             return -1;
         remote_port = asterism_read_be16(socks5 + 8);
     }
+    else if (atyp == 0x04)
+    {
+        struct in6_addr remote_ip6;
+        memcpy(&remote_ip6, socks5 + 4, 16);
+        if (uv_inet_ntop(AF_INET6, &remote_ip6, remote_host, sizeof(remote_host)) != 0)
+            return -1;
+        remote_port = asterism_read_be16(socks5 + 20);
+    }
     else
     {
         unsigned char host_len = socks5[4];
@@ -277,8 +285,11 @@ static int connector_parse_cmd_data(
         }
         else if (proto->cmd == ASTERISM_TRANS_PROTO_DATAGRAM_REQUEST)
         {
+            // A single datagram failing (unresolvable target, transient send
+            // error, malformed packet) must NOT tear down the shared control
+            // channel: drop this datagram and keep processing the stream.
             if (connector_parse_datagram_request(conn, proto) != 0)
-                return -1;
+                asterism_log(ASTERISM_LOG_DEBUG, "drop invalid udp request");
         }
         else
         {

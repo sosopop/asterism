@@ -34,6 +34,11 @@ struct asterism_portal_config_list_s;
    keepalive (see stream_init). Can be overridden with -T/--idle-timeout
    (0 disables idle reaping entirely). */
 #define ASTERISM_CONNECTION_MAX_IDLE_COUNT 300
+/* Default idle timeout (seconds) for UDP associations. UDP is connectionless,
+   so without reaping a relay/agent UDP socket would live as long as the TCP
+   control channel; this bounds idle associations (close to common UDP NAT
+   timeouts). Overridable with -t/--udp-idle-timeout (0 disables reaping). */
+#define ASTERISM_UDP_MAX_IDLE_COUNT 60
 #define ASTERISM_RECONNECT_DELAY 10000
 #define ASTERISM_HEARTBEAT_INTERVAL 30000
 /* Seconds a tunnel socket may be idle before the OS starts sending TCP
@@ -223,6 +228,9 @@ struct asterism_s
     /* Set once ASTERISM_OPT_IDLE_TIMEOUT has been explicitly configured, so
        an explicit 0 (disable reaping) is distinguishable from "unset". */
     unsigned char idle_timeout_set : 1;
+    /* Same for ASTERISM_OPT_UDP_IDLE_TIMEOUT: an explicit 0 disables UDP
+       reaping; "unset" falls back to ASTERISM_UDP_MAX_IDLE_COUNT. */
+    unsigned char udp_idle_timeout_set : 1;
     asterism_session_policy session_policy;
     char *session_auth_user;
     char *session_auth_pass;

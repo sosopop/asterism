@@ -43,4 +43,19 @@ void test_env_destroy(test_env_t *env);
 void mock_server_thread(void *arg);
 void mock_server_keep_alive_thread(void *arg);
 
+// UDP echo + SOCKS5-UDP helpers (full-link UDP tests)
+typedef struct {
+    int socket_fd;
+    int packet_count;
+} udp_echo_args_t;
+
+void test_set_socket_recv_timeout(int socket_fd, int milliseconds);
+// Create a bound UDP echo socket on loopback for the given family (AF_INET or
+// AF_INET6). Returns the socket fd and sets *port, or -1 on failure.
+int test_create_udp_echo_socket(int family, unsigned short *port);
+void test_udp_echo_thread(void *arg);
+// Drive SOCKS5 greeting + auth(test/test) + UDP ASSOCIATE on an existing TCP
+// control socket. On success returns 0 and sets *relay_udp_port.
+int test_socks5_udp_associate(int control_fd, unsigned short *relay_udp_port);
+
 #endif

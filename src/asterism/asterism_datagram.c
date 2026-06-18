@@ -141,12 +141,40 @@ int asterism_datagram_is_closing(
     return datagram->uv_closing;
 }
 
-int asterism_datagram_write(
+static void datagram_send_cb(
     uv_udp_send_t* req,
-    struct asterism_datagram_s* datagram, 
-    const uv_buf_t* bufs, 
-    uv_udp_send_cb cb)
+    int status)
 {
-    // TODO: implement UDP write using uv_udp_send()
-    return 0;
+    struct asterism_send_req_s* send_req = (struct asterism_send_req_s*)req;
+    if (status != 0)
+    {
+        asterism_log(ASTERISM_LOG_DEBUG, "%s", uv_strerror(status));
+    }
+    AS_SFREE(send_req->write_buffer.base);
+    AS_FREE(send_req);
+}
+
+int asterism_datagram_write(
+    struct asterism_datagram_s* datagram,
+    const uv_buf_t* buf,
+    const struct sockaddr* peer)
+{
+    int ret = 0;
+    struct asterism_send_req_s* req = AS_ZMALLOC(struct asterism_send_req_s);
+    if (!req)
+        return ASTERISM_E_FAILED;
+    req->write_buffer = *buf;
+    req->write_buffer.base = __DUP_MEM(buf->base, buf->len);
+    if (buf->len && !req->write_buffer.base)
+    {
+        AS_FREE(req);
+        return ASTERISM_E_FAILED;
+    }
+    ret = uv_udp_send((uv_udp_send_t*)req, &datagram->socket, &req->write_buffer, 1, peer, datagram_send_cb);
+    if (ret != 0)
+    {
+        AS_SFREE(req->write_buffer.base);
+        AS_FREE(req);
+    }
+    return ret;
 }

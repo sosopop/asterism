@@ -90,6 +90,14 @@ int asterism_socks5_udp_header_size(
         *header_len = 10;
         return 0;
     }
+    if (data[3] == 0x04)
+    {
+        /* RSV(2)+FRAG(1)+ATYP(1)+IPv6(16)+PORT(2) */
+        if (data_len < 22)
+            return -1;
+        *header_len = 22;
+        return 0;
+    }
     if (data[3] == 0x03)
     {
         if (data_len < 5 || data[4] == 0)
@@ -177,6 +185,9 @@ int asterism_core_prepare(struct asterism_s *as)
         return ASTERISM_E_FAILED;
     if (!as->idle_timeout_set) {
         as->idle_timeout = ASTERISM_CONNECTION_MAX_IDLE_COUNT;
+    }
+    if (!as->udp_idle_timeout_set) {
+        as->udp_idle_timeout = ASTERISM_UDP_MAX_IDLE_COUNT;
     }
     if (as->reconnect_delay == 0) {
         as->reconnect_delay = ASTERISM_RECONNECT_DELAY;
