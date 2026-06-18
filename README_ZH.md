@@ -1,6 +1,11 @@
 # ✦ Asterism
 
 [![CI](https://github.com/sosopop/asterism/actions/workflows/ci.yml/badge.svg)](https://github.com/sosopop/asterism/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/sosopop/asterism/branch/master/graph/badge.svg)](https://codecov.io/gh/sosopop/asterism)
+[![Release](https://img.shields.io/github/v/tag/sosopop/asterism?label=release)](https://github.com/sosopop/asterism/tags)
+[![Platforms](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey)](https://github.com/sosopop/asterism/actions/workflows/ci.yml)
+[![Sanitizers](https://img.shields.io/badge/sanitizers-ASan%20%7C%20UBSan-success)](.github/workflows/ci.yml)
+[![Language](https://img.shields.io/github/languages/top/sosopop/asterism)](https://github.com/sosopop/asterism)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 ![Title Banner](assets/title_banner.png)
