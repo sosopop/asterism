@@ -46,13 +46,15 @@ if (-not $currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Adm
 $SCRIPT_DIR = Split-Path -Parent $MyInvocation.MyCommand.Path
 $REPO_ROOT = Split-Path -Parent $SCRIPT_DIR
 
-# Determine default compiled binary path
-$DEFAULT_BIN_SOURCE = Join-Path $REPO_ROOT "build\src\asterism\Debug\asterism.exe"
-if (-not (Test-Path $DEFAULT_BIN_SOURCE)) {
-    $DEFAULT_BIN_SOURCE = Join-Path $REPO_ROOT "build\src\asterism\Release\asterism.exe"
-}
-if (-not (Test-Path $DEFAULT_BIN_SOURCE)) {
-    $DEFAULT_BIN_SOURCE = ""
+# Determine default compiled binary path. Prefer the optimized Release build,
+# then fall back to other multi-config outputs (Debug last).
+$DEFAULT_BIN_SOURCE = ""
+foreach ($cfg in @("Release", "RelWithDebInfo", "MinSizeRel", "Debug")) {
+    $candidate = Join-Path $REPO_ROOT "build\src\asterism\$cfg\asterism.exe"
+    if (Test-Path $candidate) {
+        $DEFAULT_BIN_SOURCE = $candidate
+        break
+    }
 }
 
 # ==================== Action Chooser ====================
