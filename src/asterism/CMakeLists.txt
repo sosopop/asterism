@@ -28,6 +28,14 @@ add_library(asterism_lib STATIC ${ASTERISM_LIB_SOURCE})
 # Propagate includes for asterism_lib so downstream targets automatically get its headers
 target_include_directories(asterism_lib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
 
+# When building the unit tests, compile the test-only allocator seam (see
+# asterism_utils.h) into the library that coverage is measured on, so tests can
+# drive out-of-memory branches. PUBLIC so the test executable sees it too.
+# Production builds (-DUNIT_TEST=OFF) omit it entirely.
+if(UNIT_TEST)
+    target_compile_definitions(asterism_lib PUBLIC ASTERISM_TEST_HOOKS)
+endif()
+
 # System dependencies
 set(SYS_LIBS)
 if(WIN32)

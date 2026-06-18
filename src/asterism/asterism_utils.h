@@ -12,12 +12,30 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <memory.h>
+#include <stddef.h>
 
 #ifdef _WIN32
 #define vsnprintf _vsnprintf
 #endif
 
+#ifdef ASTERISM_TEST_HOOKS
+/* Test-only allocator seam. Lets unit tests drive out-of-memory branches by
+   forcing the Nth AS_MALLOC to return NULL. Compiled into asterism_lib only
+   when UNIT_TEST is ON (see src/asterism/CMakeLists.txt); production builds
+   (-DUNIT_TEST=OFF) fall back to the plain libc allocator below with zero
+   overhead. (AS_REALLOC is unused in the code base, so it is not hooked.) */
+void *asterism_test_malloc(size_t size);
+/* nth_alloc == 0 disables injection; otherwise the nth_alloc-th AS_MALLOC
+   counted from this call returns NULL. SINGLE-THREADED USE ONLY: enable only
+   while no asterism event-loop thread is running, or libuv's own allocations
+   on the loop thread may be failed nondeterministically. Pair every
+   set_alloc_fail() with reset_alloc_fail(). */
+void asterism_test_set_alloc_fail(unsigned long nth_alloc);
+void asterism_test_reset_alloc_fail(void);
+#define AS_MALLOC asterism_test_malloc
+#else
 #define AS_MALLOC malloc
+#endif
 #define AS_FREE free
 #define AS_REALLOC realloc
 
@@ -44,7 +62,10 @@ static inline void *asterism_dup_mem(const void *src, size_t size)
 
 #define AS_ZMALLOC(s) (s *)asterism_zmalloc(sizeof(s))
 #define __DUP_MEM(b, s) asterism_dup_mem(b, s)
-#define __CONTAINER_PTR(s, m, p) (s *)((unsigned char *)p - (unsigned char *)(&((s *)0)->m))
+/* container_of: recover the enclosing struct from a member pointer. Uses
+   offsetof rather than &((s*)0)->m so it is well-defined (the latter forms a
+   pointer to a member of a null object, which UBSan flags). */
+#define __CONTAINER_PTR(s, m, p) (s *)((unsigned char *)(p) - offsetof(s, m))
 #define __ARRAY_SIZE(a) (sizeof(a) / sizeof((a)[0]))
 #define __CSLEN(s) (sizeof(s)-1)
 

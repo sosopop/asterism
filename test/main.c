@@ -16,6 +16,10 @@ void register_suite_hooks(void);
 void register_suite_timeouts(void);
 void register_suite_portal(void);
 void register_suite_udp(void);
+void register_suite_options(void);
+void register_suite_core(void);
+void register_suite_datagram(void);
+void register_suite_wire(void);
 
 int main(int argc, char *argv[]) {
 #ifdef _WIN32
@@ -37,6 +41,10 @@ int main(int argc, char *argv[]) {
     register_suite_timeouts();
     register_suite_portal();
     register_suite_udp();
+    register_suite_options();
+    register_suite_core();
+    register_suite_datagram();
+    register_suite_wire();
 
     // Run all tests
     int failures = run_all_tests();

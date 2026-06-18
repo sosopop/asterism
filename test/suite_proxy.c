@@ -500,6 +500,174 @@ static void test_proxy_sessions_endpoint_with_auth(void) {
     test_env_destroy(env);
 }
 
+/* SOCKS5 CONNECT carrying an unsupported command (BIND) is rejected by the
+   SOCKS5 parser, so the relay closes the connection (the s5_parse error branch
+   of incoming_parse_connect / incoming_read_cb). */
+static void test_proxy_socks5_bad_command(void) {
+    test_env_t *env = test_env_create_ex("socks5", NULL, 0, 0);
+    EXPECT_TRUE(env != NULL);
+    if (!env) return;
+
+    int sock = test_socket_connect("127.0.0.1", env->inner_port);
+    EXPECT_TRUE(sock >= 0);
+    if (sock >= 0) {
+        int ret = send(sock, "\x05\x01\x02", 3, 0);
+        EXPECT_EQ(ret, 3);
+        char buffer[64] = {0};
+        test_sleep(100);
+        ret = recv(sock, buffer, sizeof(buffer) - 1, 0);
+        EXPECT_EQ(ret, 2);
+
+        ret = send(sock, "\x01\x04test\x04test", 11, 0);
+        EXPECT_EQ(ret, 11);
+        test_sleep(100);
+        ret = recv(sock, buffer, sizeof(buffer) - 1, 0);
+        EXPECT_EQ(ret, 2);
+
+        /* cmd 0x02 = BIND, atyp IPv4 127.0.0.1:1234 */
+        unsigned char bind_req[10] = {0x05, 0x02, 0x00, 0x01, 127, 0, 0, 1, 0x04, 0xd2};
+        ret = send(sock, (const char *)bind_req, 10, 0);
+        EXPECT_EQ(ret, 10);
+        test_set_socket_recv_timeout(sock, 3000);
+        memset(buffer, 0, sizeof(buffer));
+        ret = recv(sock, buffer, sizeof(buffer) - 1, 0);
+        EXPECT_EQ(ret, 0);
+
+        test_socket_close(sock);
+    }
+    test_env_destroy(env);
+}
+
+/* SOCKS5 CONNECT to a target that refuses: the agent's requestor connect fails,
+   the responser reports failure, and the relay returns a failed reply. This
+   drives the connector -> requestor(fail) -> responser(stream=0) -> CONNECT_ACK
+   chain end to end. */
+static void test_proxy_socks5_connect_refused(void) {
+    test_env_t *env = test_env_create_ex("socks5", NULL, 0, 0);
+    EXPECT_TRUE(env != NULL);
+    if (!env) return;
+
+    unsigned short dead_port = test_get_free_port();
+    EXPECT_TRUE(dead_port != 0);
+
+    int sock = test_socket_connect("127.0.0.1", env->inner_port);
+    EXPECT_TRUE(sock >= 0);
+    if (sock >= 0) {
+        /* bound every recv so a lost reply can never hang the suite */
+        test_set_socket_recv_timeout(sock, 5000);
+        int ret = send(sock, "\x05\x01\x02", 3, 0);
+        EXPECT_EQ(ret, 3);
+        char buffer[64] = {0};
+        ret = recv(sock, buffer, sizeof(buffer) - 1, 0);
+        EXPECT_EQ(ret, 2);
+
+        ret = send(sock, "\x01\x04test\x04test", 11, 0);
+        EXPECT_EQ(ret, 11);
+        ret = recv(sock, buffer, sizeof(buffer) - 1, 0);
+        EXPECT_EQ(ret, 2);
+
+        unsigned char conn_req[10] = {0x05, 0x01, 0x00, 0x01, 127, 0, 0, 1, 0, 0};
+        unsigned short net_port = htons(dead_port);
+        memcpy(&conn_req[8], &net_port, 2);
+        ret = send(sock, (const char *)conn_req, 10, 0);
+        EXPECT_EQ(ret, 10);
+
+        memset(buffer, 0, sizeof(buffer));
+        ret = recv(sock, buffer, sizeof(buffer) - 1, 0);
+        EXPECT_EQ(ret, 10);
+        EXPECT_EQ((unsigned char)buffer[0], 0x05);
+        EXPECT_EQ((unsigned char)buffer[1], 0x01);
+
+        test_socket_close(sock);
+    }
+    test_env_destroy(env);
+}
+
+/* An HTTP CONNECT to a refused target: on failure the relay sends no body and
+   simply closes the client connection (conn_ack_cb failure path). */
+static void test_proxy_http_connect_refused(void) {
+    test_env_t *env = test_env_create(NULL, 0);
+    EXPECT_TRUE(env != NULL);
+    if (!env) return;
+
+    unsigned short dead_port = test_get_free_port();
+    EXPECT_TRUE(dead_port != 0);
+
+    int sock = test_socket_connect("127.0.0.1", env->inner_port);
+    EXPECT_TRUE(sock >= 0);
+    if (sock >= 0) {
+        char req[512];
+        sprintf(req, "CONNECT 127.0.0.1:%u HTTP/1.1\r\nHost: 127.0.0.1:%u\r\nProxy-Authorization: Basic dGVzdDp0ZXN0\r\n\r\n",
+                dead_port, dead_port);
+        int ret = send(sock, req, (int)strlen(req), 0);
+        EXPECT_EQ(ret, (int)strlen(req));
+
+        test_set_socket_recv_timeout(sock, 3000);
+        char buffer[512] = {0};
+        ret = recv(sock, buffer, sizeof(buffer) - 1, 0);
+        /* The relay closes the connection without ever sending a 200. */
+        EXPECT_TRUE(ret <= 0 || strstr(buffer, "HTTP/1.1 200") == NULL);
+
+        test_socket_close(sock);
+    }
+    test_env_destroy(env);
+}
+
+/* A malformed request line makes the HTTP parser error out and the connection
+   is dropped (llhttp error branch of incoming_parse_connect). */
+static void test_proxy_http_malformed_request(void) {
+    test_env_t *env = test_env_create(NULL, 0);
+    EXPECT_TRUE(env != NULL);
+    if (!env) return;
+
+    int sock = test_socket_connect("127.0.0.1", env->inner_port);
+    EXPECT_TRUE(sock >= 0);
+    if (sock >= 0) {
+        const char *req = "GET / XYZ/1.1\r\n\r\n";
+        int ret = send(sock, req, (int)strlen(req), 0);
+        EXPECT_EQ(ret, (int)strlen(req));
+
+        test_set_socket_recv_timeout(sock, 3000);
+        char buffer[256] = {0};
+        ret = recv(sock, buffer, sizeof(buffer) - 1, 0);
+        /* parser error -> stream closed, so the blocking recv returns EOF (0). */
+        EXPECT_EQ(ret, 0);
+
+        test_socket_close(sock);
+    }
+    test_env_destroy(env);
+}
+
+/* Greeting and username/password auth coalesced into a single packet drives the
+   merged-auth state path (HANDSHAKE_MERGE_AUTH), which answers with the 4-byte
+   "\5\2\1\0" combined method-select + auth-success reply. */
+static void test_proxy_socks5_merge_auth(void) {
+    test_env_t *env = test_env_create_ex("socks5", NULL, 0, 0);
+    EXPECT_TRUE(env != NULL);
+    if (!env) return;
+
+    int sock = test_socket_connect("127.0.0.1", env->inner_port);
+    EXPECT_TRUE(sock >= 0);
+    if (sock >= 0) {
+        /* greeting + auth in one write */
+        int ret = send(sock, "\x05\x01\x02\x01\x04test\x04test", 14, 0);
+        EXPECT_EQ(ret, 14);
+
+        test_set_socket_recv_timeout(sock, 3000);
+        unsigned char buffer[8] = {0};
+        test_sleep(150);
+        ret = recv(sock, (char *)buffer, sizeof(buffer), 0);
+        EXPECT_EQ(ret, 4);
+        EXPECT_EQ(buffer[0], 0x05);
+        EXPECT_EQ(buffer[1], 0x02);
+        EXPECT_EQ(buffer[2], 0x01);
+        EXPECT_EQ(buffer[3], 0x00);
+
+        test_socket_close(sock);
+    }
+    test_env_destroy(env);
+}
+
 void register_suite_proxy(void) {
     register_test("Proxy", "HTTPTunnelNoAuth", test_proxy_http_tunnel_no_auth);
     register_test("Proxy", "HTTPTunnelWrongAuth", test_proxy_http_tunnel_wrong_auth);
@@ -510,6 +678,11 @@ void register_suite_proxy(void) {
     register_test("Proxy", "Socks5ConnectSuccess", test_proxy_socks5_connect_success);
     register_test("Proxy", "Socks5UnsupportedMethod", test_proxy_socks5_unsupported_method);
     register_test("Proxy", "Socks5AuthFailure", test_proxy_socks5_auth_failure);
+    register_test("Proxy", "Socks5MergeAuth", test_proxy_socks5_merge_auth);
+    register_test("Proxy", "Socks5BadCommand", test_proxy_socks5_bad_command);
+    register_test("Proxy", "Socks5ConnectRefused", test_proxy_socks5_connect_refused);
+    register_test("Proxy", "HTTPConnectRefused", test_proxy_http_connect_refused);
+    register_test("Proxy", "HTTPMalformedRequest", test_proxy_http_malformed_request);
     register_test("Proxy", "SessionsEndpointDefaultRequiresAuth", test_proxy_sessions_endpoint_default_requires_auth);
     register_test("Proxy", "SessionsEndpointPublic", test_proxy_sessions_endpoint_public);
     register_test("Proxy", "SessionsEndpointDisabled", test_proxy_sessions_endpoint_disabled);

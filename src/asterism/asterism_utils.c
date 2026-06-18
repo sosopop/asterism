@@ -465,3 +465,34 @@ int asterism_itoa(char *buf, size_t buf_size, long long num, int base, int flags
 
     return i;
 }
+
+#ifdef ASTERISM_TEST_HOOKS
+/* See asterism_utils.h for the contract. The countdown is a plain global with
+   no locking; tests enable injection only on a single thread while no asterism
+   event loop is running, so there is never a concurrent allocation. */
+static unsigned long g_alloc_fail_countdown = 0;
+
+void asterism_test_set_alloc_fail(unsigned long nth_alloc)
+{
+    g_alloc_fail_countdown = nth_alloc;
+}
+
+void asterism_test_reset_alloc_fail(void)
+{
+    g_alloc_fail_countdown = 0;
+}
+
+static int asterism_test_should_fail(void)
+{
+    if (g_alloc_fail_countdown == 0)
+        return 0;
+    return --g_alloc_fail_countdown == 0;
+}
+
+void *asterism_test_malloc(size_t size)
+{
+    if (asterism_test_should_fail())
+        return NULL;
+    return malloc(size);
+}
+#endif

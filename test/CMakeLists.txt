@@ -9,6 +9,10 @@ set(TEST_SOURCE
     suite_timeouts.c
     suite_portal.c
     suite_udp.c
+    suite_options.c
+    suite_core.c
+    suite_datagram.c
+    suite_wire.c
     main.c
 )
 

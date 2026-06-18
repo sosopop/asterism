@@ -38,7 +38,7 @@ jobs:
         run: cmake --build build --config Debug --parallel
 
       - name: Test
-        run: ctest --test-dir build --build-config Debug --output-on-failure
+        run: ctest --test-dir build --build-config Debug --output-on-failure --timeout 180
 
       - name: Dump Configure Log on Failure
         if: failure()
@@ -80,7 +80,7 @@ jobs:
         run: cmake --build build-coverage --parallel
 
       - name: Test
-        run: ctest --test-dir build-coverage --output-on-failure
+        run: ctest --test-dir build-coverage --output-on-failure --timeout 180
 
       - name: Dump Configure Log on Failure
         if: failure()
@@ -101,9 +101,12 @@ jobs:
           --filter src/asterism
           --exclude 'src/asterism/(parg|s5)\.[ch]'
           --exclude 3rdparty
+          --decisions
           --xml-pretty -o coverage.xml
           --print-summary
-          --fail-under-line 65
+          --fail-under-line 75
+          --fail-under-branch 40
+          --fail-under-decision 58
 
       - uses: actions/upload-artifact@v7
         if: always()

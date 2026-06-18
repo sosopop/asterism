@@ -55,9 +55,13 @@ if(ASTERISM_COVERAGE)
 endif()
 
 add_subdirectory(3rdparty)
+
+# Declared before src/asterism so that subdirectory can compile the test-only
+# allocator seam (ASTERISM_TEST_HOOKS) into asterism_lib when tests are built.
+option(UNIT_TEST "Build unit tests" ON)
+
 add_subdirectory(src/asterism)
 
-option(UNIT_TEST "Build unit tests" ON)
 if(UNIT_TEST)
     enable_testing()
     add_subdirectory(test)
