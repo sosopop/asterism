@@ -1,11 +1,11 @@
 # Requires -RunAsAdministrator
 
 # Asterism Unified Scheduled Task Manager for Windows.
-# Handles installation and uninstallation of Relay, Agent, or Portal services (Scheduled Tasks).
+# Handles installation, update, and uninstallation of Relay, Agent, or Portal services (Scheduled Tasks).
 
 param (
     [Parameter(Mandatory=$false)]
-    [ValidateSet("Install", "Uninstall")]
+    [ValidateSet("Install", "Uninstall", "Update")]
     [string]$Action
 )
 
@@ -18,6 +18,22 @@ function Log-Info ($msg) {
 
 function Log-Error ($msg) {
     Write-Host "[ERROR] $msg" -ForegroundColor Red
+}
+
+# Disable the Task Scheduler "Stop the task if it runs longer than" limit
+# (schtasks defaults it to 3 days), so a long-running service is never killed.
+# ExecutionTimeLimit = PT0S means "no time limit" (the checkbox is cleared).
+# Edits the existing settings object so all other task settings are preserved.
+function Disable-TaskTimeLimit ($name) {
+    try {
+        $st = Get-ScheduledTask -TaskName $name -ErrorAction Stop
+        $st.Settings.ExecutionTimeLimit = "PT0S"
+        Set-ScheduledTask -TaskName $name -Settings $st.Settings -ErrorAction Stop | Out-Null
+        return $true
+    } catch {
+        Log-Error "Could not disable execution time limit for '$name': $_"
+        return $false
+    }
 }
 
 # Check Administrator privileges
@@ -45,13 +61,16 @@ if ([string]::IsNullOrEmpty($Action)) {
     Write-Host "Please choose action:"
     Write-Host "1) Install Service (Scheduled Task)"
     Write-Host "2) Uninstall Service (Scheduled Task)"
-    $choice = Read-Host "Select option (1 or 2, default: 1)"
+    Write-Host "3) Update Service (stop, replace binary, restart)"
+    $choice = Read-Host "Select option (1, 2 or 3, default: 1)"
     if ($null -eq $choice -or $choice -eq "") { $choice = "1" }
-    
+
     if ($choice -eq "1") {
         $Action = "Install"
     } elseif ($choice -eq "2") {
         $Action = "Uninstall"
+    } elseif ($choice -eq "3") {
+        $Action = "Update"
     } else {
         Log-Error "Invalid selection. Exiting."
         Exit
@@ -237,6 +256,12 @@ if ($Action -eq "Install") {
         Exit
     }
 
+    # Turn off the default execution time limit so the service is not stopped
+    # after 3 days of continuous running.
+    if (Disable-TaskTimeLimit $taskName) {
+        Log-Info "Execution time limit disabled (task may run indefinitely)."
+    }
+
     # Start the task
     Log-Info "[3/3] Starting task..."
     schtasks.exe /Run /TN $taskName
@@ -323,4 +348,93 @@ if ($Action -eq "Uninstall") {
     }
 
     Log-Info "`n=== Uninstallation Complete ==="
+}
+
+# ==========================================================
+# UPDATE FLOW
+# Stop the installed task(s), replace the shared compiled
+# binary with a freshly built one, then start them again.
+# Existing task configuration (mode/args) is preserved.
+# ==========================================================
+if ($Action -eq "Update") {
+    Write-Host "=== Asterism Windows Task Updater ==="
+
+    $INSTALL_DIR = "C:\Program Files\Asterism"
+    $BIN_DEST = Join-Path $INSTALL_DIR "asterism.exe"
+
+    if (-not (Test-Path $BIN_DEST)) {
+        Log-Error "Asterism does not appear to be installed ($BIN_DEST not found). Run Install first."
+        Exit
+    }
+
+    # Locate the new compiled binary (same discovery as Install)
+    while ($true) {
+        $bin_source = Read-Host "Enter path to the newly compiled asterism.exe [default: $DEFAULT_BIN_SOURCE]"
+        if ([string]::IsNullOrEmpty($bin_source)) { $bin_source = $DEFAULT_BIN_SOURCE }
+        if ([string]::IsNullOrEmpty($bin_source)) {
+            Log-Error "No default binary found. Please build the project or specify a valid path."
+            continue
+        }
+        if (Test-Path $bin_source) { break }
+        Log-Error "File not found at: $bin_source. Please specify a valid binary path."
+    }
+    Log-Info "Using new binary: $bin_source"
+
+    # Discover installed Asterism scheduled tasks (the binary is shared by all)
+    $tasks = @()
+    $taskList = schtasks.exe /Query /FO CSV 2>$null | ConvertFrom-Csv
+    foreach ($task in $taskList) {
+        $tName = $task.TaskName
+        if ($null -ne $tName -and $tName -match "Asterism") {
+            $clean = $tName.TrimStart('\')
+            if ($tasks -notcontains $clean) { $tasks += $clean }
+        }
+    }
+    if ($tasks.Count -eq 0) {
+        Log-Error "No installed Asterism scheduled tasks found."
+        Exit
+    }
+    Log-Info ("Tasks to update: " + ($tasks -join ", "))
+
+    # Stop running tasks so the executable file is no longer locked
+    Log-Info "[1/3] Stopping tasks..."
+    foreach ($name in $tasks) {
+        schtasks.exe /End /TN $name 2>$null | Out-Null
+    }
+    Start-Sleep -Seconds 2
+
+    # Replace the shared binary, retrying while the file may still be locked
+    Log-Info "[2/3] Replacing binary at $BIN_DEST..."
+    $copied = $false
+    for ($i = 0; $i -lt 5; $i++) {
+        try {
+            Copy-Item $bin_source $BIN_DEST -Force -ErrorAction Stop
+            $copied = $true
+            break
+        } catch {
+            Start-Sleep -Seconds 1
+        }
+    }
+    if (-not $copied) {
+        Log-Error "Failed to replace binary (file may still be locked). Tasks remain stopped; resolve and re-run Update."
+        Exit
+    }
+    Log-Info "Binary replaced."
+
+    # Ensure the execution time limit is off (remediates tasks created before
+    # this setting was disabled by default).
+    foreach ($name in $tasks) {
+        Disable-TaskTimeLimit $name | Out-Null
+    }
+
+    # Restart the tasks on the new binary
+    Log-Info "[3/3] Starting tasks..."
+    foreach ($name in $tasks) {
+        schtasks.exe /Run /TN $name | Out-Null
+    }
+
+    Log-Info "`n=== Update Complete ==="
+    foreach ($name in $tasks) {
+        Write-Host "  Updated and restarted: $name"
+    }
 }

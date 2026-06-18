@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Asterism Unified Service Manager for Linux (systemd) and macOS (launchd).
-# Handles installation and uninstallation of Relay, Agent, or Portal services.
+# Handles installation, update, and uninstallation of Relay, Agent, or Portal services.
 
 set -euo pipefail
 
@@ -65,12 +65,15 @@ if [[ -z "${ACTION}" ]]; then
     echo "Please choose action:"
     echo "1) Install Service"
     echo "2) Uninstall Service"
-    read -p "Select action (1 or 2, default: 1): " CHOICE
+    echo "3) Update Service (stop, replace binary, restart)"
+    read -p "Select action (1, 2 or 3, default: 1): " CHOICE
     CHOICE=${CHOICE:-1}
     if [[ "${CHOICE}" == "1" ]]; then
         ACTION="install"
     elif [[ "${CHOICE}" == "2" ]]; then
         ACTION="uninstall"
+    elif [[ "${CHOICE}" == "3" ]]; then
+        ACTION="update"
     else
         log_error "Invalid selection. Exiting."
         exit 1
@@ -78,9 +81,10 @@ if [[ -z "${ACTION}" ]]; then
 fi
 
 if [[ "${ACTION}" != "install" && "${ACTION}" != "--install" && "${ACTION}" != "-i" && \
-      "${ACTION}" != "uninstall" && "${ACTION}" != "--uninstall" && "${ACTION}" != "-u" ]]; then
+      "${ACTION}" != "uninstall" && "${ACTION}" != "--uninstall" && "${ACTION}" != "-u" && \
+      "${ACTION}" != "update" && "${ACTION}" != "--update" ]]; then
     log_error "Invalid action: ${ACTION}."
-    echo "Usage: sudo $0 [install|uninstall]"
+    echo "Usage: sudo $0 [install|uninstall|update]"
     exit 1
 fi
 
@@ -489,5 +493,127 @@ if [[ "${ACTION}" =~ ^(uninstall|--uninstall|-u)$ ]]; then
         fi
         
         log_info "=== Uninstallation Complete ==="
+    fi
+fi
+
+# ==========================================================
+# UPDATE FLOW
+# Stop the installed service(s), replace the shared compiled
+# binary with a freshly built one, then start them again.
+# Existing service configuration (mode/args) is preserved.
+# ==========================================================
+if [[ "${ACTION}" =~ ^(update|--update)$ ]]; then
+    echo "=== Asterism Service Updater ==="
+
+    # Locate the new compiled binary (same discovery as install)
+    while true; do
+        read -p "Enter path to the newly compiled asterism binary [default: ${DEFAULT_BIN_SOURCE}]: " BIN_SOURCE
+        BIN_SOURCE="${BIN_SOURCE:-${DEFAULT_BIN_SOURCE}}"
+        if [[ -z "${BIN_SOURCE}" ]]; then
+            log_error "No default binary found. Please build the project or specify a valid path."
+            continue
+        fi
+        if [[ -f "${BIN_SOURCE}" ]]; then
+            break
+        fi
+        log_error "File not found at: ${BIN_SOURCE}. Please specify a valid binary path."
+    done
+    log_info "Using new binary: ${BIN_SOURCE}"
+
+    if [[ "${OS_TYPE}" == "Linux" ]]; then
+        USER_NAME="asterism"
+        GROUP_NAME="asterism"
+        INSTALL_DIR="/opt/asterism"
+        BIN_DEST="${INSTALL_DIR}/bin/asterism"
+
+        if [[ ! -f "${BIN_DEST}" ]]; then
+            log_error "Asterism does not appear to be installed (${BIN_DEST} not found)."
+            log_error "Run the installer first."
+            exit 1
+        fi
+
+        # Discover installed asterism services (the binary is shared by all)
+        SVC_LIST=()
+        while read -r svc_file; do
+            [[ -z "${svc_file}" ]] && continue
+            SVC_LIST+=("$(basename "${svc_file}" .service)")
+        done < <(find /etc/systemd/system/ -name "asterism*.service" 2>/dev/null || true)
+
+        if [[ ${#SVC_LIST[@]} -eq 0 ]]; then
+            log_error "No installed asterism services found under /etc/systemd/system/."
+            exit 1
+        fi
+
+        log_info "Services to update: ${SVC_LIST[*]}"
+
+        log_info "Stopping services..."
+        for SERVICE_NAME in "${SVC_LIST[@]}"; do
+            systemctl stop "${SERVICE_NAME}.service" 2>/dev/null || true
+        done
+
+        log_info "Replacing binary at ${BIN_DEST}..."
+        install -m 755 "${BIN_SOURCE}" "${BIN_DEST}"
+        chown "${USER_NAME}:${GROUP_NAME}" "${BIN_DEST}"
+
+        log_info "Starting services..."
+        for SERVICE_NAME in "${SVC_LIST[@]}"; do
+            systemctl start "${SERVICE_NAME}.service"
+        done
+
+        sleep 1
+        for SERVICE_NAME in "${SVC_LIST[@]}"; do
+            log_info "Status of ${SERVICE_NAME}:"
+            systemctl is-active "${SERVICE_NAME}.service" || true
+        done
+
+        log_info "=== Update Complete ==="
+
+    elif [[ "${OS_TYPE}" == "Darwin" ]]; then
+        INSTALL_BIN="/usr/local/bin/asterism"
+
+        if [[ ! -f "${INSTALL_BIN}" ]]; then
+            log_error "Asterism does not appear to be installed (${INSTALL_BIN} not found)."
+            log_error "Run the installer first."
+            exit 1
+        fi
+
+        # Discover installed launchd daemons (the binary is shared by all)
+        LABELS_LIST=()
+        while read -r plist_file; do
+            [[ -z "${plist_file}" ]] && continue
+            LABELS_LIST+=("$(basename "${plist_file}" .plist)")
+        done < <(find /Library/LaunchDaemons/ -name "com.asterism*.plist" 2>/dev/null || true)
+
+        if [[ ${#LABELS_LIST[@]} -eq 0 ]]; then
+            log_error "No installed asterism daemons found under /Library/LaunchDaemons/."
+            exit 1
+        fi
+
+        log_info "Daemons to update: ${LABELS_LIST[*]}"
+
+        log_info "Unloading daemons..."
+        for LABEL in "${LABELS_LIST[@]}"; do
+            launchctl unload "/Library/LaunchDaemons/${LABEL}.plist" 2>/dev/null || true
+        done
+
+        log_info "Replacing binary at ${INSTALL_BIN}..."
+        cp "${BIN_SOURCE}" "${INSTALL_BIN}"
+        chmod 755 "${INSTALL_BIN}"
+
+        log_info "Loading daemons..."
+        for LABEL in "${LABELS_LIST[@]}"; do
+            launchctl load -w "/Library/LaunchDaemons/${LABEL}.plist"
+        done
+
+        sleep 1
+        for LABEL in "${LABELS_LIST[@]}"; do
+            if launchctl list "${LABEL}" &>/dev/null; then
+                log_info "${LABEL} is running."
+            else
+                log_error "${LABEL} failed to start. Check its logs."
+            fi
+        done
+
+        log_info "=== Update Complete ==="
     fi
 fi
