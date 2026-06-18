@@ -112,9 +112,10 @@ jobs:
           path: coverage.xml
 
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v5
-        with:
-          files: coverage.xml
-          fail_ci_if_error: false
+        continue-on-error: true
+        run: |
+          curl -Os https://cli.codecov.io/latest/linux/codecov
+          chmod +x codecov
+          ./codecov upload-coverage --file coverage.xml --disable-search
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
