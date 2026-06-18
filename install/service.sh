@@ -187,7 +187,7 @@ if [[ "${ACTION}" =~ ^(install|--install|-i)$ ]]; then
         exit 1
     fi
     
-    EXEC_ARGS+=("-v") # Always run service with verbose logging
+
     
     # ------------------ PLATFORM DEPLOYMENT ------------------
     if [[ "${OS_TYPE}" == "Linux" ]]; then

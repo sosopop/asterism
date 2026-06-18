@@ -190,8 +190,6 @@ if ($Action -eq "Install") {
         Exit
     }
 
-    $args_list += "-v" # Always enable verbose logging
-
     # Create directories and copy binary
     Log-Info "`n[1/3] Copying binary to installation directory..."
     if (-not (Test-Path $INSTALL_DIR)) {
