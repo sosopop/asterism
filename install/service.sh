@@ -388,18 +388,20 @@ if [[ "${ACTION}" =~ ^(uninstall|--uninstall|-u)$ ]]; then
         for SERVICE_NAME in "${SVC_LIST[@]}"; do
             SERVICE_FILE="/etc/systemd/system/${SERVICE_NAME}.service"
             log_info "Uninstalling systemd service: ${SERVICE_NAME}..."
-            
-            if systemctl list-unit-files | grep -q "^${SERVICE_NAME}.service"; then
-                log_info "Stopping and disabling service..."
-                systemctl stop "${SERVICE_NAME}.service" 2>/dev/null || true
-                systemctl disable "${SERVICE_NAME}.service" 2>/dev/null || true
-            fi
-            
+
+            # Always stop the service first — systemctl stop works even
+            # when the unit file is already gone (it finds the running
+            # process by service name).  Ignore errors so a missing or
+            # already-stopped service does not abort the script.
+            log_info "Stopping and disabling service..."
+            systemctl stop "${SERVICE_NAME}.service" 2>/dev/null || true
+            systemctl disable "${SERVICE_NAME}.service" 2>/dev/null || true
+
             if [[ -f "${SERVICE_FILE}" ]]; then
                 rm -f "${SERVICE_FILE}"
                 log_info "Service file removed: ${SERVICE_FILE}"
             fi
-            
+
             # Clean up service logs
             LOG_DIR="/opt/asterism/logs/${SERVICE_NAME}"
             if [[ -d "${LOG_DIR}" ]]; then
