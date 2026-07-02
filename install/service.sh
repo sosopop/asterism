@@ -147,7 +147,16 @@ if [[ "${ACTION}" =~ ^(install|--install|-i)$ ]]; then
             done
             EXEC_ARGS+=("-A" "-U" "${AUTH_USER}" "-P" "${AUTH_PASS}")
         fi
-        
+
+        read -p "Enable SOCKS5 UDP support? (y/N): " ENABLE_UDP
+        ENABLE_UDP="${ENABLE_UDP:-n}"
+        if [[ "${ENABLE_UDP}" =~ ^[Yy]$ ]]; then
+            EXEC_ARGS+=("-d")
+            read -p "Enter UDP idle timeout in seconds (0 to disable, default: 60): " UDP_TIMEOUT
+            UDP_TIMEOUT="${UDP_TIMEOUT:-60}"
+            EXEC_ARGS+=("-t" "${UDP_TIMEOUT}")
+        fi
+
     elif [[ "${MODE}" == "2" ]]; then
         # AGENT MODE CONFIGURATION
         echo

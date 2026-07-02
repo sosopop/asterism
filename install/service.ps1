@@ -156,6 +156,15 @@ if ($Action -eq "Install") {
             $args_list += $auth_pass
         }
 
+        $enable_udp = Read-Host "Enable SOCKS5 UDP support? (y/N)"
+        if ($enable_udp -match "^[Yy]$") {
+            $args_list += "-d"
+            $udp_timeout = Read-Host "Enter UDP idle timeout in seconds (0 to disable, default: 60)"
+            if ([string]::IsNullOrEmpty($udp_timeout)) { $udp_timeout = "60" }
+            $args_list += "-t"
+            $args_list += $udp_timeout
+        }
+
     } elseif ($mode -eq "2") {
         # AGENT MODE CONFIGURATION
         Write-Host "`n=== Configure Agent Mode ==="
